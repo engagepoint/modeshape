@@ -1,5 +1,4 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
@@ -9,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.3-SNAPSHOT</version>
+    <version>3.2-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -210,11 +209,11 @@
               "modeshape-integration" or "extensions/modeshape-connector-store-jpa"
               project POMs for examples.
           -->
-        <jpaSource.dialect/>
-        <jpaSource.driverClassName/>
-        <jpaSource.url/>
-        <jpaSource.username/>
-        <jpaSource.password/>
+        <jpaSource.dialect />
+        <jpaSource.driverClassName />
+        <jpaSource.url />
+        <jpaSource.username />
+        <jpaSource.password />
         <jpaSource.maximumConnectionsInPool>2</jpaSource.maximumConnectionsInPool>
         <jpaSource.minimumConnectionsInPool>1</jpaSource.minimumConnectionsInPool>
         <jpaSource.numberOfConnectionsToAcquireAsNeeded>1</jpaSource.numberOfConnectionsToAcquireAsNeeded>
@@ -224,21 +223,21 @@
         <jpaSource.largeValueSizeInBytes>150</jpaSource.largeValueSizeInBytes>
         <jpaSource.autoGenerateSchema>create</jpaSource.autoGenerateSchema>
         <jpaSource.compressData>true</jpaSource.compressData>
-        <jpaSource.cacheTimeToLiveInMilliseconds/>
-        <jpaSource.creatingWorkspacesAllowed/>
-        <jpaSource.defaultWorkspaceName/>
-        <jpaSource.predefinedWorkspaceNames/>
-        <jpaSource.model/>
+        <jpaSource.cacheTimeToLiveInMilliseconds />
+        <jpaSource.creatingWorkspacesAllowed />
+        <jpaSource.defaultWorkspaceName />
+        <jpaSource.predefinedWorkspaceNames />
+        <jpaSource.model />
         <jpaSource.referentialIntegrityEnforced>true</jpaSource.referentialIntegrityEnforced>
         <jpaSource.retryLimit>3</jpaSource.retryLimit>
-        <jpaSource.rootNodeUuid/>
+        <jpaSource.rootNodeUuid />
         <jpaSource.showSql>false</jpaSource.showSql>
         <metadata.collectorClassName>org.modeshape.connector.meta.jdbc.JdbcMetadataCollector</metadata.collectorClassName>
 
         <!--By default, we use whatever the underlying machine supports. However, certain sub-modules may change this -->
         <preferIpv4>false</preferIpv4>
         <preferIpv6>false</preferIpv6>
-        <debug.argline/>
+        <debug.argline />
         <!--
           Global dependency version information
           -->
@@ -473,7 +472,7 @@
                 <dataSource.driverClassName>org.h2.Driver</dataSource.driverClassName>
                 <dataSource.url>jdbc:h2:mem:${project.build.directory}/db/h2/modeshape</dataSource.url>
                 <dataSource.username>sa</dataSource.username>
-                <dataSource.password/>
+                <dataSource.password />
             </properties>
         </profile>
 
