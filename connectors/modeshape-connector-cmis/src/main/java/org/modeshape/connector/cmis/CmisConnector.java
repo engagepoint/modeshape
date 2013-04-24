@@ -39,13 +39,8 @@ import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
 import javax.jcr.nodetype.PropertyDefinitionTemplate;
-import org.apache.chemistry.opencmis.client.api.CmisObject;
-import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.ItemIterable;
-import org.apache.chemistry.opencmis.client.api.ObjectType;
-import org.apache.chemistry.opencmis.client.api.Property;
-import org.apache.chemistry.opencmis.client.api.Session;
-import org.apache.chemistry.opencmis.client.api.Tree;
+
+import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -57,6 +52,7 @@ import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
+import org.apache.commons.lang3.ArrayUtils;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
@@ -827,16 +823,23 @@ public class CmisConnector extends Connector {
             return;
         }
 
-        // TODO: get namespace information and register
-        // registry.registerNamespace(cmisType.getLocalNamespace(), cmisType.getLocalNamespace());
+        // namespace registration
+        if (!cmisType.getId().equals(cmisType.getLocalName())) {
+            String nsPrefix = cmisType.getId().substring(0, cmisType.getId().indexOf(":"));
+            String nsUri = cmisType.getLocalNamespace();
+            // check is ns is not registered already with exactly same prefix and uri
+            // if one of items presents typeManager should throw an exception while registering
+            if (!ArrayUtils.contains(registry.getPrefixes(), nsPrefix) || !ArrayUtils.contains(registry.getURIs(), nsUri))
+                registry.registerNamespace(nsPrefix, nsUri);
+        }
 
         // create node type template
         NodeTypeTemplate type = typeManager.createNodeTypeTemplate();
 
         // convert CMIS type's attributes to node type template we have just created
         type.setName(cmisType.getId());
-        type.setAbstract(false);
-        type.setMixin(true);
+        type.setAbstract(!cmisType.isCreatable());
+        type.setMixin(false);
         type.setOrderableChildNodes(true);
         type.setQueryable(true);
         type.setDeclaredSuperTypeNames(superTypes(cmisType));
@@ -867,15 +870,49 @@ public class CmisConnector extends Connector {
      * @return supertypes in JCR lexicon.
      */
     private String[] superTypes( ObjectType cmisType ) {
+        String parentType = (cmisType.getParentType() != null) ?
+                getJcrTypeId(cmisType.getParentType().getId())
+                : null;
+
+        if (parentType == null) {
         if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_FOLDER) {
-            return new String[] {JcrConstants.NT_FOLDER};
+                parentType = JcrConstants.NT_FOLDER;
+            } else if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
+                parentType = JcrConstants.NT_FILE;
+        }
         }
 
-        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
-            return new String[] {JcrConstants.NT_FILE};
+        return addMixins(cmisType, new String[]{parentType});
         }
 
-        return new String[] {cmisType.getParentType().getId()};
+
+    /*
+    * add mix:simpleVersioned if cmis types is a VersionableDocument
+    */
+    protected String[] addMixins(ObjectType cmisType, String[] superTypes) {
+        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT && cmisType instanceof DocumentType) {
+            DocumentType cmisDocType = (DocumentType) cmisType;
+            if (cmisDocType.isVersionable()) {
+                return (String[]) ArrayUtils.add(superTypes, NodeType.MIX_SIMPLE_VERSIONABLE);
+    }
+        }
+        return superTypes;
+    }
+
+
+    /*
+    * replace direct CMIS types with JCR equivalents
+    */
+    private String getJcrTypeId(String cmisTypeId) {
+        if (cmisTypeId == null) return null;
+
+        if (cmisTypeId.equals(BaseTypeId.CMIS_DOCUMENT.value())) {
+            return JcrConstants.NT_FILE;
+        } else if (cmisTypeId.equals(BaseTypeId.CMIS_FOLDER.value())) {
+            return JcrConstants.NT_FOLDER;
+        }
+
+        return cmisTypeId;
     }
 
     /**
