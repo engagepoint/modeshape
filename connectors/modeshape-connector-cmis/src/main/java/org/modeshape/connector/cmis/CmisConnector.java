@@ -27,18 +27,10 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
-import javax.jcr.nodetype.NodeType;
-import javax.jcr.nodetype.NodeTypeDefinition;
-import javax.jcr.nodetype.NodeTypeTemplate;
-import javax.jcr.nodetype.PropertyDefinitionTemplate;
+import javax.jcr.nodetype.*;
 
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
@@ -129,6 +121,7 @@ public class CmisConnector extends Connector {
     // path and id for the repository node
     private static final String REPOSITORY_INFO_ID = "repositoryInfo";
     private static final String REPOSITORY_INFO_NODE_NAME = "repositoryInfo";
+    private static final String CMIS_DOCUMENT_UNVERSIONED = "cmis:unversioned-document";
     private Session session;
     private ValueFactories factories;
     // binding parameters
@@ -141,6 +134,7 @@ public class CmisConnector extends Connector {
     private String relationshipService;
     private String repositoryService;
     private String versioningService;
+    private boolean hideRootFolderReference;
     // repository id
     private String repositoryId;
     private Properties properties;
@@ -552,12 +546,20 @@ public class CmisConnector extends Connector {
         }
 
         // all other node types belong to cmis object
-        String jcrNodeType = primaryType.toString();
-        String cmisObjectTypeName = nodes.findCmisName(jcrNodeType);
+        String jcrNodeType = primaryType.getString();
+        // get name with prefix as it should be registered in CMIS instead of full jcr's uri:
+        // {http://namespace/xxx}nodeType -> prefix:nodeType
+        String nsPrefix = getContext().getNamespaceRegistry().getPrefixForNamespaceUri(primaryType.getNamespaceUri(), false);
+        if (nsPrefix != null) {
+            jcrNodeType = nsPrefix + ":" + primaryType.getLocalName();
+        }
 
-        Folder parent = (Folder)session.getObject(parentId);
+//        String cmisObjectTypeName = nodes.findCmisName(jcrNodeType);
+        String cmisObjectTypeName = jcrNodeType;
+        Folder parent = (Folder) session.getObject(parentId);
 
-        // Ivan, we can pick up object type and prperty definition map from CMIS repo
+        // Ivan, we can pick up object type and property definition map from CMIS repo
+        // if not found consider to do an alternative search
         ObjectType objectType = session.getTypeDefinition(cmisObjectTypeName);
         Map<String, PropertyDefinition<?>> propDefs = objectType.getPropertyDefinitions();
 
@@ -589,7 +591,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS object to JCR node.
-     * 
+     *
      * @param id the identifier of the CMIS object
      * @return JCR node document.
      */
@@ -617,7 +619,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates CMIS folder object to JCR node
-     * 
+     *
      * @param cmisObject CMIS folder object
      * @return JCR node document.
      */
@@ -639,7 +641,7 @@ public class CmisConnector extends Connector {
         cmisChildren(folder, writer);
 
         // append repository information to the root node
-        if (folder.isRootFolder()) {
+        if (folder.isRootFolder() && !hideRootFolderReference) {
             writer.addChild(ObjectId.toString(ObjectId.Type.REPOSITORY_INFO, ""), REPOSITORY_INFO_NODE_NAME);
         }
         return writer.document();
@@ -647,7 +649,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates cmis document object to JCR node.
-     * 
+     *
      * @param cmisObject cmis document node
      * @return JCR node document.
      */
@@ -680,7 +682,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts binary content into JCR node.
-     * 
+     *
      * @param id the id of the CMIS document.
      * @return JCR node representation.
      */
@@ -709,7 +711,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS object's properties to JCR node properties.
-     * 
+     *
      * @param object CMIS object
      * @param writer JCR node representation.
      */
@@ -727,7 +729,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS folder children to JCR node children
-     * 
+     *
      * @param folder CMIS folder
      * @param writer JCR node representation
      */
@@ -741,7 +743,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates CMIS repository information into Node.
-     * 
+     *
      * @return node document.
      */
     private Document cmisRepository() {
@@ -761,7 +763,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Creates content stream using JCR node.
-     * 
+     *
      * @param document JCR node representation
      * @return CMIS content stream object
      */
@@ -790,7 +792,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Import CMIS types to JCR repository.
-     * 
+     *
      * @param types CMIS types
      * @param typeManager JCR type manager
      * @param registry
@@ -807,7 +809,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Import given CMIS type to the JCR repository.
-     * 
+     *
      * @param cmisType cmis object type
      * @param typeManager JCR type manager/
      * @param registry
@@ -819,7 +821,7 @@ public class CmisConnector extends Connector {
                             NamespaceRegistry registry ) throws RepositoryException {
         // skip base types because we are going to
         // map base types directly
-        if (cmisType.isBaseType()) {
+        if (cmisType.isBaseType() || cmisType.getId().equals(CMIS_DOCUMENT_UNVERSIONED)) {
             return;
         }
 
@@ -829,8 +831,9 @@ public class CmisConnector extends Connector {
             String nsUri = cmisType.getLocalNamespace();
             // check is ns is not registered already with exactly same prefix and uri
             // if one of items presents typeManager should throw an exception while registering
-            if (!ArrayUtils.contains(registry.getPrefixes(), nsPrefix) || !ArrayUtils.contains(registry.getURIs(), nsUri))
+            if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
                 registry.registerNamespace(nsPrefix, nsUri);
+            }
         }
 
         // create node type template
@@ -848,6 +851,7 @@ public class CmisConnector extends Connector {
         Set<String> names = props.keySet();
         // properties
         for (String name : names) {
+            if (name.startsWith("cmis:"))  continue; // ignore them?
             PropertyDefinition<?> pd = props.get(name);
             PropertyDefinitionTemplate pt = typeManager.createPropertyDefinitionTemplate();
             pt.setRequiredType(properties.getJcrType(pd.getPropertyType()));
@@ -860,12 +864,27 @@ public class CmisConnector extends Connector {
 
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[] {type};
-        typeManager.registerNodeTypes(nodeDefs, true);
+        try {
+            NodeType nodeType = typeManager.getNodeType(type.getName());
+        } catch (NoSuchNodeTypeException nste) {
+            typeManager.registerNodeTypes(nodeDefs, true);
+        }
+
+    }
+
+    private boolean isNsAlreadyRegistered(ObjectType cmisType, NamespaceRegistry registry, String nsPrefix, String nsUri) throws RepositoryException {
+        if (ArrayUtils.contains(registry.getPrefixes(), nsPrefix) && ArrayUtils.contains(registry.getURIs(), nsUri))
+            return true;
+
+        if (cmisType.getBaseType().getLocalNamespace().equals(cmisType.getLocalNamespace()))
+            return true;
+
+        return false;
     }
 
     /**
      * Determines supertypes for the given CMIS type in terms of JCR.
-     * 
+     *
      * @param cmisType given CMIS type
      * @return supertypes in JCR lexicon.
      */
@@ -875,15 +894,15 @@ public class CmisConnector extends Connector {
                 : null;
 
         if (parentType == null) {
-        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_FOLDER) {
+            if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_FOLDER) {
                 parentType = JcrConstants.NT_FOLDER;
             } else if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
                 parentType = JcrConstants.NT_FILE;
-        }
+            }
         }
 
         return addMixins(cmisType, new String[]{parentType});
-        }
+    }
 
 
     /*
@@ -894,7 +913,7 @@ public class CmisConnector extends Connector {
             DocumentType cmisDocType = (DocumentType) cmisType;
             if (cmisDocType.isVersionable()) {
                 return (String[]) ArrayUtils.add(superTypes, NodeType.MIX_SIMPLE_VERSIONABLE);
-    }
+            }
         }
         return superTypes;
     }
@@ -917,7 +936,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Defines node type for the repository info.
-     * 
+     *
      * @param typeManager JCR node type manager.
      * @throws RepositoryException
      */
