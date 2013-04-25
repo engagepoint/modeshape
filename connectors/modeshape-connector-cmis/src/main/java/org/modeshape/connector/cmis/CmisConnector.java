@@ -42,6 +42,7 @@ import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
+import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.ArrayUtils;
@@ -859,6 +860,7 @@ public class CmisConnector extends Connector {
             pt.setAvailableQueryOperators(new String[] {});
             pt.setName(name);
             pt.setMandatory(pd.isRequired());
+            pt.setMultiple(pd.getCardinality().equals(Cardinality.MULTI));
             type.getPropertyDefinitionTemplates().add(pt);
         }
 
