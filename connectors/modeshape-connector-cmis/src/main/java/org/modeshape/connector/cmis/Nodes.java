@@ -24,8 +24,10 @@
 package org.modeshape.connector.cmis;
 
 import java.util.ArrayList;
+import java.util.Iterator;
 import javax.jcr.nodetype.NodeType;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
+import org.modeshape.jcr.value.Name;
 
 /**
  * Maps relations between JCR node types and CMIS object types.
@@ -38,6 +40,13 @@ public class Nodes {
         BaseTypeId.CMIS_DOCUMENT.value() + " = " + NodeType.NT_FILE};
 
     private ArrayList<Relation> list = new ArrayList<Relation>();
+
+    public Nodes() {
+        for (String aMap : map) {
+            String[] tokens = aMap.split("=");
+            list.add(new Relation(tokens[0].trim(), tokens[1].trim()));
+        }
+    }
 
     /**
      * Gets the name of the given property in JCR domain.
@@ -56,11 +65,13 @@ public class Nodes {
 
     /**
      * Gets the name of the given property in CMIS domain.
-     * 
+     *
+     * Ivan, Oleg, this method is better to make as not public or order to protect from incorrect Name conversion
+     *
      * @param jcrName the name of the given property in JCR domain.
      * @return the name of the given property in CMIS domain.
      */
-    public String findCmisName( String jcrName ) {
+    protected String findCmisName( String jcrName ) {
         for (Relation aList : list) {
             if (aList.jcrName.equals(jcrName)) {
                 return aList.cmisName;
@@ -69,12 +80,38 @@ public class Nodes {
         return jcrName;
     }
 
-    public Nodes() {
-        for (String aMap : map) {
-            String[] tokens = aMap.split("=");
-            list.add(new Relation(tokens[0].trim(), tokens[1].trim()));
-        }
+    /**
+     * Gets the name of the given property in CMIS domain.
+     *
+     * @param jcrName the Name of the given property in JCR domain.
+     * @return the name of the given property in CMIS domain.
+     */
+    public String findCmisName( Name jcrName ) {
+        return findCmisName(getJcrTypeAsString(jcrName));
     }
+
+    /*
+    * add types mapping
+    */
+    public void addTypeMapping(Name jcrName, String cmisName) {
+        String jcrStringName = jcrName.getString();
+        for (Iterator<Relation> iterator = list.iterator(); iterator.hasNext(); ) {
+            Relation aList = iterator.next();
+            if (aList.jcrName.equals(jcrStringName)) {
+                iterator.remove();
+                break;
+            }
+        }
+        list.add(new Relation(cmisName, getJcrTypeAsString(jcrName)));
+    }
+
+    /*
+    * single place to make a correct string from jcr's Name
+    */
+    public String getJcrTypeAsString(Name jcrTypeName) {
+        return jcrTypeName.toString();
+    }
+
 
     private class Relation {
         private String jcrName;

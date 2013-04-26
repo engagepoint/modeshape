@@ -547,16 +547,7 @@ public class CmisConnector extends Connector {
         }
 
         // all other node types belong to cmis object
-        String jcrNodeType = primaryType.getString();
-        // get name with prefix as it should be registered in CMIS instead of full jcr's uri:
-        // {http://namespace/xxx}nodeType -> prefix:nodeType
-        String nsPrefix = getContext().getNamespaceRegistry().getPrefixForNamespaceUri(primaryType.getNamespaceUri(), false);
-        if (nsPrefix != null) {
-            jcrNodeType = nsPrefix + ":" + primaryType.getLocalName();
-        }
-
-//        String cmisObjectTypeName = nodes.findCmisName(jcrNodeType);
-        String cmisObjectTypeName = jcrNodeType;
+        String cmisObjectTypeName = nodes.findCmisName(primaryType);
         Folder parent = (Folder) session.getObject(parentId);
 
         // Ivan, we can pick up object type and property definition map from CMIS repo
@@ -866,12 +857,8 @@ public class CmisConnector extends Connector {
 
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[] {type};
-        try {
-            NodeType nodeType = typeManager.getNodeType(type.getName());
-        } catch (NoSuchNodeTypeException nste) {
-            typeManager.registerNodeTypes(nodeDefs, true);
-        }
-
+        typeManager.registerNodeTypes(nodeDefs, true);
+        nodes.addTypeMapping(getContext().getValueFactories().getNameFactory().create(type.getName()), cmisType.getId());
     }
 
     private boolean isNsAlreadyRegistered(ObjectType cmisType, NamespaceRegistry registry, String nsPrefix, String nsUri) throws RepositoryException {
