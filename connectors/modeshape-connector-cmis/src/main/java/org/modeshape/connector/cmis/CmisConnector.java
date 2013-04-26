@@ -361,6 +361,7 @@ public class CmisConnector extends Connector {
                 // ask cmis repository to get property definitions
                 // we will use these definitions for correct conversation
                 Map<String, PropertyDefinition<?>> propDefs = cmisObject.getBaseType().getPropertyDefinitions();
+                propDefs.putAll(cmisObject.getType().getPropertyDefinitions());
 
                 // jcr properties are grouped by namespace uri
                 // we will travers over all namespaces (ie group of properties)
@@ -469,6 +470,7 @@ public class CmisConnector extends Connector {
                 // ask cmis repository to get property definitions
                 // we will use these definitions for correct conversation
                 Map<String, PropertyDefinition<?>> propDefs = cmisObject.getBaseType().getPropertyDefinitions();
+                propDefs.putAll(cmisObject.getType().getPropertyDefinitions());
 
                 // group added and modified properties
                 ArrayList<Name> modifications = new ArrayList<Name>();
@@ -825,6 +827,7 @@ public class CmisConnector extends Connector {
             // if one of items presents typeManager should throw an exception while registering
             if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
                 registry.registerNamespace(nsPrefix, nsUri);
+                prefixes.addNamespace(nsUri, nsPrefix);
             }
         }
 

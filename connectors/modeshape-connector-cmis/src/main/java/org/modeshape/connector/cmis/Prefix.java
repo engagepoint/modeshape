@@ -40,4 +40,8 @@ public class Prefix {
     public String value( String namespaceUri ) {
         return map.get(namespaceUri);
     }
+
+    public void addNamespace(String nsUri, String nsPrefix){
+        map.put(nsUri, nsPrefix);
+    }
 }
