@@ -46,6 +46,7 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.ArrayUtils;
+import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
@@ -135,7 +136,11 @@ public class CmisConnector extends Connector {
     private String relationshipService;
     private String repositoryService;
     private String versioningService;
+    // root folder reference flag
     private boolean hideRootFolderReference;
+    // credentials
+    private String user;
+    private String password;
     // repository id
     private String repositoryId;
     private Properties properties;
@@ -161,8 +166,10 @@ public class CmisConnector extends Connector {
         Map<String, String> parameter = new HashMap<String, String>();
 
         // user credentials
-        // parameter.put(SessionParameter.USER, user);
-        // parameter.put(SessionParameter.PASSWORD, passw);
+        if (StringUtils.isNotEmpty(user) && StringUtils.isNotEmpty(password)) {
+            parameter.put(SessionParameter.USER, user);
+            parameter.put(SessionParameter.PASSWORD, password);
+        }
 
         // connection settings
         parameter.put(SessionParameter.BINDING_TYPE, BindingType.WEBSERVICES.value());
