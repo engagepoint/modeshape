@@ -102,7 +102,7 @@ public class ObjectId {
      * @return text view of this identifier.
      */
     public static String toString(Type type, String id) {
-        return type == Type.OBJECT? id : id + "/" + type.toString();
+        return type == Type.OBJECT ? id : id + "/" + type.toString();
     }
     
 }

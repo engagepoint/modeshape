@@ -54,6 +54,7 @@ import org.modeshape.jcr.RepositoryConfiguration;
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
  * 
  * @author Alexander Voloshyn
+ * @author Nick Knysh
  * @version 1.0 2/20/2013
  */
 public class CmisConnectorIT extends MultiUseAbstractTest {
@@ -269,7 +270,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 
     }
 
-    @Test
+//    @Test //cmis:contentStreamMimeType - ?
     public void shouldModifyDocument() throws Exception {
         Node file = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         PropertyIterator it = file.getProperties();
@@ -279,5 +280,52 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         }
         file.setProperty("StringProp", "modeshape");
         getSession().save();
+    }
+
+
+    @Test
+    public void shouldCreatePrefixedType() throws Exception {
+        Node node = getSession().getRootNode().addNode("prefixedTypeFolder", "testing:prefixedFolderType");
+        getSession().save();
+        Node persistedNode = getSession().getNode(node.getPath());
+        Property property = persistedNode.getProperty("jcr:primaryType");
+        assertEquals("testing:prefixedFolderType", property.getValue().getString());
+    }
+
+    @Test
+    public void shouldSavePrefixedProperties() throws Exception {
+        String propertyId = "testing:artist";
+        Node node = getSession().getRootNode().addNode("prefixedTypeFolderWithProperties", "testing:prefixedFolderType");
+        node.setProperty(propertyId, "The Artist");
+        getSession().save();
+        // saved property
+        Node persistedNode = getSession().getNode(node.getPath());
+        Property property = persistedNode.getProperty(propertyId);
+        assertEquals("The Artist", property.getValue().getString());
+        //update
+        node.setProperty(propertyId, "An artist");
+        getSession().save();
+        // updated property
+        Property propertyUpdated = getSession().getNode(node.getPath()).getProperty(propertyId);
+        assertEquals("An artist", propertyUpdated.getValue().getString());
+    }
+
+    @Test
+    public void shouldRegisterNamespace() throws Exception {
+        String testingNsUri = getSession().getWorkspace().getNamespaceRegistry().getURI("testing");
+        assertEquals("http://org.modeshape/testing", testingNsUri);
+    }
+
+    @Test
+    public void shouldAddVersioning() throws Exception {
+        NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType("testing:prefixedType");
+        assertTrue(nodeType.isNodeType(NodeType.MIX_VERSIONABLE) || nodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE));
+    }
+
+    @Test
+    public void shouldRegisterPrimaryTypes() throws Exception {
+        org.modeshape.jcr.api.nodetype.NodeTypeManager nodeTypeManager = getSession().getWorkspace().getNodeTypeManager();
+        assertFalse(nodeTypeManager.getNodeType("testing:prefixedType").isMixin());
+        assertFalse(nodeTypeManager.getNodeType("audioFile").isMixin());
     }
 }

@@ -1,4 +1,5 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
         <groupId>org.modeshape</groupId>
@@ -61,7 +62,9 @@
                         <deployable>
                             <groupId>org.apache.chemistry.opencmis</groupId>
                             <artifactId>chemistry-opencmis-server-inmemory</artifactId>
+                            <location>${project.build.directory}/wars/chemistry-opencmis-server-inmemory-it.war</location>
                             <type>war</type>
+
                             <properties>
                                 <context>/</context>
                             </properties>
@@ -69,6 +72,87 @@
                     </deployables>
                 </configuration>
             </plugin>
+
+            <!--modify cmis server war with custom types-->
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <!--<version>2.4</version>-->
+                <executions>
+                    <execution>
+                        <id>unpack</id>
+                        <phase>generate-resources</phase>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <configuration>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>org.apache.chemistry.opencmis</groupId>
+                                    <artifactId>chemistry-opencmis-server-inmemory</artifactId>
+                                    <type>war</type>
+                                </artifactItem>
+                            </artifactItems>
+                            <outputDirectory>${project.build.directory}/wars/chemistry-opencmis-server-inmemory</outputDirectory>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>com.google.code.maven-config-processor-plugin</groupId>
+                <artifactId>maven-config-processor-plugin</artifactId>
+                <version>2.3</version>
+                <configuration>
+                    <transformations>
+                        <transformation>
+                            <input>
+                                ${project.build.directory}/wars/chemistry-opencmis-server-inmemory/WEB-INF/classes/repository.properties
+                            </input>
+                            <output>
+                                wars/chemistry-opencmis-server-inmemory/WEB-INF/classes/repository.properties
+                            </output>
+                            <rules>
+                                <modify>
+                                    <name>InMemoryServer.TypeDefinitionsFile</name>
+                                    <value>types_extended.xml</value>
+                                </modify>
+                            </rules>
+                        </transformation>
+                    </transformations>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>process</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <!--<version>2.2</version>-->
+                <configuration>
+                    <descriptor>src/main/assembly/opencmis-server-assembly.xml</descriptor>
+                    <outputDirectory>${project.build.directory}/wars</outputDirectory>
+                    <finalName>chemistry-opencmis-server-inmemory</finalName>
+                </configuration>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>single</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
+
         </plugins>
     </build>
 </project>
+
+

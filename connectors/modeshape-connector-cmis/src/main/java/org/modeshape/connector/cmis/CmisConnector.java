@@ -117,6 +117,7 @@ import org.w3c.dom.Element;
  * 
  * @author Oleg Kulikov
  * @author Ivan Vasyliev
+ * @author Nick Knysh
  */
 public class CmisConnector extends Connector {
 
