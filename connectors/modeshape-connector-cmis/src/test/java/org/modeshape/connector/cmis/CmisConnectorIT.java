@@ -328,4 +328,25 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertFalse(nodeTypeManager.getNodeType("testing:prefixedType").isMixin());
         assertFalse(nodeTypeManager.getNodeType("audioFile").isMixin());
     }
+
+    @Test
+    public void shouldCreateVersionedDocument() throws Exception {
+        Node root = getSession().getRootNode();
+        Node node1 = root.addNode("test-versioned-doc-1", "testing:prefixedType");
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+
+        getSession().save();
+
+        NodeType primaryNodeType = getSession().getNode(node1.getPath()).getPrimaryNodeType();
+        assertTrue("Node has no versionable mixin but should.",
+                (primaryNodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE)
+                        || primaryNodeType.isNodeType(NodeType.MIX_VERSIONABLE)));
+    }
 }
