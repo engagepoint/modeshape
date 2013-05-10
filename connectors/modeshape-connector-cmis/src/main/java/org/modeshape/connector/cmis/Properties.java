@@ -30,6 +30,7 @@ import java.util.GregorianCalendar;
 import java.util.List;
 import org.apache.chemistry.opencmis.client.api.Property;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
+import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.PropertyType;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
@@ -185,6 +186,9 @@ public class Properties {
     public Object cmisValue( PropertyDefinition<?> pdef,
                              String jcrName,
                              Document document ) {
+        if (pdef.getCardinality() == Cardinality.MULTI) {
+            return document.getArray(jcrName);
+        }
         switch (pdef.getPropertyType()) {
             case STRING:
                 return document.getString(jcrName);
