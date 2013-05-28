@@ -23,16 +23,6 @@
  */
 package org.modeshape.connector.cmis;
 
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.math.BigInteger;
-import java.security.GeneralSecurityException;
-import java.util.*;
-import javax.jcr.NamespaceRegistry;
-import javax.jcr.RepositoryException;
-import javax.jcr.nodetype.*;
-
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
@@ -44,6 +34,9 @@ import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.TypeDefinition;
 import org.apache.chemistry.opencmis.commons.enums.*;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisBaseException;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisInvalidArgumentException;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
@@ -62,6 +55,19 @@ import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
 import org.w3c.dom.Element;
+
+import javax.jcr.NamespaceRegistry;
+import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeDefinition;
+import javax.jcr.nodetype.NodeTypeTemplate;
+import javax.jcr.nodetype.PropertyDefinitionTemplate;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.security.GeneralSecurityException;
+import java.util.*;
 
 /**
  * This connector exposes the content of a CMIS repository.
@@ -266,7 +272,7 @@ public class CmisConnector extends Connector {
 
                 // object exists?
                 if (doc == null) {
-                    // object does not exist. propably was deleted by from cmis domain
+                    // object does not exist. probably was deleted by from cmis domain
                     // we don't know how to handle such case yet, thus TODO
                     return false;
                 }
@@ -350,7 +356,8 @@ public class CmisConnector extends Connector {
                 // updating original cmis:document
                 ContentStream stream = jcrBinaryContent(document);
                 if (stream != null) {
-                    ((org.apache.chemistry.opencmis.client.api.Document) cmisObject).setContentStream(stream, true);
+                    if (isVersioned(cmisObject)) updateVersionedDoc(cmisObject, null, stream);
+                    else asDocument(cmisObject).setContentStream(stream, true, true);
                 }
                 break;
             case OBJECT:
@@ -419,10 +426,13 @@ public class CmisConnector extends Connector {
                         updateProperties.put(cmisPropertyName, cmisValue);
                     }
                 }
-
-                // finaly execute update action
+                // finally execute update action
                 if (!updateProperties.isEmpty()) {
-                    cmisObject.updateProperties(updateProperties);
+                    if (isDocument(cmisObject) && isVersioned(cmisObject)) {
+                        updateVersionedDoc(cmisObject, updateProperties, null);
+                    } else {
+                        cmisObject.updateProperties(updateProperties);
+                    }
                 }
                 break;
         }
@@ -440,6 +450,7 @@ public class CmisConnector extends Connector {
                 // repository node is read only
                 break;
             case CONTENT:
+
                 // in the jcr domain content is represented by child node of
                 // the nt:file node while in cmis domain it is a property of
                 // the cmis:document object. so to perform this operation we need
@@ -448,27 +459,28 @@ public class CmisConnector extends Connector {
 
                 // now let's get the reference to this object
                 CmisObject cmisObject = session.getObject(cmisId);
-
-                // object exists?
                 if (cmisObject == null) {
-                    // object does not exist. propably was deleted by from cmis domain
-                    // we don't know how to handle such case yet, thus TODO
-                    return;
+                    throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + cmisId);
                 }
 
+                // for this case we have the only property - jcr:data
                 PropertyChanges changes = delta.getPropertyChanges();
-                // for this case we have only one property jcr:data
-                // what we need to understant it is what kind of action
 
                 if (!changes.getRemoved().isEmpty()) {
-                    // we need to remove
-                    ((org.apache.chemistry.opencmis.client.api.Document) cmisObject).deleteContentStream();
+                    if (isVersioned(cmisObject))  updateVersionedDoc(cmisObject, null, null);   // todo check if it removes
+                    else  asDocument(cmisObject).deleteContentStream();
+
                 } else {
                     ContentStream stream = jcrBinaryContent(delta.getDocument());
                     if (stream != null) {
-                        ((org.apache.chemistry.opencmis.client.api.Document) cmisObject).setContentStream(stream, true);
+                        if (isVersioned(cmisObject)) {
+                            if (isVersioned(cmisObject))  updateVersionedDoc(cmisObject, null, stream);
+                        } else {
+                            asDocument(cmisObject).setContentStream(stream, true);
+                        }
                     }
                 }
+
                 break;
             case OBJECT:
                 // modifing cmis:folders and cmis:documents
@@ -479,8 +491,7 @@ public class CmisConnector extends Connector {
 
                 // checking that object exists
                 if (cmisObject == null) {
-                    // unknown object
-                    return;
+                    throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
                 }
 
                 // Prepare store for the cmis properties
@@ -543,11 +554,21 @@ public class CmisConnector extends Connector {
 
                 // run update action
                 if (!updateProperties.isEmpty()) {
-                    cmisObject.updateProperties(updateProperties);
+
+                    if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
+                        updateVersionedDoc(cmisObject, updateProperties, null);
+                    } else {
+                        cmisObject.updateProperties(updateProperties);
+                    }
                 }
+
                 break;
         }
+
+
     }
+
+
 
     @Override
     public boolean isReadonly() {
@@ -580,7 +601,7 @@ public class CmisConnector extends Connector {
         Collection<PropertyDefinition<?>> list = propDefs.values();
         for (PropertyDefinition<?> pdef : list) {
             if (pdef.isRequired() && pdef.getUpdatability() == Updatability.READWRITE) {
-                params.put(pdef.getId(), "");
+                params.put(pdef.getId(), getRequiredPropertyValue(pdef));
             }
         }
 
@@ -601,10 +622,18 @@ public class CmisConnector extends Connector {
                     DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
                     versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
                 }
-                return ObjectId.toString(ObjectId.Type.OBJECT, parent.createDocument(params, null, versioningState).getId());
+
+                String versionId = ObjectId.toString(ObjectId.Type.OBJECT, parent.createDocument(params, null, versioningState).getId());
+                String resultId = asDocument(session.getObject(versionId)).getVersionSeriesId();
+                return resultId;
             default:
                 return null;
         }
+    }
+
+    // todo improve this logic
+    public Object getRequiredPropertyValue(PropertyDefinition<?> remotePropDefinition) {
+        return remotePropDefinition.getId();
     }
 
     /**
@@ -665,6 +694,8 @@ public class CmisConnector extends Connector {
         return writer.document();
     }
 
+
+
     /**
      * Translates cmis document object to JCR node.
      *
@@ -672,28 +703,35 @@ public class CmisConnector extends Connector {
      * @return JCR node document.
      */
     public Document cmisDocument(CmisObject cmisObject) {
-        org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
-        DocumentWriter writer = newDocument(ObjectId.toString(ObjectId.Type.OBJECT, doc.getId()));
+        org.apache.chemistry.opencmis.client.api.Document doc = asDocument(cmisObject);
 
+        // document and internalID
+        // internal id = cmisId (when folder or not versioned) || version series id
+        String internalId = isVersioned(cmisObject) ? doc.getVersionSeriesId() : doc.getId();
+        DocumentWriter writer = newDocument(ObjectId.toString(ObjectId.Type.OBJECT, internalId));
+
+        // type
         ObjectType objectType = cmisObject.getType();
-        if (objectType.isBaseType()) {
-            writer.setPrimaryType(NodeType.NT_FILE);
-        } else {
-            writer.setPrimaryType(objectType.getId());
-        }
+        writer.setPrimaryType(objectType.isBaseType() ? NodeType.NT_FILE : objectType.getId());
 
+        // parents
         List<Folder> parents = doc.getParents();
         ArrayList<String> parentIds = new ArrayList<String>();
         for (Folder f : parents) {
             parentIds.add(ObjectId.toString(ObjectId.Type.OBJECT, f.getId()));
         }
-
         writer.setParents(parentIds);
-        writer.addMixinType(NodeType.MIX_REFERENCEABLE);
 
+        // properties
         // document specific property conversation
         cmisProperties(doc, writer);
-        writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, doc.getId()), JcrConstants.JCR_CONTENT);
+
+        // reference
+        writer.addMixinType(NodeType.MIX_REFERENCEABLE);
+        writer.addProperty(JcrLexicon.UUID, internalId);
+
+        // children
+        writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, internalId), JcrConstants.JCR_CONTENT);
 
         return writer.document();
     }
@@ -707,7 +745,7 @@ public class CmisConnector extends Connector {
     private Document cmisContent(String id) {
         DocumentWriter writer = newDocument(ObjectId.toString(ObjectId.Type.CONTENT, id));
 
-        org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) session.getObject(id);
+        org.apache.chemistry.opencmis.client.api.Document doc = asDocument(session.getObject(id));
         writer.setPrimaryType(NodeType.NT_RESOURCE);
         writer.setParent(id);
 
@@ -737,10 +775,13 @@ public class CmisConnector extends Connector {
                                 DocumentWriter writer) {
         // convert properties
         List<Property<?>> list = object.getProperties();
+        TypeDefinition type = object.getType();
         for (Property<?> property : list) {
             String pname = properties.findJcrName(property.getId());
-            TypeDefinition type = object.getType();
-            if (pname != null && !pname.startsWith("cmis:") && type.getPropertyDefinitions().containsKey(pname)) {
+            PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(property.getId());
+            boolean ignore = (propertyDefinition.getUpdatability() == Updatability.READONLY)
+                    || type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value());
+            if (pname != null && !pname.startsWith("cmis:") && !ignore) {
                 writer.addProperty(pname, properties.jcrValues(property));
             }
         }
@@ -756,7 +797,9 @@ public class CmisConnector extends Connector {
                               DocumentWriter writer) {
         ItemIterable<CmisObject> it = folder.getChildren();
         for (CmisObject obj : it) {
-            writer.addChild(obj.getId(), obj.getName());
+            if (isDocument(obj) && isVersioned(obj))
+                writer.addChild(asDocument(obj).getVersionSeriesId(), obj.getName());
+            else writer.addChild(obj.getId(), obj.getName());
         }
     }
 
@@ -845,14 +888,14 @@ public class CmisConnector extends Connector {
         }
 
         // namespace registration
-        if (!cmisType.getId().equals(cmisType.getLocalName())) {
-                String nsPrefix = cmisType.getId().substring(0, cmisType.getId().indexOf(":"));
-                String nsUri = cmisType.getLocalNamespace();
-                // check is ns is not registered already with exactly same prefix and uri
-                // if one of items presents typeManager should throw an exception while registering
-                if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
-                    registry.registerNamespace(nsPrefix, nsUri);
-                    prefixes.addNamespace(nsUri, nsPrefix);
+        if (!cmisType.getId().equals(cmisType.getLocalName()) && cmisType.getId().contains(":")) {
+            String nsPrefix = cmisType.getId().substring(0, cmisType.getId().indexOf(":"));
+            String nsUri = cmisType.getLocalNamespace();
+            // check is ns is not registered already with exactly same prefix and uri
+            // if one of items presents typeManager should throw an exception while registering
+            if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
+                registry.registerNamespace(nsPrefix, nsUri);
+                prefixes.addNamespace(nsUri, nsPrefix);
             }
         }
 
@@ -880,13 +923,39 @@ public class CmisConnector extends Connector {
             pt.setName(name);
             pt.setMandatory(pd.isRequired());
             pt.setMultiple(pd.getCardinality().equals(Cardinality.MULTI));
-            type.getPropertyDefinitionTemplates().add(pt);
+            pt.setProtected(pd.getUpdatability() == Updatability.READONLY);
+
+            // if property is protected and already declared in parents - ignore it
+            // we cannot override protected property so try to avoid it
+            if (pt.isProtected()/* && parentsHasPropertyDeclared(typeManager, type, pt)*/) {
+                continue;
+            }
+
+            if (!pt.isProtected()) type.getPropertyDefinitionTemplates().add(pt);
         }
 
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
         nodes.addTypeMapping(getContext().getValueFactories().getNameFactory().create(type.getName()), cmisType.getId());
+    }
+
+    /*
+    * looking for protected property through node's parents` definitions
+    */
+    public boolean parentsHasPropertyDeclared(javax.jcr.nodetype.NodeTypeManager typeManager, NodeTypeDefinition typeDef, PropertyDefinitionTemplate pt) {
+        for (String sType : typeDef.getDeclaredSupertypeNames()) {
+            try {
+                NodeType nodeType = typeManager.getNodeType(sType);
+                javax.jcr.nodetype.PropertyDefinition[] propertyDefinitions = nodeType.getPropertyDefinitions();
+                for (javax.jcr.nodetype.PropertyDefinition propertyDefinition : propertyDefinitions) {
+                    if (propertyDefinition.getName().equals(pt.getName()) && propertyDefinition.isProtected())
+                        return true;
+                }
+            } catch (RepositoryException ignore) {/**/}
+        }
+
+        return false;
     }
 
     private boolean isNsAlreadyRegistered(ObjectType cmisType, NamespaceRegistry registry, String nsPrefix, String nsUri) throws RepositoryException {
@@ -923,15 +992,10 @@ public class CmisConnector extends Connector {
 
 
     /*
-    * add mix:simpleVersioned if cmis types is a VersionableDocument
+    * supposed to add mix:versionable if cmis types is a VersionableDocument
+    * there used to be versionable notation but versioning support for connectors is not there yet
     */
     protected String[] addMixins(ObjectType cmisType, String[] superTypes) {
-        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT && cmisType instanceof DocumentType) {
-            DocumentType cmisDocType = (DocumentType) cmisType;
-            if (cmisDocType.isVersionable()) {
-                return (String[]) ArrayUtils.add(superTypes, NodeType.MIX_SIMPLE_VERSIONABLE);
-            }
-        }
         return superTypes;
     }
 
@@ -995,4 +1059,54 @@ public class CmisConnector extends Connector {
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
     }
+
+
+    public boolean isVersioned(CmisObject cmisObject) {
+        ObjectType objectType = cmisObject.getType();
+        if (objectType instanceof DocumentTypeDefinition) {
+            DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
+            return docType.isVersionable();
+        }
+
+        return false;
+    }
+
+    public org.apache.chemistry.opencmis.client.api.Document checkout(CmisObject cmisObject) {
+        org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
+        org.apache.chemistry.opencmis.client.api.ObjectId objectId1 = doc.checkOut();
+        org.apache.chemistry.opencmis.client.api.Document pwc = (org.apache.chemistry.opencmis.client.api.Document) session.getObject(objectId1);
+        return pwc;
+    }
+
+
+    public String checkin(org.apache.chemistry.opencmis.client.api.Document pwc, Map<String, ?> properties, ContentStream contentStream, String storedId) {
+        try {
+            String id = pwc.checkIn(true, properties, contentStream, "connector's check in").getId();
+        } catch (CmisBaseException e) {
+            e.printStackTrace(); // todo
+            pwc.cancelCheckOut();
+        }
+        return pwc.getId();
+    }
+
+
+    public String updateVersionedDoc(CmisObject cmisObject, Map<String, ?> properties, ContentStream contentStream) {
+        String storedId = cmisObject.getId();
+        org.apache.chemistry.opencmis.client.api.Document pwc = checkout(cmisObject);
+        return checkin(pwc, properties, contentStream, storedId);
+    }
+
+    public boolean isDocument(CmisObject cmisObject) {
+        return cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document;
+    }
+
+    public org.apache.chemistry.opencmis.client.api.Document asDocument(CmisObject cmisObject) {
+        if (!isDocument(cmisObject))
+            throw new CmisInvalidArgumentException("Object is not a document: "
+                    + cmisObject.getId()
+                    + " with type "
+                    + cmisObject.getType().getId());
+        return (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
+    }
+
 }
