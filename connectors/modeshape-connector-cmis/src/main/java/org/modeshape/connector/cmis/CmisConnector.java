@@ -54,6 +54,7 @@ import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
+import org.modeshape.jcr.value.ValueFactory;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -132,6 +133,7 @@ public class CmisConnector extends Connector {
     private static final String REPOSITORY_INFO_ID = "repositoryInfo";
     private static final String REPOSITORY_INFO_NODE_NAME = "repositoryInfo";
     private static final String CMIS_DOCUMENT_UNVERSIONED = "cmis:unversioned-document";
+    public static final String CMIS_PREFIX = "cmis:";
     private Session session;
     private ValueFactories factories;
     // binding parameters
@@ -153,6 +155,9 @@ public class CmisConnector extends Connector {
     private String repositoryId;
     private Properties properties;
     private Nodes nodes;
+    // type mapping
+    private List customTypeMappings;
+    private MappedCustomTypesContainer mappedTypes = new MappedCustomTypesContainer();
 
     private Prefix prefixes = new Prefix();
 
@@ -160,10 +165,42 @@ public class CmisConnector extends Connector {
         super();
     }
 
+    // DEBUG
+    public void pt(String... values) {
+        for (String value : values) {
+            System.out.print(value + " ");
+        }
+        System.out.println();
+    }
+
+    private void printTypeMappingConfig() {
+        if (customTypeMappings == null ) return;
+        for (Object obja : customTypeMappings) {
+            Document typeMapping = (Document) obja;
+
+            MappedCustomType mappedCustomType = new MappedCustomType(typeMapping.getString("jcrName"), typeMapping.getString("extName"));
+            mappedCustomType.setJcrNamespaceUri(typeMapping.getString("jcrNamespaceUri"));
+
+            if (typeMapping.getDocument("propertyMappings") != null) {
+                Iterable<Field> propertyMappings = typeMapping.getDocument("propertyMappings").fields();
+                for (Field propertyMapping : propertyMappings) {
+                    mappedCustomType.addPropertyMapping(propertyMapping.getName(), propertyMapping.getValueAsString());
+                }
+            }
+
+            mappedTypes.addTypeMapping(mappedCustomType);
+        }
+
+        pt("Added ", Integer.toString(mappedTypes.mappings.size()), " mapped types ..");
+    }
+
     @Override
     public void initialize(NamespaceRegistry registry,
                            NodeTypeManager nodeTypeManager) throws RepositoryException, IOException {
         super.initialize(registry, nodeTypeManager);
+
+
+        printTypeMappingConfig();
 
         this.factories = getContext().getValueFactories();
 
@@ -204,6 +241,7 @@ public class CmisConnector extends Connector {
         }, null);
 
         registry.registerNamespace(CmisLexicon.Namespace.PREFIX, CmisLexicon.Namespace.URI);
+        registry.registerNamespace("notifications","http://engagepoint.com/document/notifications");
         importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry);
         registerRepositoryInfoType(nodeTypeManager);
     }
@@ -388,7 +426,7 @@ public class CmisConnector extends Connector {
                 // we will use these definitions for correct conversation
                 Map<String, PropertyDefinition<?>> propDefs = cmisObject.getBaseType().getPropertyDefinitions();
                 propDefs.putAll(cmisObject.getType().getPropertyDefinitions());
-
+                MappedCustomType mapping = mappedTypes.findByExtName(cmisObject.getType().getId());
                 // jcr properties are grouped by namespace uri
                 // we will travers over all namespaces (ie group of properties)
                 for (Field field : jcrProperties.fields()) {
@@ -408,6 +446,8 @@ public class CmisConnector extends Connector {
                         // in the cmis domain
                         String jcrPropertyName = prefix + property.getName();
                         String cmisPropertyName = properties.findCmisName(jcrPropertyName);
+                        // correct. AAA!!!
+                        cmisPropertyName = mapping != null ? mapping.toExtProperty(cmisPropertyName) : cmisPropertyName;
 
                         // now we need to convert value, we will use
                         // property definition from the original cmis repo for this step
@@ -467,14 +507,15 @@ public class CmisConnector extends Connector {
                 PropertyChanges changes = delta.getPropertyChanges();
 
                 if (!changes.getRemoved().isEmpty()) {
-                    if (isVersioned(cmisObject))  updateVersionedDoc(cmisObject, null, null);   // todo check if it removes
-                    else  asDocument(cmisObject).deleteContentStream();
+                    if (isVersioned(cmisObject))
+                        updateVersionedDoc(cmisObject, null, null);   // todo check if it removes
+                    else asDocument(cmisObject).deleteContentStream();
 
                 } else {
                     ContentStream stream = jcrBinaryContent(delta.getDocument());
                     if (stream != null) {
                         if (isVersioned(cmisObject)) {
-                            if (isVersioned(cmisObject))  updateVersionedDoc(cmisObject, null, stream);
+                            if (isVersioned(cmisObject)) updateVersionedDoc(cmisObject, null, stream);
                         } else {
                             asDocument(cmisObject).setContentStream(stream, true);
                         }
@@ -507,6 +548,8 @@ public class CmisConnector extends Connector {
                 modifications.addAll(changes.getAdded());
                 modifications.addAll(changes.getChanged());
 
+                MappedCustomType mapping = mappedTypes.findByExtName(cmisObject.getType().getId());
+
                 // convert names and values
                 for (Name name : modifications) {
                     String prefix = prefixes.value(name.getNamespaceUri());
@@ -515,6 +558,8 @@ public class CmisConnector extends Connector {
                     String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
                     // the name of this property in cmis domain is
                     String cmisPropertyName = properties.findCmisName(jcrPropertyName);
+                    // correct. AAA!!!
+                    cmisPropertyName = mapping != null ? mapping.toExtProperty(cmisPropertyName) : cmisPropertyName;
 
                     // in cmis domain this property is defined as
                     PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
@@ -569,7 +614,6 @@ public class CmisConnector extends Connector {
     }
 
 
-
     @Override
     public boolean isReadonly() {
         return false;
@@ -580,7 +624,7 @@ public class CmisConnector extends Connector {
                                 Name name,
                                 Name primaryType) {
         HashMap<String, Object> params = new HashMap<String, Object>();
-
+        pt("create document ..");
         // let'start from checking primary type
         if (primaryType.getLocalName().equals("resource")) {
             // nt:resource node belongs to cmis:document's content thus
@@ -615,8 +659,12 @@ public class CmisConnector extends Connector {
         switch (objectType.getBaseTypeId()) {
             case CMIS_FOLDER:
                 params.put(PropertyIds.PATH, path);
-                return ObjectId.toString(ObjectId.Type.OBJECT, parent.createFolder(params).getId());
+                String newFolderId = parent.createFolder(params).getId();
+                String result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
+                pt("return folder id", result, ". new folder id ", newFolderId);
+                return result;
             case CMIS_DOCUMENT:
+                pt("new Doc, parentId", parentId);
                 VersioningState versioningState = VersioningState.NONE;
                 if (objectType instanceof DocumentTypeDefinition) {
                     DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
@@ -624,9 +672,12 @@ public class CmisConnector extends Connector {
                 }
 
                 String versionId = ObjectId.toString(ObjectId.Type.OBJECT, parent.createDocument(params, null, versioningState).getId());
-                String resultId = asDocument(session.getObject(versionId)).getVersionSeriesId();
+                pt("return CMIS_DOCUMENT", versionId);
+                String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
+                pt("return CMIS_DOCUMENT", resultId);
                 return resultId;
             default:
+                pt("return null. base type id is ", objectType.getBaseTypeId().value());
                 return null;
         }
     }
@@ -664,6 +715,29 @@ public class CmisConnector extends Connector {
         return null;
     }
 
+
+    public String cmisTypeToJcr(String cmisTypeId) {
+        if (customTypeMappings.isEmpty())
+            return cmisTypeId;
+
+        MappedCustomType byExtName = mappedTypes.findByExtName(cmisTypeId);
+        return (byExtName != null)
+                ? byExtName.getJcrName()
+                : cmisTypeId;
+
+    }
+
+    public String jcrTypeToCmis(String jcrName) {
+        if (customTypeMappings.isEmpty())
+            return jcrName;
+
+        MappedCustomType byExtName = mappedTypes.findByJcrName(jcrName);
+        return (byExtName != null)
+                ? byExtName.getJcrName()
+                : jcrName;
+
+    }
+
     /**
      * Translates CMIS folder object to JCR node
      *
@@ -678,11 +752,13 @@ public class CmisConnector extends Connector {
         if (objectType.isBaseType()) {
             writer.setPrimaryType(NodeType.NT_FOLDER);
         } else {
-            writer.setPrimaryType(objectType.getId());
+            writer.setPrimaryType(cmisTypeToJcr(objectType.getId()));
         }
 
         writer.setParent(folder.getParentId());
+
         writer.addMixinType(NodeType.MIX_REFERENCEABLE);
+        writer.addProperty(JcrLexicon.UUID, cmisObject.getId());
 
         cmisProperties(folder, writer);
         cmisChildren(folder, writer);
@@ -693,7 +769,6 @@ public class CmisConnector extends Connector {
         }
         return writer.document();
     }
-
 
 
     /**
@@ -712,7 +787,7 @@ public class CmisConnector extends Connector {
 
         // type
         ObjectType objectType = cmisObject.getType();
-        writer.setPrimaryType(objectType.isBaseType() ? NodeType.NT_FILE : objectType.getId());
+        writer.setPrimaryType(objectType.isBaseType() ? NodeType.NT_FILE : cmisTypeToJcr(objectType.getId()));
 
         // parents
         List<Folder> parents = doc.getParents();
@@ -776,15 +851,25 @@ public class CmisConnector extends Connector {
         // convert properties
         List<Property<?>> list = object.getProperties();
         TypeDefinition type = object.getType();
+        MappedCustomType typeMapping = mappedTypes.findByExtName(type.getId());
+//        pt();
+//        pt("properties for ", object.getType().getId(), typeMapping != null ? typeMapping.getJcrName() : "<no jcr mapping>");
         for (Property<?> property : list) {
+//            pt("Process property ", property.getId());
             String pname = properties.findJcrName(property.getId());
             PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(property.getId());
-            boolean ignore = (propertyDefinition.getUpdatability() == Updatability.READONLY)
-                    || type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value());
-            if (pname != null && !pname.startsWith("cmis:") && !ignore) {
-                writer.addProperty(pname, properties.jcrValues(property));
+
+            boolean ignore = (pname != null && !pname.startsWith("jcr:")) && ((propertyDefinition.getUpdatability() == Updatability.READONLY)
+                    || type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value()));
+//            pt("Converted property ", pname);
+            if (pname != null && !pname.startsWith(CMIS_PREFIX) && !ignore) {
+                String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
+//                pt("Transformed property ", propertyTargetName);
+                writer.addProperty(propertyTargetName, properties.jcrValues(property));
             }
         }
+//        pt("propertie done");
+//        pt();
     }
 
     /**
@@ -874,7 +959,7 @@ public class CmisConnector extends Connector {
      *
      * @param cmisType    cmis object type
      * @param typeManager JCR type manager/
-     * @param registry
+     * @param registry    jcr namespace registry
      * @throws RepositoryException if there is a problem importing the types
      */
     @SuppressWarnings("unchecked")
@@ -886,24 +971,32 @@ public class CmisConnector extends Connector {
         if (cmisType.isBaseType() || cmisType.getId().equals(CMIS_DOCUMENT_UNVERSIONED)) {
             return;
         }
+        String cmisTypeId = cmisType.getId();
+        MappedCustomType mapping = mappedTypes.findByExtName(cmisType.getId());
+        if (mapping!=null) cmisTypeId = mapping.getJcrName();
 
         // namespace registration
-        if (!cmisType.getId().equals(cmisType.getLocalName()) && cmisType.getId().contains(":")) {
-            String nsPrefix = cmisType.getId().substring(0, cmisType.getId().indexOf(":"));
-            String nsUri = cmisType.getLocalNamespace();
+        pt("Type: ", cmisTypeId);
+        if (!cmisTypeId.equals(cmisType.getLocalName()) && cmisTypeId.contains(":")) {
+
+            String nsPrefix = cmisTypeId.substring(0, cmisTypeId.indexOf(":"));
+            String nsUri = mapping == null ? cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
+            pt("check type namespace type: ", nsPrefix, ":", nsUri);
             // check is ns is not registered already with exactly same prefix and uri
             // if one of items presents typeManager should throw an exception while registering
             if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
+                pt("register namespace type: ", nsPrefix, ":", nsUri);
                 registry.registerNamespace(nsPrefix, nsUri);
                 prefixes.addNamespace(nsUri, nsPrefix);
             }
         }
 
+
         // create node type template
         NodeTypeTemplate type = typeManager.createNodeTypeTemplate();
 
         // convert CMIS type's attributes to node type template we have just created
-        type.setName(cmisType.getId());
+        type.setName(mapping != null ? mapping.getJcrName() : cmisType.getId());
         type.setAbstract(!cmisType.isCreatable());
         type.setMixin(false);
         type.setOrderableChildNodes(true);
@@ -914,30 +1007,32 @@ public class CmisConnector extends Connector {
         Set<String> names = props.keySet();
         // properties
         for (String name : names) {
-            if (name.startsWith("cmis:")) continue; // ignore them?
-            PropertyDefinition<?> pd = props.get(name);
-            PropertyDefinitionTemplate pt = typeManager.createPropertyDefinitionTemplate();
-            pt.setRequiredType(properties.getJcrType(pd.getPropertyType()));
-            pt.setAutoCreated(false);
-            pt.setAvailableQueryOperators(new String[]{});
-            pt.setName(name);
-            pt.setMandatory(pd.isRequired());
-            pt.setMultiple(pd.getCardinality().equals(Cardinality.MULTI));
-            pt.setProtected(pd.getUpdatability() == Updatability.READONLY);
+            if (name.startsWith(CMIS_PREFIX)) continue; // ignore them. they must be handled/mapped with default logic
+
+            PropertyDefinition<?> cmisPropDef = props.get(name);
+            PropertyDefinitionTemplate jcrProp = typeManager.createPropertyDefinitionTemplate();
+            jcrProp.setName(mapping != null ? mapping.toJcrProperty(name) : name);
+
+            jcrProp.setMandatory(cmisPropDef.isRequired());
+            jcrProp.setRequiredType(properties.getJcrType(cmisPropDef.getPropertyType()));
+            jcrProp.setMultiple(cmisPropDef.getCardinality().equals(Cardinality.MULTI));
+            jcrProp.setProtected(cmisPropDef.getUpdatability() == Updatability.READONLY);
+            jcrProp.setAvailableQueryOperators(new String[]{});
+            jcrProp.setAutoCreated(false);
 
             // if property is protected and already declared in parents - ignore it
             // we cannot override protected property so try to avoid it
-            if (pt.isProtected()/* && parentsHasPropertyDeclared(typeManager, type, pt)*/) {
+            if (jcrProp.isProtected()/* && parentsHasPropertyDeclared(typeManager, type, jcrProp)*/) {
                 continue;
             }
 
-            if (!pt.isProtected()) type.getPropertyDefinitionTemplates().add(pt);
+            if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
         }
 
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
-        nodes.addTypeMapping(getContext().getValueFactories().getNameFactory().create(type.getName()), cmisType.getId());
+        nodes.addTypeMapping(getContext().getValueFactories().getNameFactory().create(type.getName()), cmisTypeId);
     }
 
     /*
@@ -962,7 +1057,7 @@ public class CmisConnector extends Connector {
         if (ArrayUtils.contains(registry.getPrefixes(), nsPrefix) && ArrayUtils.contains(registry.getURIs(), nsUri))
             return true;
 
-        if (cmisType.getBaseType().getLocalNamespace().equals(cmisType.getLocalNamespace()))
+        if (StringUtils.equals(cmisType.getBaseType().getLocalNamespace(), cmisType.getLocalNamespace()))
             return true;
 
         return false;
@@ -976,7 +1071,7 @@ public class CmisConnector extends Connector {
      */
     private String[] superTypes(ObjectType cmisType) {
         String parentType = (cmisType.getParentType() != null) ?
-                getJcrTypeId(cmisType.getParentType().getId())
+                getJcrTypeId(cmisTypeToJcr(cmisType.getParentType().getId()))
                 : null;
 
         if (parentType == null) {

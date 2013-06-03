@@ -1,35 +1,51 @@
 {
-    "name" : "Persisted-Repository",
-    "workspaces" : {
-        "predefined" : ["otherWorkspace"],
-        "default" : "default",
-        "allowCreation" : true
+    "name": "Persisted-Repository",
+    "workspaces": {
+        "predefined": ["otherWorkspace"],
+        "default": "default",
+        "allowCreation": true
     },
-    "security" : {
-        "anonymous" : {
-            "roles" : ["readonly","readwrite","admin"],
-            "useOnFailedLogin" : false
+    "security": {
+        "anonymous": {
+            "roles": ["readonly", "readwrite", "admin"],
+            "useOnFailedLogin": false
         }
     },
-    "externalSources" : {
-        "cmis" : {
-            "classname" : "org.modeshape.connector.cmis.CmisConnector",
-            "cacheTtlSeconds" : 5,
-            "aclService" : "http://localhost:8090/services/ACLService?wsdl",
-            "discoveryService" : "http://localhost:8090/services/DiscoveryService?wsdl",
-            "multifilingService" : "http://localhost:8090/services/MultifilingService?wsdl",
-            "navigationService" : "http://localhost:8090/services/NavigationService?wsdl",
-            "objectService" : "http://localhost:8090/services/ObjectService?wsdl",
-            "policyService" : "http://localhost:8090/services/PolicyService?wsdl",
-            "relationshipService" : "http://localhost:8090/services/RelationshipService?wsdl",
-            "repositoryService" : "http://localhost:8090/services/RepositoryService?wsdl",
-            "versioningService" : "http://localhost:8090/services/VersioniongService?wsdl",
-            "repositoryId" : "A1",
-            "projections" : [ "default:/cmis => /" ]
+    "externalSources": {
+        "cmis": {
+            "classname": "org.modeshape.connector.cmis.CmisConnector",
+            "cacheTtlSeconds": 5,
+            "aclService": "http://localhost:8090/services/ACLService?wsdl",
+            "discoveryService": "http://localhost:8090/services/DiscoveryService?wsdl",
+            "multifilingService": "http://localhost:8090/services/MultifilingService?wsdl",
+            "navigationService": "http://localhost:8090/services/NavigationService?wsdl",
+            "objectService": "http://localhost:8090/services/ObjectService?wsdl",
+            "policyService": "http://localhost:8090/services/PolicyService?wsdl",
+            "relationshipService": "http://localhost:8090/services/RelationshipService?wsdl",
+            "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
+            "versioningService": "http://localhost:8090/services/VersioniongService?wsdl",
+            "repositoryId": "A1",
+            "projections": [ "default:/cmis => /" ],
+            "customTypeMappings": [
+                {
+                    "jcrName": "MyDocType2.8_remapped",
+                    "extName": "MyDocType2.8"
+                },
+                {
+                    "jcrNamespaceUri" : "http://org.modeshape/testing",
+                    "jcrName": "testing:ViDeoFiLe",
+                    "extName": "videoFile",
+
+                    "propertyMappings" : {
+                        "Title" : "title",
+                        "TrAcK" : "track"
+                    }
+                }
+            ]
         }
     },
-    "storage" : {
-        "cacheName" : "persistentRepository",
-        "cacheConfiguration" : "config/infinispan-federation-persistent.xml"
+    "storage": {
+        "cacheName": "persistentRepository",
+        "cacheConfiguration": "config/infinispan-federation-persistent.xml"
     }
 }

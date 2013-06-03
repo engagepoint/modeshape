@@ -30,6 +30,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.Calendar;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import javax.jcr.Binary;
@@ -186,6 +187,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     @Test
     public void shouldAccessObjectIdPropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
+        System.out.println(node);
         String objectId = node.getProperty("jcr:uuid").getString();
         assertTrue(objectId != null);
     }
@@ -248,9 +250,9 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 
         String name = "test" + System.currentTimeMillis();
         Node node = root.addNode(name, "nt:folder");
+        getSession().save();
         assertTrue(name.equals(node.getName()));
         // node.setProperty("name", "test-name");
-
         root = getSession().getNode("/cmis/" + name);
         Node node1 = root.addNode("test-1", "nt:file");
         // System.out.println("Test: creating binary content");
@@ -319,7 +321,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     @Test
     public void shouldAddVersioning() throws Exception {
         NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType("testing:prefixedType");
-        assertTrue(nodeType.isNodeType(NodeType.MIX_VERSIONABLE) || nodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE));
+        assertTrue(!nodeType.isNodeType(NodeType.MIX_VERSIONABLE) && !nodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE));
     }
 
     @Test
@@ -330,7 +332,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
     @Test
-    public void shouldCreateVersionedDocument() throws Exception {
+    public void shouldCreateUnVersionedDocument() throws Exception {
         Node root = getSession().getRootNode();
         Node node1 = root.addNode("test-versioned-doc-1", "testing:prefixedType");
         byte[] content = "Hello World".getBytes();
@@ -346,7 +348,29 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 
         NodeType primaryNodeType = getSession().getNode(node1.getPath()).getPrimaryNodeType();
         assertTrue("Node has no versionable mixin but should.",
-                (primaryNodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE)
-                        || primaryNodeType.isNodeType(NodeType.MIX_VERSIONABLE)));
+                (!primaryNodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE)
+                        && !primaryNodeType.isNodeType(NodeType.MIX_VERSIONABLE)));
+    }
+
+    @Test
+    public void shouldCreateRemappedType() throws Exception {
+        Node root = getSession().getRootNode();
+        // mapping MyDocType2.8
+        String fileName = "testFile_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "MyDocType2.8_remapped";
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node = getSession().getNode(node1.getPath());
+        assertTrue(node.isNodeType(mappedNodeType));
     }
 }
