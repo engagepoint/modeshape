@@ -33,13 +33,12 @@ import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
-import javax.jcr.Binary;
-import javax.jcr.Node;
-import javax.jcr.Property;
-import javax.jcr.PropertyIterator;
+import javax.jcr.*;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeIterator;
 import javax.jcr.nodetype.NodeTypeManager;
+import javax.jcr.nodetype.PropertyDefinition;
+
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.client.api.SessionFactory;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
@@ -48,6 +47,7 @@ import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
 
@@ -352,14 +352,25 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
                         && !primaryNodeType.isNodeType(NodeType.MIX_VERSIONABLE)));
     }
 
-    @Test
+//    @Test
     public void shouldCreateRemappedType() throws Exception {
-        Node root = getSession().getRootNode();
+        Node root = getSession().getNode("/cmis");
+
+        String propTitle = "Title_";
+        String propTrack = "TrAcK_";
         // mapping MyDocType2.8
         String fileName = "testFile_" + Long.toString((new Date()).getTime());
         String mappedNodeType = "MyDocType2.8_remapped";
+        NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(mappedNodeType);
+        System.out.println("Type definition: " + mappedNodeType);
+
+        for (PropertyDefinition propertyDefinition : nodeType.getPropertyDefinitions()) {
+            System.out.println("Property: " + propertyDefinition.getName());
+        }
+        System.out.println(" - - - - - - Type definition end  - - - - - -");
 
         Node node1 = root.addNode(fileName, mappedNodeType);
+
         byte[] content = "Hello World".getBytes();
         ByteArrayInputStream bin = new ByteArrayInputStream(content);
         bin.reset();
@@ -373,4 +384,143 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         Node node = getSession().getNode(node1.getPath());
         assertTrue(node.isNodeType(mappedNodeType));
     }
+
+//    @Test
+    public void shouldCreateRemappedTypeWithPrefix() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        String propTitle = "testing:Title_";
+        String propTrack = "TrAcK_";
+        String propTags = "multiTags";
+        // mapping testing:ViDeoFiLe
+        String fileName = "testFile_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "testing:ViDeoFiLe";
+        NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(mappedNodeType);
+        System.out.println("Type definition: " + mappedNodeType);
+
+        for (PropertyDefinition propertyDefinition : nodeType.getPropertyDefinitions()) {
+            System.out.print("Property: [" + propertyDefinition.getName());
+            System.out.print("] : <" + PropertyType.nameFromValue(propertyDefinition.getRequiredType()) + ">");
+            System.out.print("; isMultiple: " + propertyDefinition.isMultiple());
+            System.out.println();
+        }
+        System.out.println(" - - - - - - Type definition end  - - - - - -");
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        node1.setProperty(propTitle, "title title");
+        node1.setProperty(propTrack, (Integer) 4);
+        node1.setProperty(propTags, new String[]{"1", "3"});
+
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node;
+//         node = getSession().getNode(node1.getPath());
+//        node.setProperty(propTags, new String[]{"1", "2"});
+
+//        getSession().save();
+
+        node = getSession().getNode(node1.getPath());
+        assertTrue(node.isNodeType(mappedNodeType));
+        assertEquals("title title", node.getProperty(propTitle).getString());
+        assertTrue("property " + propTrack + " should present", node.hasProperty(propTrack));
+        assertEquals(4, node.getProperty(propTrack).getLong());
+        assertTrue(node.hasProperty(propTags));
+        System.out.println(node.getProperty(propTags).getString());
+    }
+
+    @Test
+    public void shouldCreateMultiTypeWithPrefix() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        String pFrom = "from";
+        String pTo = "to";
+        String fileName = "testFile_ed_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "emailDocument";
+        NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType(mappedNodeType);
+        System.out.println("Type definition: " + mappedNodeType);
+
+        for (PropertyDefinition propertyDefinition : nodeType.getPropertyDefinitions()) {
+            System.out.print("Property: [" + propertyDefinition.getName());
+            System.out.print("] : <" + PropertyType.nameFromValue(propertyDefinition.getRequiredType()) + ">");
+            System.out.print("; isMultiple: " + propertyDefinition.isMultiple());
+            System.out.println();
+        }
+        System.out.println(" - - - - - - Type definition end  - - - - - -");
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        node1.setProperty(pFrom, "title title");
+        node1.setProperty(pTo, new String[]{"1sefsefs", "fsf3"});
+        node1.setProperty("cc", new String[]{"cc1"});
+        node1.setProperty("bcc", "bcc1");
+
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node;
+//         node = getSession().getNode(node1.getPath());
+//        node.setProperty(propTags, new String[]{"1", "2"});
+
+//        getSession().save();
+
+        node = getSession().getNode(node1.getPath());
+        assertTrue(node.isNodeType(mappedNodeType));
+        assertEquals("title title", node.getProperty(pFrom).getString());
+        assertTrue("property " + pTo + " should present", node.hasProperty(pTo));
+        assertTrue("property cc should present", node.hasProperty("cc"));
+        assertTrue("property bcc should present", node.hasProperty("bcc"));
+        assertEquals(2, node.getProperty(pTo).getValues().length);
+        assertEquals(1, node.getProperty("cc").getValues().length);
+        System.out.println("assertEquals(1, node.getProperty(\"to\").().length); " + node.getProperty("to").toString());
+        System.out.println("assertEquals(1, node.getProperty(\"cc\").().length); " + node.getProperty("cc").toString());
+        System.out.println("assertEquals(1, node.getProperty(\"bcc\").().length); " + node.getProperty("bcc").toString());
+//        assertEquals(1, node.getProperty("bcc").().length);
+    }
+
+    @Test
+    public void testRename() throws Exception{
+        Node root = getSession().getNode("/cmis");
+
+        String fileName = "testFile_ed_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "emailDocument";
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        node1.addMixin("mix:referenceable");
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node;
+
+        node = getSession().getNodeByIdentifier(node1.getIdentifier());
+        String nameUpdated = "updated" + fileName;
+        String newPath = node.getParent().getPath() + "/" + nameUpdated;
+        getSession().move(node.getPath(), newPath);
+        getSession().save();
+
+        node = getSession().getNodeByIdentifier(node.getIdentifier());
+
+        assertEquals(nameUpdated, node.getName());
+    }
+
 }

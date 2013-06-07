@@ -2379,6 +2379,23 @@
             <orderable>true</orderable>
             <openChoice>false</openChoice>
         </propertyIntegerDefinition>
+         <!--multivalue-->
+        <propertyIntegerDefinition>
+            <id>multiTags</id>
+            <localName>multiTags</localName>
+            <displayName>Tags</displayName>
+            <queryName>tags</queryName>
+            <description>Tags</description>
+            <localNamespace>apache</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>multi</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyIntegerDefinition>
     </cmisra:type>
 
     <!--custom prefixed types-->

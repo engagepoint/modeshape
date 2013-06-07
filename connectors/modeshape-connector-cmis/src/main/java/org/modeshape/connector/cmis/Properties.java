@@ -25,15 +25,15 @@ package org.modeshape.connector.cmis;
 
 import java.math.BigDecimal;
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.GregorianCalendar;
-import java.util.List;
+import java.util.*;
+
 import org.apache.chemistry.opencmis.client.api.Property;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.PropertyType;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
+import org.infinispan.schematic.internal.document.BasicArray;
 import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
@@ -42,18 +42,18 @@ import org.modeshape.jcr.value.ValueFactory;
  * Implements mapping between several CMIS and JCR properties. This implementation of the connector suppose conversation between
  * cmis folders and document into jcr folders and files. Such conversation in its order suppose conversation of the names and
  * values. This utility class provides such work for us.
- * 
+ *
  * @author kulikov
  */
-@SuppressWarnings( "synthetic-access" )
+@SuppressWarnings("synthetic-access")
 public class Properties {
     // table which establishes relations between cmis and jcr names
     // used for properties of teh folders and documents
     // Relations are defined as list of strings. This way seems preffered because
     // we have a small amount of such relations and simple linear search give us
     // better performance for small sets.
-    private final static String[] map = new String[] {"cmis:objectId = jcr:uuid", "cmis:createdBy = jcr:createdBy",
-        "cmis:creationDate = jcr:created", "cmis:lastModificationDate = -", "cmis:lastModifiedBy = -"};
+    private final static String[] map = new String[]{"cmis:objectId = jcr:uuid", "cmis:createdBy = jcr:createdBy",
+            "cmis:creationDate = jcr:created", "cmis:lastModificationDate = -", "cmis:lastModifiedBy = -"};
 
     // this is value factory used for converation of the values
     private ValueFactories valueFactories;
@@ -63,10 +63,10 @@ public class Properties {
 
     /**
      * Constructs this class instance.
-     * 
+     *
      * @param valueFactories jcr value factory
      */
-    public Properties( ValueFactories valueFactories ) {
+    public Properties(ValueFactories valueFactories) {
         this.valueFactories = valueFactories;
         // parse strings and create relations
         for (int i = 0; i < map.length; i++) {
@@ -84,11 +84,11 @@ public class Properties {
 
     /**
      * Determines the name of the given property from cmis domain in jcr domain.
-     * 
+     *
      * @param cmisName the name of property in cmis domain.
      * @return the name of the same property in jcr domain.
      */
-    public String findJcrName( String cmisName ) {
+    public String findJcrName(String cmisName) {
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i).cmisName != null && list.get(i).cmisName.equals(cmisName)) {
                 return list.get(i).jcrName;
@@ -99,11 +99,11 @@ public class Properties {
 
     /**
      * Determines the name of the given property from jcr domain in cmis domain.
-     * 
+     *
      * @param jcrName the name of property in jcr domain.
      * @return the name of the same property in cmis domain.
      */
-    public String findCmisName( String jcrName ) {
+    public String findCmisName(String jcrName) {
         for (int i = 0; i < list.size(); i++) {
             if (list.get(i).jcrName != null && list.get(i).jcrName.equals(jcrName)) {
                 return list.get(i).cmisName;
@@ -114,11 +114,11 @@ public class Properties {
 
     /**
      * Converts type of property.
-     * 
+     *
      * @param propertyType the type of the property in cmis domain.
      * @return the type of the property in jcr domain.
      */
-    public int getJcrType( PropertyType propertyType ) {
+    public int getJcrType(PropertyType propertyType) {
         switch (propertyType) {
             case BOOLEAN:
                 return javax.jcr.PropertyType.BOOLEAN;
@@ -134,6 +134,8 @@ public class Properties {
                 return javax.jcr.PropertyType.URI;
             case ID:
                 return javax.jcr.PropertyType.STRING;
+            case STRING:
+                return javax.jcr.PropertyType.STRING;
             default:
                 return javax.jcr.PropertyType.UNDEFINED;
         }
@@ -141,13 +143,22 @@ public class Properties {
 
     /**
      * Calculates value of the property corresponding to cmis domain.
-     * 
-     * @param pdef property definition as declared in cmis repository.
+     *
+     * @param pdef  property definition as declared in cmis repository.
      * @param field the representation of the value of the property in jcr domain.
      * @return value as declared by property definition.
      */
-    public Object cmisValue( PropertyDefinition<?> pdef,
-                             Field field ) {
+    public Object cmisValue(PropertyDefinition<?> pdef,
+                            Field field) {
+        if (pdef.getCardinality() == Cardinality.MULTI) {
+            System.out.println("FLDFLDFLDFLDFLDFLDFLD::: " + field);
+            return field.getValueAsDocument().getArray(field.getName());
+
+//            if (field.getValue() instanceof List) {
+//                return (List) field.getValue();
+//            }
+//            return Arrays.asList(field.getValue());
+        }
         switch (pdef.getPropertyType()) {
             case STRING:
                 return field.getValueAsString();
@@ -156,7 +167,13 @@ public class Properties {
             case DECIMAL:
                 return BigDecimal.valueOf(field.getValueAsInt());
             case INTEGER:
-                return field.getValueAsInt();
+//                return field.getValueAsInt();
+                // override default logic. There is not integer in Jcr
+                Object obj = field.getValue();
+                if (obj == null) return obj;
+                if (obj instanceof Long) return (Long) obj;
+                else if (obj instanceof Integer) return (Integer) obj;
+                else return null;
             case DATETIME:
                 // FIXME
                 return new GregorianCalendar();
@@ -177,18 +194,31 @@ public class Properties {
 
     /**
      * Calculates value of the property corresponding to cmis domain.
-     * 
-     * @param pdef property definition as declared in cmis repository.
-     * @param jcrName the name of the property in jcr domain
+     *
+     * @param pdef     property definition as declared in cmis repository.
+     * @param jcrName  the name of the property in jcr domain
      * @param document connectors's view of properties in jcr domain.
      * @return value as declared by property definition.
      */
-    public Object cmisValue( PropertyDefinition<?> pdef,
-                             String jcrName,
-                             Document document ) {
+    public Object cmisValue(PropertyDefinition<?> pdef,
+                            String jcrName,
+                            Document document) {
         if (pdef.getCardinality() == Cardinality.MULTI) {
-            return document.getArray(jcrName);
+            List array = document.getArray(jcrName);
+            System.out.println("arrays value: "+ array);
+            if (array == null) {
+                Object singleValue = getSingleValue(pdef, jcrName, document);
+                if (singleValue != null) {
+                    array  = new BasicArray(singleValue);
+                    System.out.println("custom sv arrays value: "+ array);
+                }
+            }
+            return array;
         }
+        return getSingleValue(pdef, jcrName, document);
+    }
+
+    private Object getSingleValue(PropertyDefinition<?> pdef, String jcrName, Document document) {
         switch (pdef.getPropertyType()) {
             case STRING:
                 return document.getString(jcrName);
@@ -197,7 +227,12 @@ public class Properties {
             case DECIMAL:
                 return BigDecimal.valueOf(document.getLong(jcrName));
             case INTEGER:
-                return document.getInteger(jcrName);
+                // override default logic. There is not integer in Jcr
+                Object obj = document.get(jcrName);
+                if (obj == null) return obj;
+                if (obj instanceof Long) return (Long) obj;
+                else if (obj instanceof Integer) return (Integer) obj;
+                else return null;
             case DATETIME:
                 // FIXME
                 return new GregorianCalendar();
@@ -218,13 +253,13 @@ public class Properties {
 
     /**
      * Converts value of the property for the jcr domain.
-     * 
+     *
      * @param property property in cmis domain
      * @return value of the given property in jcr domain.
      */
-    public Object[] jcrValues( Property<?> property ) {
-        @SuppressWarnings( "unchecked" )
-        List<Object> values = (List<Object>)property.getValues();
+    public Object[] jcrValues(Property<?> property) {
+        @SuppressWarnings("unchecked")
+        List<Object> values = (List<Object>) property.getValues();
 
         // convert CMIS values to JCR values
         switch (property.getType()) {
@@ -251,11 +286,11 @@ public class Properties {
 
     /**
      * Converts CMIS value of boolean type into JCR value of boolean type.
-     * 
+     *
      * @param values CMIS values of boolean type
      * @return JCR values of boolean type
      */
-    private Boolean[] asBooleans( List<Object> values ) {
+    private Boolean[] asBooleans(List<Object> values) {
         ValueFactory<Boolean> factory = valueFactories.getBooleanFactory();
         Boolean[] res = new Boolean[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -266,11 +301,11 @@ public class Properties {
 
     /**
      * Converts CMIS value of string type into JCR value of string type.
-     * 
+     *
      * @param values CMIS values of string type
      * @return JCR values of string type
      */
-    private String[] asStrings( List<Object> values ) {
+    private String[] asStrings(List<Object> values) {
         ValueFactory<String> factory = valueFactories.getStringFactory();
         String[] res = new String[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -281,11 +316,11 @@ public class Properties {
 
     /**
      * Converts CMIS value of integer type into JCR value of boolean type.
-     * 
+     *
      * @param values CMIS values of integer type
      * @return JCR values of integer type
      */
-    private Long[] asIntegers( List<Object> values ) {
+    private Long[] asIntegers(List<Object> values) {
         ValueFactory<Long> factory = valueFactories.getLongFactory();
         Long[] res = new Long[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -296,11 +331,11 @@ public class Properties {
 
     /**
      * Converts CMIS value of decimal type into JCR value of boolean type.
-     * 
+     *
      * @param values CMIS values of decimal type
      * @return JCR values of decimal type
      */
-    private BigDecimal[] asDecimals( List<Object> values ) {
+    private BigDecimal[] asDecimals(List<Object> values) {
         ValueFactory<BigDecimal> factory = valueFactories.getDecimalFactory();
         BigDecimal[] res = new BigDecimal[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -311,41 +346,41 @@ public class Properties {
 
     /**
      * Converts CMIS value of date/time type into JCR value of date/time type.
-     * 
+     *
      * @param values CMIS values of gregorian calendar type
      * @return JCR values of date/time type
      */
-    private DateTime[] asDateTime( List<Object> values ) {
+    private DateTime[] asDateTime(List<Object> values) {
         ValueFactory<DateTime> factory = valueFactories.getDateFactory();
         DateTime[] res = new DateTime[values.size()];
         for (int i = 0; i < res.length; i++) {
-            res[i] = factory.create(((GregorianCalendar)values.get(i)).getTime());
+            res[i] = factory.create(((GregorianCalendar) values.get(i)).getTime());
         }
         return res;
     }
 
     /**
      * Converts CMIS value of URI type into JCR value of URI type.
-     * 
+     *
      * @param values CMIS values of URI type
      * @return JCR values of URI type
      */
-    private URI[] asURI( List<Object> values ) {
+    private URI[] asURI(List<Object> values) {
         ValueFactory<URI> factory = valueFactories.getUriFactory();
         URI[] res = new URI[values.size()];
         for (int i = 0; i < res.length; i++) {
-            res[i] = factory.create(((GregorianCalendar)values.get(i)).getTime());
+            res[i] = factory.create(((GregorianCalendar) values.get(i)).getTime());
         }
         return res;
     }
 
     /**
      * Converts CMIS value of ID type into JCR value of String type.
-     * 
+     *
      * @param values CMIS values of Id type
      * @return JCR values of String type
      */
-    private String[] asIDs( List<Object> values ) {
+    private String[] asIDs(List<Object> values) {
         ValueFactory<String> factory = valueFactories.getStringFactory();
         String[] res = new String[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -356,11 +391,11 @@ public class Properties {
 
     /**
      * Converts CMIS value of HTML type into JCR value of String type.
-     * 
+     *
      * @param values CMIS values of HTML type
      * @return JCR values of String type
      */
-    private String[] asHTMLs( List<Object> values ) {
+    private String[] asHTMLs(List<Object> values) {
         ValueFactory<String> factory = valueFactories.getStringFactory();
         String[] res = new String[values.size()];
         for (int i = 0; i < res.length; i++) {
@@ -373,8 +408,8 @@ public class Properties {
         private String jcrName;
         private String cmisName;
 
-        private Relation( String cmisName,
-                          String jcrName ) {
+        private Relation(String cmisName,
+                         String jcrName) {
             this.cmisName = cmisName;
             this.jcrName = jcrName;
         }

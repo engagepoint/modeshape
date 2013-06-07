@@ -24,6 +24,8 @@
 package org.modeshape.connector.cmis;
 
 import java.util.HashMap;
+import java.util.Map;
+
 import org.modeshape.jcr.JcrLexicon;
 
 /**
@@ -41,7 +43,7 @@ public class Prefix {
         return map.get(namespaceUri);
     }
 
-    public void addNamespace(String nsUri, String nsPrefix){
+    public void addNamespace(String nsPrefix, String nsUri){
         map.put(nsUri, nsPrefix);
     }
 }

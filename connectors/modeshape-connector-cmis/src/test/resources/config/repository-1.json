@@ -25,23 +25,29 @@
             "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
             "versioningService": "http://localhost:8090/services/VersioniongService?wsdl",
             "repositoryId": "A1",
+            "debug" : true,
             "projections": [ "default:/cmis => /" ],
-            "customTypeMappings": [
-                {
-                    "jcrName": "MyDocType2.8_remapped",
-                    "extName": "MyDocType2.8"
+            "customMapping": {
+                "namespaces": {
+                    "testing" : "http://org.modeshape/testing"
                 },
-                {
-                    "jcrNamespaceUri" : "http://org.modeshape/testing",
-                    "jcrName": "testing:ViDeoFiLe",
-                    "extName": "videoFile",
+                "types": [
+                    {
+                        "jcrName": "MyDocType2.8_remapped",
+                        "extName": "MyDocType2.8"
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/testing",
+                        "jcrName": "testing:ViDeoFiLe",
+                        "extName": "videoFile",
 
-                    "propertyMappings" : {
-                        "Title" : "title",
-                        "TrAcK" : "track"
+                        "propertyMappings": {
+                            "testing:Title_": "title",
+                            "TrAcK_": "track"
+                        }
                     }
-                }
-            ]
+                ]
+            }
         }
     },
     "storage": {

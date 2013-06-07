@@ -5,7 +5,7 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
-public class MappedCustomTypesContainer {
+public class MappedTypesContainer {
 
     List<MappedCustomType> mappings = new LinkedList<MappedCustomType>();
 
@@ -31,4 +31,7 @@ public class MappedCustomTypesContainer {
         return mappings.isEmpty();
     }
 
+    public int size() {
+        return mappings != null ? mappings.size() : 0;
+    }
 }

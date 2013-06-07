@@ -43,7 +43,9 @@ import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
+import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.CryptoUtils;
+import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
@@ -54,7 +56,6 @@ import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
-import org.modeshape.jcr.value.ValueFactory;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -156,8 +157,9 @@ public class CmisConnector extends Connector {
     private Properties properties;
     private Nodes nodes;
     // type mapping
-    private List customTypeMappings;
-    private MappedCustomTypesContainer mappedTypes = new MappedCustomTypesContainer();
+    private TypeCustomMappingList customMapping;
+    private MappedTypesContainer mappedTypes;
+    private boolean debug = false;
 
     private Prefix prefixes = new Prefix();
 
@@ -165,42 +167,24 @@ public class CmisConnector extends Connector {
         super();
     }
 
-    // DEBUG
-    public void pt(String... values) {
-        for (String value : values) {
-            System.out.print(value + " ");
-        }
-        System.out.println();
-    }
-
-    private void printTypeMappingConfig() {
-        if (customTypeMappings == null ) return;
-        for (Object obja : customTypeMappings) {
-            Document typeMapping = (Document) obja;
-
-            MappedCustomType mappedCustomType = new MappedCustomType(typeMapping.getString("jcrName"), typeMapping.getString("extName"));
-            mappedCustomType.setJcrNamespaceUri(typeMapping.getString("jcrNamespaceUri"));
-
-            if (typeMapping.getDocument("propertyMappings") != null) {
-                Iterable<Field> propertyMappings = typeMapping.getDocument("propertyMappings").fields();
-                for (Field propertyMapping : propertyMappings) {
-                    mappedCustomType.addPropertyMapping(propertyMapping.getName(), propertyMapping.getValueAsString());
-                }
+    // DEBUG. this method will be removed todo
+    public void debug(String... values) {
+        if (debug) {
+            for (String value : values) {
+                System.out.print(value + " ");
             }
-
-            mappedTypes.addTypeMapping(mappedCustomType);
+            System.out.println();
         }
-
-        pt("Added ", Integer.toString(mappedTypes.mappings.size()), " mapped types ..");
     }
 
     @Override
     public void initialize(NamespaceRegistry registry,
                            NodeTypeManager nodeTypeManager) throws RepositoryException, IOException {
         super.initialize(registry, nodeTypeManager);
-
-
-        printTypeMappingConfig();
+        // read mapping
+        this.mappedTypes = TypeMappingConfigUtil.getMappedTypes(customMapping);
+        debug("Found ", Integer.toString(customMapping.getNamespaces().size()), " mapped namspaces ..");
+        debug("Added ", Integer.toString(mappedTypes.size()), " mapped types ..");
 
         this.factories = getContext().getValueFactories();
 
@@ -240,12 +224,36 @@ public class CmisConnector extends Connector {
             }
         }, null);
 
-        registry.registerNamespace(CmisLexicon.Namespace.PREFIX, CmisLexicon.Namespace.URI);
-        registry.registerNamespace("notifications","http://engagepoint.com/document/notifications");
+        registerPredefinedNamspaces(registry);
         importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry);
         registerRepositoryInfoType(nodeTypeManager);
     }
 
+    /*
+     * register default CMIS namespace
+     * and namespaces from mapping section of connector's configuration
+     *
+     * do it before node types registration because:
+     * - ns uri is not necessary per type in this case
+     * - problems may appear when registering namespace together with nodetype (but probably may be fixed)
+    */
+    public void registerPredefinedNamspaces(NamespaceRegistry registry) throws RepositoryException {
+        // modeshape cmis
+        registry.registerNamespace(CmisLexicon.Namespace.PREFIX, CmisLexicon.Namespace.URI);
+        // custom
+        for (Map.Entry<String, String> entry : customMapping.getNamespaces().entrySet()) {
+            String nsPrefix = entry.getKey();
+            String nsUri = entry.getValue();
+            if (!isNsAlreadyRegistered(null, registry, nsPrefix, nsUri)) {
+                registry.registerNamespace(nsPrefix, nsUri);
+                prefixes.addNamespace(nsPrefix, nsUri);
+            }
+        }
+    }
+
+    /*
+    * get decrypted password
+    */
     private String getPassword() throws IOException, RepositoryException {
         String decrypt;
         try {
@@ -316,7 +324,15 @@ public class CmisConnector extends Connector {
                 }
 
                 // delete content stream
-                doc.deleteContentStream();
+                if (isVersioned(doc)) {
+                    // ignore deletion of content stream. lets rely on delete document then
+                    // may be called before document deletion. in this case may not be necessary
+//                    deleteStreamVersioned(doc);
+                    debug("ignore content stream deletion for versioned document.");
+                } else {
+                    doc.deleteContentStream();
+                }
+
                 return true;
             case OBJECT:
                 // these type points to either cmis:document or cmis:folder so
@@ -328,8 +344,8 @@ public class CmisConnector extends Connector {
                     return false;
                 }
 
-                // just delete object
                 object.delete(true);
+
                 return true;
             default:
                 return false;
@@ -369,6 +385,7 @@ public class CmisConnector extends Connector {
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
 
         // this action depends from object type
+        debug("=== STORE document called ====", document.toString());
         switch (objectId.getType()) {
             case REPOSITORY_INFO:
                 // repository information is ready only
@@ -429,11 +446,15 @@ public class CmisConnector extends Connector {
                 MappedCustomType mapping = mappedTypes.findByExtName(cmisObject.getType().getId());
                 // jcr properties are grouped by namespace uri
                 // we will travers over all namespaces (ie group of properties)
+                debug();
+                debug("Store properties for", objectId.getIdentifier(), cmisObject.getType().getId(), "with mapping to :", mapping != null ? mapping.getJcrName() : "<none>");
+
                 for (Field field : jcrProperties.fields()) {
                     // field has namespace uri as field's name and properties
                     // as value
                     // getting namespace uri and properties
                     String namespaceUri = field.getName();
+                    debug("property nsUri", namespaceUri);
                     Document props = field.getValueAsDocument();
 
                     // namespace uri uniquily defines prefix for the property name
@@ -444,11 +465,12 @@ public class CmisConnector extends Connector {
                         // getting jcr fully qualified name of property
                         // then determine the the name of this property
                         // in the cmis domain
-                        String jcrPropertyName = prefix + property.getName();
+                        String jcrPropertyName = prefix != null ? prefix + ":" + property.getName() : property.getName();
+                        debug("property ", jcrPropertyName);
                         String cmisPropertyName = properties.findCmisName(jcrPropertyName);
-                        // correct. AAA!!!
+                        // correlate with custom mapping
                         cmisPropertyName = mapping != null ? mapping.toExtProperty(cmisPropertyName) : cmisPropertyName;
-
+                        debug("cmisPropertyName", cmisPropertyName);
                         // now we need to convert value, we will use
                         // property definition from the original cmis repo for this step
                         PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
@@ -456,17 +478,30 @@ public class CmisConnector extends Connector {
                         // unknown property?
                         if (pdef == null) {
                             // ignore
-                            return;
+                            debug("property definition not found. ignoring", cmisPropertyName, "...");
+                            continue;
                         }
 
                         // make conversation for the value
-                        Object cmisValue = properties.cmisValue(pdef, property);
 
+                        debug("getting cmis value. jcr value type is ", property.getValue().getClass().getSimpleName(),
+                                "; vs cmis type: ", pdef.getPropertyType().value());
+                        Object cmisValue = null;
+                        try {
+                            cmisValue = properties.cmisValue(pdef, property.getName(), props);
+                        } catch (Exception e) {
+                            debug(e.getMessage());
+                        }
+                        debug("put property: [[", cmisPropertyName, "]] = <", cmisValue != null ? cmisValue.toString() : "", ">");
                         // store properties for update
+                        // incorrect value won't be parsed so cmisValue will have null which may overwrite default value for required property
+                        // consider not to put empty values while store ??
                         updateProperties.put(cmisPropertyName, cmisValue);
                     }
+
                 }
                 // finally execute update action
+                debug("update / store properties?? ", updateProperties.isEmpty() ? "No" : "Yep");
                 if (!updateProperties.isEmpty()) {
                     if (isDocument(cmisObject) && isVersioned(cmisObject)) {
                         updateVersionedDoc(cmisObject, updateProperties, null);
@@ -476,10 +511,15 @@ public class CmisConnector extends Connector {
                 }
                 break;
         }
+        debug("-- end of store story ---------");
     }
 
     @Override
     public void updateDocument(DocumentChanges delta) {
+        debug("-======== Update Document called delta: ==============-");
+        debug("getChildrenChanges/renamed:", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
+        debug("getDocumentId:", delta.getDocumentId());
+        debug("-======== || ==============-");
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
@@ -528,6 +568,26 @@ public class CmisConnector extends Connector {
                 cmisObject = session.getObject(objectId.getIdentifier());
                 changes = delta.getPropertyChanges();
 
+                // process children changes
+                if (delta.getChildrenChanges().getRenamed().size() > 0) {
+                    debug("Children changes: renamed", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
+                    for (Map.Entry<String, Name> entry : delta.getChildrenChanges().getRenamed().entrySet()) {
+                        debug("Child renamed", entry.getKey(), " = ", entry.getValue().toString());
+
+                        CmisObject childCmisObject = session.getObject(entry.getKey());
+                        Map<String, Object> updProperties = new HashMap<String, Object>();
+                        updProperties.put("cmis:name", entry.getValue().getLocalName());
+                        if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
+                            updateVersionedDoc(childCmisObject, updProperties, null);
+                        } else {
+                            childCmisObject.updateProperties(updProperties);
+                        }
+                    }
+                }
+
+                debug();
+                debug("======= update object =============");
+
                 Document props = delta.getDocument().getDocument("properties");
 
                 // checking that object exists
@@ -552,15 +612,18 @@ public class CmisConnector extends Connector {
 
                 // convert names and values
                 for (Name name : modifications) {
+                    debug("name.getNamespaceUri()", name.getNamespaceUri());
                     String prefix = prefixes.value(name.getNamespaceUri());
-
+                    debug("prefix", prefix);
                     // prefixed name of the property in jcr domain is
                     String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
+                    debug("jcrPName", jcrPropertyName);
                     // the name of this property in cmis domain is
                     String cmisPropertyName = properties.findCmisName(jcrPropertyName);
+                    debug("cmisName", cmisPropertyName);
                     // correct. AAA!!!
                     cmisPropertyName = mapping != null ? mapping.toExtProperty(cmisPropertyName) : cmisPropertyName;
-
+                    debug("cmis replaced name", cmisPropertyName);
                     // in cmis domain this property is defined as
                     PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
 
@@ -572,7 +635,10 @@ public class CmisConnector extends Connector {
 
                     // convert value and store
                     Document jcrValues = props.getDocument(name.getNamespaceUri());
-                    updateProperties.put(cmisPropertyName, properties.cmisValue(pdef, name.getLocalName(), jcrValues));
+
+                    Object value = properties.cmisValue(pdef, name.getLocalName(), jcrValues);
+                    debug("adding prop", cmisPropertyName, "value", value.toString());
+                    updateProperties.put(cmisPropertyName, value);
 
                 }
 
@@ -585,12 +651,16 @@ public class CmisConnector extends Connector {
                     // the name of this property in cmis domain is
                     String cmisPropertyName = properties.findCmisName(jcrPropertyName);
 
+                    // correlate with mapping
+                    cmisPropertyName = mapping != null ? mapping.toExtProperty(cmisPropertyName) : cmisPropertyName;
+
                     // in cmis domain this property is defined as
                     PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
 
                     // unknown property?
                     if (pdef == null) {
                         // ignore
+                        debug(cmisPropertyName, "unknown property - ignore ..");
                         continue;
                     }
 
@@ -598,6 +668,7 @@ public class CmisConnector extends Connector {
                 }
 
                 // run update action
+                debug("update properties?? ", updateProperties.isEmpty() ? "No" : "Yep");
                 if (!updateProperties.isEmpty()) {
 
                     if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
@@ -609,7 +680,7 @@ public class CmisConnector extends Connector {
 
                 break;
         }
-
+        debug("end of update story -----------------------------");
 
     }
 
@@ -624,7 +695,7 @@ public class CmisConnector extends Connector {
                                 Name name,
                                 Name primaryType) {
         HashMap<String, Object> params = new HashMap<String, Object>();
-        pt("create document ..");
+        debug("-============== NEW DOCUMENT ID ================-");
         // let'start from checking primary type
         if (primaryType.getLocalName().equals("resource")) {
             // nt:resource node belongs to cmis:document's content thus
@@ -634,6 +705,9 @@ public class CmisConnector extends Connector {
 
         // all other node types belong to cmis object
         String cmisObjectTypeName = nodes.findCmisName(primaryType);
+        debug("type ", cmisObjectTypeName);
+        cmisObjectTypeName = jcrTypeToCmis(cmisObjectTypeName);
+        debug("resolved type ", cmisObjectTypeName);
         Folder parent = (Folder) session.getObject(parentId);
 
         // Ivan, we can pick up object type and property definition map from CMIS repo
@@ -661,10 +735,10 @@ public class CmisConnector extends Connector {
                 params.put(PropertyIds.PATH, path);
                 String newFolderId = parent.createFolder(params).getId();
                 String result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
-                pt("return folder id", result, ". new folder id ", newFolderId);
+                debug("return folder id", result, ". new folder id ", newFolderId);
                 return result;
             case CMIS_DOCUMENT:
-                pt("new Doc, parentId", parentId);
+                debug("new Doc, parentId", parentId);
                 VersioningState versioningState = VersioningState.NONE;
                 if (objectType instanceof DocumentTypeDefinition) {
                     DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
@@ -672,12 +746,12 @@ public class CmisConnector extends Connector {
                 }
 
                 String versionId = ObjectId.toString(ObjectId.Type.OBJECT, parent.createDocument(params, null, versioningState).getId());
-                pt("return CMIS_DOCUMENT", versionId);
+                debug("return CMIS_DOCUMENT", versionId);
                 String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
-                pt("return CMIS_DOCUMENT", resultId);
+                debug("return CMIS_DOCUMENT", resultId);
                 return resultId;
             default:
-                pt("return null. base type id is ", objectType.getBaseTypeId().value());
+                debug("return null. base type id is ", objectType.getBaseTypeId().value());
                 return null;
         }
     }
@@ -717,7 +791,7 @@ public class CmisConnector extends Connector {
 
 
     public String cmisTypeToJcr(String cmisTypeId) {
-        if (customTypeMappings.isEmpty())
+        if (mappedTypes.isEmpty())
             return cmisTypeId;
 
         MappedCustomType byExtName = mappedTypes.findByExtName(cmisTypeId);
@@ -728,12 +802,12 @@ public class CmisConnector extends Connector {
     }
 
     public String jcrTypeToCmis(String jcrName) {
-        if (customTypeMappings.isEmpty())
+        if (mappedTypes.isEmpty())
             return jcrName;
 
         MappedCustomType byExtName = mappedTypes.findByJcrName(jcrName);
         return (byExtName != null)
-                ? byExtName.getJcrName()
+                ? byExtName.getExtName()
                 : jcrName;
 
     }
@@ -852,24 +926,25 @@ public class CmisConnector extends Connector {
         List<Property<?>> list = object.getProperties();
         TypeDefinition type = object.getType();
         MappedCustomType typeMapping = mappedTypes.findByExtName(type.getId());
-//        pt();
-//        pt("properties for ", object.getType().getId(), typeMapping != null ? typeMapping.getJcrName() : "<no jcr mapping>");
+//        debug();
+//        debug("properties for ", object.getType().getId(), typeMapping != null ? typeMapping.getJcrName() : "<no jcr mapping>");
         for (Property<?> property : list) {
-//            pt("Process property ", property.getId());
+//            debug("Process property -- : [", property.getId(), " ] with value:", property.getValueAsString());
             String pname = properties.findJcrName(property.getId());
             PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(property.getId());
 
             boolean ignore = (pname != null && !pname.startsWith("jcr:")) && ((propertyDefinition.getUpdatability() == Updatability.READONLY)
                     || type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value()));
-//            pt("Converted property ", pname);
+//            debug("Converted property ", pname);
             if (pname != null && !pname.startsWith(CMIS_PREFIX) && !ignore) {
                 String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
-//                pt("Transformed property ", propertyTargetName);
-                writer.addProperty(propertyTargetName, properties.jcrValues(property));
+                Object[] values = properties.jcrValues(property);
+//                debug("adding Transformed property ", propertyTargetName, "with values:", (values != null && values.length > 0) ? values[0].toString() : "");
+                writer.addProperty(propertyTargetName, values);
             }
         }
-//        pt("propertie done");
-//        pt();
+//        debug("propertie done");
+//        debug();
     }
 
     /**
@@ -973,21 +1048,21 @@ public class CmisConnector extends Connector {
         }
         String cmisTypeId = cmisType.getId();
         MappedCustomType mapping = mappedTypes.findByExtName(cmisType.getId());
-        if (mapping!=null) cmisTypeId = mapping.getJcrName();
+        if (mapping != null) cmisTypeId = mapping.getJcrName();
 
         // namespace registration
-        pt("Type: ", cmisTypeId);
+        debug("Type: ", cmisTypeId);
         if (!cmisTypeId.equals(cmisType.getLocalName()) && cmisTypeId.contains(":")) {
 
             String nsPrefix = cmisTypeId.substring(0, cmisTypeId.indexOf(":"));
             String nsUri = mapping == null ? cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
-            pt("check type namespace type: ", nsPrefix, ":", nsUri);
+            debug("check type namespace type: ", nsPrefix, ":", nsUri);
             // check is ns is not registered already with exactly same prefix and uri
             // if one of items presents typeManager should throw an exception while registering
             if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
-                pt("register namespace type: ", nsPrefix, ":", nsUri);
+                debug("register namespace type: ", nsPrefix, ":", nsUri);
                 registry.registerNamespace(nsPrefix, nsUri);
-                prefixes.addNamespace(nsUri, nsPrefix);
+                prefixes.addNamespace(nsPrefix, nsUri);
             }
         }
 
@@ -1007,6 +1082,7 @@ public class CmisConnector extends Connector {
         Set<String> names = props.keySet();
         // properties
         for (String name : names) {
+//            debug("importing property: ", name, " ...");
             if (name.startsWith(CMIS_PREFIX)) continue; // ignore them. they must be handled/mapped with default logic
 
             PropertyDefinition<?> cmisPropDef = props.get(name);
@@ -1023,9 +1099,11 @@ public class CmisConnector extends Connector {
             // if property is protected and already declared in parents - ignore it
             // we cannot override protected property so try to avoid it
             if (jcrProp.isProtected()/* && parentsHasPropertyDeclared(typeManager, type, jcrProp)*/) {
+//                debug("ignore", jcrProp.getName());
                 continue;
             }
 
+//            debug("adding", jcrProp.getName());
             if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
         }
 
@@ -1057,7 +1135,7 @@ public class CmisConnector extends Connector {
         if (ArrayUtils.contains(registry.getPrefixes(), nsPrefix) && ArrayUtils.contains(registry.getURIs(), nsUri))
             return true;
 
-        if (StringUtils.equals(cmisType.getBaseType().getLocalNamespace(), cmisType.getLocalNamespace()))
+        if (cmisType != null && StringUtils.equals(cmisType.getBaseType().getLocalNamespace(), cmisType.getLocalNamespace()))
             return true;
 
         return false;
@@ -1167,21 +1245,41 @@ public class CmisConnector extends Connector {
     }
 
     public org.apache.chemistry.opencmis.client.api.Document checkout(CmisObject cmisObject) {
+        debug("checkout..");
         org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
         org.apache.chemistry.opencmis.client.api.ObjectId objectId1 = doc.checkOut();
         org.apache.chemistry.opencmis.client.api.Document pwc = (org.apache.chemistry.opencmis.client.api.Document) session.getObject(objectId1);
+        debug("checked out pwc:", pwc.toString());
         return pwc;
     }
 
 
     public String checkin(org.apache.chemistry.opencmis.client.api.Document pwc, Map<String, ?> properties, ContentStream contentStream, String storedId) {
         try {
+            debug("checkin..");
             String id = pwc.checkIn(true, properties, contentStream, "connector's check in").getId();
+            debug("checkin id:", id);
         } catch (CmisBaseException e) {
             e.printStackTrace(); // todo
             pwc.cancelCheckOut();
         }
         return pwc.getId();
+    }
+
+    public void deleteStreamVersioned(CmisObject object) {
+        org.apache.chemistry.opencmis.client.api.Document pwc = checkout(object);
+        pwc.deleteContentStream();
+    }
+
+    public void deleteVersioned(CmisObject object) {
+        org.apache.chemistry.opencmis.client.api.Document document = asDocument(object);
+        debug("is PWC:", Boolean.toString(document.isPrivateWorkingCopy()));
+        debug("is VSeries checked out:", Boolean.toString(document.isVersionSeriesCheckedOut()));
+        if (document.isPrivateWorkingCopy() || document.isVersionSeriesCheckedOut())
+            document.deleteAllVersions();
+
+        org.apache.chemistry.opencmis.client.api.Document pwc = checkout(object);
+        pwc.deleteAllVersions();
     }
 
 
