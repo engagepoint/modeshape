@@ -34,10 +34,9 @@ import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import javax.jcr.*;
-import javax.jcr.nodetype.NodeType;
-import javax.jcr.nodetype.NodeTypeIterator;
-import javax.jcr.nodetype.NodeTypeManager;
-import javax.jcr.nodetype.PropertyDefinition;
+import javax.jcr.lock.LockException;
+import javax.jcr.nodetype.*;
+import javax.jcr.version.VersionException;
 
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.client.api.SessionFactory;
@@ -523,4 +522,116 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertEquals(nameUpdated, node.getName());
     }
 
+    void pt(String... values){
+        for (String value : values) {
+            System.out.print(value);
+            System.out.print(" ");
+        }
+        System.out.println();
+    }
+
+    void pnt(Node node) throws RepositoryException {
+        pt("Node stree ....");
+        printNodeTree(node);
+        pt("....Node stree ||");
+    }
+
+    void printNodeTree(Node node) throws RepositoryException {
+        pt(node.toString());
+        NodeIterator nodes = node.getNodes();
+        while (nodes.hasNext()) {
+            printNodeTree(nodes.nextNode());
+        }
+    }
+
+//    @Test  // fails due to bug in modeshape deepCopy method of Node
+    public void testCopy() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        String fileName = "testFile_cp_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "emailDocument";
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        node1.addMixin("mix:referenceable");
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        contentNode.addMixin("mix:referenceable");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node = getSession().getNodeByIdentifier(node1.getIdentifier());
+//        pnt(getSession().getNode("/cmis"));
+        getSession().getWorkspace().copy(node.getPath(), node.getPath() + "_copy");
+        getSession().save();
+    }
+
+    /*@Test
+    public void testFSCopy() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        String fileName = "testFile_cp_" + Long.toString((new Date()).getTime());
+        String mappedNodeType = "nt:file";
+
+        Node node1 = root.addNode(fileName, mappedNodeType);
+        node1.addMixin("mix:referenceable");
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        contentNode.addMixin("mix:referenceable");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        getSession().save();
+
+        Node node = getSession().getNodeByIdentifier(node1.getIdentifier());
+//        pnt(getSession().getNode("/cmis"));
+        getSession().getWorkspace().copy(node.getPath(), node.getPath() + "_copy");
+        getSession().save();
+    }*/
+
+    public Node addFile(Node targetNode, String fileName, String fileType) throws RepositoryException {
+        Node node1 = targetNode.addNode(fileName, fileType);
+        node1.addMixin("mix:referenceable");
+        byte[] content = "Hello World".getBytes();
+        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        contentNode.addMixin("mix:referenceable");
+        Binary binary = session.getValueFactory().createBinary(bin);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        return node1;
+    }
+
+    public String generateFileName(String prefix) {
+        return prefix + Long.toString((new Date()).getTime());
+    }
+
+
+//    @Test // todo
+    public void testShouldDeleteTree() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        Node folderL1 = root.addNode("folderL1", "nt:folder");
+        addFile(folderL1, generateFileName("testFile_cp_"), "nt:file");
+
+        Node folderL2 = folderL1.addNode("folderL1", "nt:folder");
+        addFile(folderL2, generateFileName("testFile_cp_"), "nt:file");
+
+        Node folderL3 = folderL2.addNode("folderL1", "nt:folder");
+        addFile(folderL3, generateFileName("testFile_cp_"), "nt:file");
+
+        getSession().save();
+        
+        folderL1.remove();
+        getSession().save();
+    }
 }

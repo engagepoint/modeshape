@@ -25,11 +25,13 @@
             "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
             "versioningService": "http://localhost:8090/services/VersioniongService?wsdl",
             "repositoryId": "A1",
-            "debug" : true,
+            "debug": true,
+            "ignoreEmptyPropertiesOnCreate": false,
+            "addRequiredPropertiesOnRead": false,
             "projections": [ "default:/cmis => /" ],
             "customMapping": {
                 "namespaces": {
-                    "testing" : "http://org.modeshape/testing"
+                    "testing": "http://org.modeshape/testing"
                 },
                 "types": [
                     {

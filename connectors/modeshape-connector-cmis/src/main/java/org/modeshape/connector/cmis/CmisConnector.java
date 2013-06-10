@@ -56,6 +56,7 @@ import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
+import org.modeshape.jcr.value.ValueFactory;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -160,6 +161,8 @@ public class CmisConnector extends Connector {
     private TypeCustomMappingList customMapping;
     private MappedTypesContainer mappedTypes;
     private boolean debug = false;
+    private boolean ignoreEmptyPropertiesOnCreate = false; // to not reset required properties on document create
+    private boolean addRequiredPropertiesOnRead = false; // add required properties to a document if not present
 
     private Prefix prefixes = new Prefix();
 
@@ -496,6 +499,11 @@ public class CmisConnector extends Connector {
                         // store properties for update
                         // incorrect value won't be parsed so cmisValue will have null which may overwrite default value for required property
                         // consider not to put empty values while store ??
+                        if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && cmisValue == null) {
+                            debug("WARNING: property [", cmisPropertyName, "] is required but EMPTY !!!!");
+                            continue;
+                        }
+                        // add property
                         updateProperties.put(cmisPropertyName, cmisValue);
                     }
 
@@ -517,8 +525,29 @@ public class CmisConnector extends Connector {
     @Override
     public void updateDocument(DocumentChanges delta) {
         debug("-======== Update Document called delta: ==============-");
-        debug("getChildrenChanges/renamed:", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
         debug("getDocumentId:", delta.getDocumentId());
+
+        debug("getChildrenChanges/getAppended:", Integer.toString(delta.getChildrenChanges().getAppended().size()));
+        debug("getChildrenChanges/getRenamed:", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
+        debug("getChildrenChanges/getInsertedBeforeAnotherChild:", Integer.toString(delta.getChildrenChanges().getInsertedBeforeAnotherChild().size()));
+        debug("getChildrenChanges/getRemoved:", Integer.toString(delta.getChildrenChanges().getRemoved().size()));
+
+        debug("getParentChanges/getAdded:", Integer.toString(delta.getParentChanges().getAdded().size()));
+        debug("getParentChanges/getRemoved:", Integer.toString(delta.getParentChanges().getRemoved().size()));
+        debug("getParentChanges/getNewPrimaryParent:", delta.getParentChanges().getNewPrimaryParent());
+
+        debug("getReferrerChanges/getAddedStrong:", Integer.toString(delta.getReferrerChanges().getAddedStrong().size()));
+        debug("getReferrerChanges/getAddedWeak:", Integer.toString(delta.getReferrerChanges().getAddedWeak().size()));
+        debug("getReferrerChanges/getRemovedStrong:", Integer.toString(delta.getReferrerChanges().getRemovedStrong().size()));
+        debug("getReferrerChanges/getRemovedWeak:", Integer.toString(delta.getReferrerChanges().getRemovedWeak().size()));
+
+        debug("getPropertyChanges/getRemoved:", Integer.toString(delta.getPropertyChanges().getRemoved().size()));
+        debug("getPropertyChanges/getChanged:", Integer.toString(delta.getPropertyChanges().getChanged().size()));
+        debug("getPropertyChanges/getAdded:", Integer.toString(delta.getPropertyChanges().getAdded().size()));
+
+        debug("getMixinChanges/getAdded:", Integer.toString(delta.getMixinChanges().getAdded().size()));
+        debug("getMixinChanges/getRemoved:", Integer.toString(delta.getMixinChanges().getRemoved().size()));
+
         debug("-======== || ==============-");
         // object id is a composite key which holds information about
         // unique object identifier and about its type
@@ -585,6 +614,24 @@ public class CmisConnector extends Connector {
                     }
                 }
 
+                /*if (delta.getChildrenChanges().getRemoved().size() > 0) {
+                    for (String childId: delta.getChildrenChanges().getRemoved()) {
+                        CmisObject object = session.getObject(childId);
+                        debug("removing child", childId, "with parent", object.getProperty("cmis:parentId").getValue().toString());
+                        Map<String, Object> updateProperties = new HashMap<String, Object>();
+
+                        updateProperties.put("cmis:parentId", null);
+                        if (!updateProperties.isEmpty()) {
+
+                            if ((object instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
+                                updateVersionedDoc(object, updateProperties, null);
+                            } else {
+                                object.updateProperties(updateProperties);
+                            }
+                        }
+                    }
+                }*/
+
                 debug();
                 debug("======= update object =============");
 
@@ -637,6 +684,12 @@ public class CmisConnector extends Connector {
                     Document jcrValues = props.getDocument(name.getNamespaceUri());
 
                     Object value = properties.cmisValue(pdef, name.getLocalName(), jcrValues);
+                    // ! error protection
+                    if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && value == null) {
+                        debug("WARNING: property [", cmisPropertyName, "] is required but EMPTY !!!!");
+                        continue;
+                    }
+
                     debug("adding prop", cmisPropertyName, "value", value.toString());
                     updateProperties.put(cmisPropertyName, value);
 
@@ -695,7 +748,8 @@ public class CmisConnector extends Connector {
                                 Name name,
                                 Name primaryType) {
         HashMap<String, Object> params = new HashMap<String, Object>();
-        debug("-============== NEW DOCUMENT ID ================-");
+        try {
+        debug("-============== NEW DOCUMENT ID ================-", parentId, " / ", name.toString(), "[", primaryType.toString(), " ]");
         // let'start from checking primary type
         if (primaryType.getLocalName().equals("resource")) {
             // nt:resource node belongs to cmis:document's content thus
@@ -729,14 +783,16 @@ public class CmisConnector extends Connector {
         params.put(PropertyIds.OBJECT_TYPE_ID, objectType.getId());
         params.put(PropertyIds.NAME, name.getLocalName());
 
+        String result = null;
         // create object and id for it.
         switch (objectType.getBaseTypeId()) {
             case CMIS_FOLDER:
                 params.put(PropertyIds.PATH, path);
                 String newFolderId = parent.createFolder(params).getId();
-                String result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
+                result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
                 debug("return folder id", result, ". new folder id ", newFolderId);
-                return result;
+//                return result;
+                break;
             case CMIS_DOCUMENT:
                 debug("new Doc, parentId", parentId);
                 VersioningState versioningState = VersioningState.NONE;
@@ -749,11 +805,21 @@ public class CmisConnector extends Connector {
                 debug("return CMIS_DOCUMENT", versionId);
                 String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
                 debug("return CMIS_DOCUMENT", resultId);
-                return resultId;
+                result = resultId;
+//                return resultId;
+                break;
             default:
                 debug("return null. base type id is ", objectType.getBaseTypeId().value());
-                return null;
+//                return null;
         }
+
+        debug("-===NEW DOCUMENT ID ===RESULT= [", primaryType.toString(), "] = ", result, (result == null) ? "!!!!!!" : "");
+        return result;
+        } catch (Exception e) {
+            debug(e.getMessage());
+            debug("-===NEW DOCUMENT ID === exceptio !!!!");
+        }
+        return null;
     }
 
     // todo improve this logic
@@ -768,7 +834,12 @@ public class CmisConnector extends Connector {
      * @return JCR node document.
      */
     private Document cmisObject(String id) {
-        CmisObject cmisObject = session.getObject(id);
+        CmisObject cmisObject = null;
+        try {
+            cmisObject = session.getObject(id);
+        } catch (CmisObjectNotFoundException cnfe) {
+            return null;
+        }
 
         // object does not exist? return null
         if (cmisObject == null) {
@@ -892,7 +963,8 @@ public class CmisConnector extends Connector {
      * @return JCR node representation.
      */
     private Document cmisContent(String id) {
-        DocumentWriter writer = newDocument(ObjectId.toString(ObjectId.Type.CONTENT, id));
+        String contentId = ObjectId.toString(ObjectId.Type.CONTENT, id);
+        DocumentWriter writer = newDocument(contentId);
 
         org.apache.chemistry.opencmis.client.api.Document doc = asDocument(session.getObject(id));
         writer.setPrimaryType(NodeType.NT_RESOURCE);
@@ -904,6 +976,10 @@ public class CmisConnector extends Connector {
             writer.addProperty(JcrConstants.JCR_DATA, content);
             writer.addProperty(JcrConstants.JCR_MIME_TYPE, doc.getContentStream().getMimeType());
         }
+
+        // reference
+        writer.addMixinType(NodeType.MIX_REFERENCEABLE);
+        writer.addProperty(JcrLexicon.UUID, contentId);
 
         Property<Object> lastModified = doc.getProperty(PropertyIds.LAST_MODIFICATION_DATE);
         Property<Object> lastModifiedBy = doc.getProperty(PropertyIds.LAST_MODIFIED_BY);
@@ -926,6 +1002,9 @@ public class CmisConnector extends Connector {
         List<Property<?>> list = object.getProperties();
         TypeDefinition type = object.getType();
         MappedCustomType typeMapping = mappedTypes.findByExtName(type.getId());
+
+        Set<String> requiredExtProperties = new LinkedHashSet<String>(type.getPropertyDefinitions().keySet());
+
 //        debug();
 //        debug("properties for ", object.getType().getId(), typeMapping != null ? typeMapping.getJcrName() : "<no jcr mapping>");
         for (Property<?> property : list) {
@@ -939,8 +1018,25 @@ public class CmisConnector extends Connector {
             if (pname != null && !pname.startsWith(CMIS_PREFIX) && !ignore) {
                 String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
                 Object[] values = properties.jcrValues(property);
+                if (propertyDefinition.isRequired()  && (values == null || values.length == 0)) {
+                    debug("WARNING: property [", property.getId(), "] has empty value!!!!");
+                }
 //                debug("adding Transformed property ", propertyTargetName, "with values:", (values != null && values.length > 0) ? values[0].toString() : "");
                 writer.addProperty(propertyTargetName, values);
+            }
+            requiredExtProperties.remove(property.getId());
+        }
+
+        // error protection
+        if (addRequiredPropertiesOnRead) {
+            for (String requiredExtProperty : requiredExtProperties) {
+                PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
+                if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(CMIS_PREFIX)) {
+                    String pname = properties.findJcrName(requiredExtProperty);
+                    String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
+                    debug("error protection: adding required property: ", propertyTargetName);
+                    writer.addProperty(propertyTargetName, getRequiredPropertyValue(propertyDefinition));
+                }
             }
         }
 //        debug("propertie done");
