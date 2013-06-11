@@ -26,9 +26,8 @@ package org.modeshape.connector.cmis;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.InputStream;
+
+import java.io.*;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -41,8 +40,10 @@ import javax.jcr.version.VersionException;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.client.api.SessionFactory;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
+import org.apache.chemistry.opencmis.client.util.FileUtils;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
+import org.apache.commons.compress.utils.IOUtils;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
@@ -650,5 +651,42 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         node = getSession().getNode(node1.getPath());
         assertFalse(node.hasProperty("to"));
 //        System.out.println(node.getProperty("to").getString());
+    }
+
+
+//    @Test
+    public void testShouldUploadLargeFile() throws Exception {
+        Node root = getSession().getNode("/cmis");
+
+        Node node1 = root.addNode(generateFileName("testMultivf_"), "emailDocument");
+        node1.addMixin("mix:referenceable");
+//        byte[] content = "Hello World".getBytes();
+//        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+//        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+        contentNode.addMixin("mix:referenceable");
+        File file = new File("c:\\content.exe");
+        System.out.println("File size: " + file.length());
+        FileInputStream fileInputStream = new FileInputStream(file);
+        BufferedInputStream stream = new BufferedInputStream(fileInputStream);
+        Binary binary = session.getValueFactory().createBinary(stream);
+        contentNode.setProperty("jcr:data", binary);
+        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+
+
+//        node1.setProperty("to", new String[]{"me", "he"});
+        getSession().save();
+
+        Node node = getSession().getNode(contentNode.getPath());
+//        node.setProperty("to", new String[]{});
+//        getSession().save();
+
+//        node = getSession().getNode(node1.getPath());
+//        assertFalse(node.hasProperty("to"));
+
+        System.out.println(node.toString());
+
+        System.out.println("length: " + node.getProperty("jcr:data").getBinary().getSize());
     }
 }

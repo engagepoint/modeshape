@@ -24,6 +24,7 @@
 package org.modeshape.connector.cmis;
 
 import org.apache.chemistry.opencmis.client.api.*;
+import org.apache.chemistry.opencmis.client.api.Property;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -43,6 +44,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
+import org.modeshape.common.util.IoUtil;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.CryptoUtils;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
@@ -52,11 +54,9 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.Connector;
 import org.modeshape.jcr.federation.spi.DocumentChanges;
 import org.modeshape.jcr.federation.spi.DocumentChanges.PropertyChanges;
+import org.modeshape.jcr.federation.spi.DocumentReader;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
-import org.modeshape.jcr.value.BinaryValue;
-import org.modeshape.jcr.value.Name;
-import org.modeshape.jcr.value.ValueFactories;
-import org.modeshape.jcr.value.ValueFactory;
+import org.modeshape.jcr.value.*;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -65,9 +65,7 @@ import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
 import javax.jcr.nodetype.PropertyDefinitionTemplate;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.util.*;
@@ -136,6 +134,7 @@ public class CmisConnector extends Connector {
     private static final String REPOSITORY_INFO_NODE_NAME = "repositoryInfo";
     private static final String CMIS_DOCUMENT_UNVERSIONED = "cmis:unversioned-document";
     public static final String CMIS_PREFIX = "cmis:";
+    private static final String JCR_DATA = "jcr:data";
     private Session session;
     private ValueFactories factories;
     // binding parameters
@@ -158,7 +157,7 @@ public class CmisConnector extends Connector {
     private Properties properties;
     private Nodes nodes;
     // type mapping
-    private TypeCustomMappingList customMapping;
+    private TypeCustomMappingList customMapping = new TypeCustomMappingList();
     private MappedTypesContainer mappedTypes;
     private boolean debug = false;
     private boolean ignoreEmptyPropertiesOnCreate = false; // to not reset required properties on document create
@@ -186,7 +185,9 @@ public class CmisConnector extends Connector {
         super.initialize(registry, nodeTypeManager);
         // read mapping
         this.mappedTypes = TypeMappingConfigUtil.getMappedTypes(customMapping);
-        debug("Found ", Integer.toString(customMapping.getNamespaces().size()), " mapped namspaces ..");
+        if (customMapping !=null  && customMapping.getNamespaces() != null) {
+            debug("Found ", Integer.toString(customMapping.getNamespaces().size()), " mapped namspaces ..");
+        }
         debug("Added ", Integer.toString(mappedTypes.size()), " mapped types ..");
 
         this.factories = getContext().getValueFactories();
@@ -243,6 +244,9 @@ public class CmisConnector extends Connector {
     public void registerPredefinedNamspaces(NamespaceRegistry registry) throws RepositoryException {
         // modeshape cmis
         registry.registerNamespace(CmisLexicon.Namespace.PREFIX, CmisLexicon.Namespace.URI);
+
+        if (customMapping == null || customMapping.getNamespaces() == null) return;
+
         // custom
         for (Map.Entry<String, String> entry : customMapping.getNamespaces().entrySet()) {
             String nsPrefix = entry.getKey();
@@ -1094,6 +1098,31 @@ public class CmisConnector extends Connector {
      * @return CMIS content stream object
      */
     private ContentStream jcrBinaryContent(Document document) {
+
+        try {
+            DocumentReader reader = readDocument(document);
+            Document props = document.getDocument("properties").getDocument(JcrLexicon.Namespace.URI);
+
+            String fileName = props.getString("fileName");
+            String mimeType = props.getString("mimeType");
+
+            org.modeshape.jcr.value.Property content = reader.getProperty(JCR_DATA);
+            BinaryValue binary = factories().getBinaryFactory().create(content.getFirstValue());
+//        OutputStream ostream = new BufferedOutputStream(new FileOutputStream(file));
+//        IoUtil.write(binary.getStream(), ostream);
+            // create content stream
+            ContentStreamImpl contentStream = new ContentStreamImpl(fileName, BigInteger.valueOf(binary.getSize()), mimeType, binary.getStream());
+            return contentStream;
+        } catch (RepositoryException re) {
+            debug("get content RepositoryException ", re.getMessage());
+//        } catch (IOException ioe) {
+//            debug("get content RepositoryException ", ioe.getMessage());
+        }
+
+        return null;
+    }
+
+    private ContentStream jcrBinaryContentOld(Document document) {
         // pickup node properties
         Document props = document.getDocument("properties").getDocument(JcrLexicon.Namespace.URI);
 
