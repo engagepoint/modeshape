@@ -526,7 +526,7 @@ public class CmisConnector extends Connector {
     public void updateDocument(DocumentChanges delta) {
         debug("-======== Update Document called delta: ==============-");
         debug("getDocumentId:", delta.getDocumentId());
-
+        debug(delta.getDocument().toString());
         debug("getChildrenChanges/getAppended:", Integer.toString(delta.getChildrenChanges().getAppended().size()));
         debug("getChildrenChanges/getRenamed:", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
         debug("getChildrenChanges/getInsertedBeforeAnotherChild:", Integer.toString(delta.getChildrenChanges().getInsertedBeforeAnotherChild().size()));
@@ -749,72 +749,80 @@ public class CmisConnector extends Connector {
                                 Name primaryType) {
         HashMap<String, Object> params = new HashMap<String, Object>();
         try {
-        debug("-============== NEW DOCUMENT ID ================-", parentId, " / ", name.toString(), "[", primaryType.toString(), " ]");
-        // let'start from checking primary type
-        if (primaryType.getLocalName().equals("resource")) {
-            // nt:resource node belongs to cmis:document's content thus
-            // we must return just parent id without creating any CMIS object
-            return ObjectId.toString(ObjectId.Type.CONTENT, parentId);
-        }
-
-        // all other node types belong to cmis object
-        String cmisObjectTypeName = nodes.findCmisName(primaryType);
-        debug("type ", cmisObjectTypeName);
-        cmisObjectTypeName = jcrTypeToCmis(cmisObjectTypeName);
-        debug("resolved type ", cmisObjectTypeName);
-        Folder parent = (Folder) session.getObject(parentId);
-
-        // Ivan, we can pick up object type and property definition map from CMIS repo
-        // if not found consider to do an alternative search
-        ObjectType objectType = session.getTypeDefinition(cmisObjectTypeName);
-        Map<String, PropertyDefinition<?>> propDefs = objectType.getPropertyDefinitions();
-
-        // assign mandatory properties
-        Collection<PropertyDefinition<?>> list = propDefs.values();
-        for (PropertyDefinition<?> pdef : list) {
-            if (pdef.isRequired() && pdef.getUpdatability() == Updatability.READWRITE) {
-                params.put(pdef.getId(), getRequiredPropertyValue(pdef));
+            debug("-============== NEW DOCUMENT ID ================-", parentId, " / ", name.toString(), "[", primaryType.toString(), " ]");
+            // let'start from checking primary type
+            if (primaryType.getLocalName().equals("resource")) {
+                // nt:resource node belongs to cmis:document's content thus
+                // we must return just parent id without creating any CMIS object
+                return ObjectId.toString(ObjectId.Type.CONTENT, parentId);
             }
-        }
 
-        String path = parent.getPath() + "/" + name.getLocalName();
+            // all other node types belong to cmis object
+            String cmisObjectTypeName = nodes.findCmisName(primaryType);
+            debug("type ", cmisObjectTypeName);
+            cmisObjectTypeName = jcrTypeToCmis(cmisObjectTypeName);
+            debug("resolved type ", cmisObjectTypeName);
+            Folder parent = (Folder) session.getObject(parentId);
 
-        // assign(override) 100% mandatory properties
-        params.put(PropertyIds.OBJECT_TYPE_ID, objectType.getId());
-        params.put(PropertyIds.NAME, name.getLocalName());
+            // Ivan, we can pick up object type and property definition map from CMIS repo
+            // if not found consider to do an alternative search
+            ObjectType objectType = session.getTypeDefinition(cmisObjectTypeName);
+            if (!objectType.isBaseType() /* todo do it on other way */) {
+                debug("session get type definition for ", cmisObjectTypeName, " : ", objectType.toString());
+                Map<String, PropertyDefinition<?>> propDefs = objectType.getPropertyDefinitions();
 
-        String result = null;
-        // create object and id for it.
-        switch (objectType.getBaseTypeId()) {
-            case CMIS_FOLDER:
-                params.put(PropertyIds.PATH, path);
-                String newFolderId = parent.createFolder(params).getId();
-                result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
-                debug("return folder id", result, ". new folder id ", newFolderId);
-//                return result;
-                break;
-            case CMIS_DOCUMENT:
-                debug("new Doc, parentId", parentId);
-                VersioningState versioningState = VersioningState.NONE;
-                if (objectType instanceof DocumentTypeDefinition) {
-                    DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
-                    versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
+                // assign mandatory properties
+                Collection<PropertyDefinition<?>> list = propDefs.values();
+                for (PropertyDefinition<?> pdef : list) {
+                    if (pdef.isRequired() && pdef.getUpdatability() == Updatability.READWRITE) {
+                        params.put(pdef.getId(), getRequiredPropertyValue(pdef));
+                    }
                 }
+            }
 
-                String versionId = ObjectId.toString(ObjectId.Type.OBJECT, parent.createDocument(params, null, versioningState).getId());
-                debug("return CMIS_DOCUMENT", versionId);
-                String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
-                debug("return CMIS_DOCUMENT", resultId);
-                result = resultId;
+            String path = parent.getPath() + "/" + name.getLocalName();
+
+            // assign(override) 100% mandatory properties
+            params.put(PropertyIds.OBJECT_TYPE_ID, objectType.getId());
+            params.put(PropertyIds.NAME, name.getLocalName());
+
+            String result = null;
+            // create object and id for it.
+            switch (objectType.getBaseTypeId()) {
+                case CMIS_FOLDER:
+                    params.put(PropertyIds.PATH, path);
+                    String newFolderId = parent.createFolder(params).getId();
+                    result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
+                    debug("return folder id", result, ". new folder id ", newFolderId);
+//                return result;
+                    break;
+                case CMIS_DOCUMENT:
+                    debug("new Doc, parentId", parentId);
+                    VersioningState versioningState = VersioningState.NONE;
+                    if (objectType instanceof DocumentTypeDefinition) {
+                        DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
+                        versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
+                    }
+                    debug("to call. createDocument..", "with properties:");
+                    for (Map.Entry<String, Object> entry : params.entrySet()) {
+                        debug("property", entry.getKey(), "value", entry.getValue().toString());
+                    }
+                    debug("call prent.createDocument..");
+                    org.apache.chemistry.opencmis.client.api.Document document = parent.createDocument(params, null, versioningState);
+                    String versionId = ObjectId.toString(ObjectId.Type.OBJECT, document.getId());
+                    debug("return CMIS_DOCUMENT", versionId);
+                    String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
+                    debug("return CMIS_DOCUMENT", resultId);
+                    result = resultId;
 //                return resultId;
-                break;
-            default:
-                debug("return null. base type id is ", objectType.getBaseTypeId().value());
+                    break;
+                default:
+                    debug("return null. base type id is ", objectType.getBaseTypeId().value());
 //                return null;
-        }
+            }
 
-        debug("-===NEW DOCUMENT ID ===RESULT= [", primaryType.toString(), "] = ", result, (result == null) ? "!!!!!!" : "");
-        return result;
+            debug("-===NEW DOCUMENT ID ===RESULT= [", primaryType.toString(), "] = ", result, (result == null) ? "!!!!!!" : "");
+            return result;
         } catch (Exception e) {
             debug(e.getMessage());
             debug("-===NEW DOCUMENT ID === exceptio !!!!");
@@ -1018,7 +1026,7 @@ public class CmisConnector extends Connector {
             if (pname != null && !pname.startsWith(CMIS_PREFIX) && !ignore) {
                 String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
                 Object[] values = properties.jcrValues(property);
-                if (propertyDefinition.isRequired()  && (values == null || values.length == 0)) {
+                if (propertyDefinition.isRequired() && (values == null || values.length == 0)) {
                     debug("WARNING: property [", property.getId(), "] has empty value!!!!");
                 }
 //                debug("adding Transformed property ", propertyTargetName, "with values:", (values != null && values.length > 0) ? values[0].toString() : "");
@@ -1206,7 +1214,10 @@ public class CmisConnector extends Connector {
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
-        nodes.addTypeMapping(getContext().getValueFactories().getNameFactory().create(type.getName()), cmisTypeId);
+
+        Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
+        debug("adding mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
+        nodes.addTypeMapping(jcrName, cmisTypeId);
     }
 
     /*
