@@ -617,7 +617,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
 
-//    @Test  // todo
+    @Test
     public void testShouldDeleteTree() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -634,9 +634,14 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         
         folderL1.remove();
         getSession().save();
+
+        NodeIterator nodes = getSession().getNode("/cmis").getNodes();
+        while (nodes.hasNext()) {
+            pt("child:", nodes.nextNode().getName());
+        }
     }
 
-    @Test
+//    @Test
     public void testShouldResetMultiValued() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -654,6 +659,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
 
+//    @Test
 //    @Test
     public void testShouldUploadLargeFile() throws Exception {
         Node root = getSession().getNode("/cmis");

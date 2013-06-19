@@ -185,7 +185,7 @@ public class CmisConnector extends Connector {
         super.initialize(registry, nodeTypeManager);
         // read mapping
         this.mappedTypes = TypeMappingConfigUtil.getMappedTypes(customMapping);
-        if (customMapping !=null  && customMapping.getNamespaces() != null) {
+        if (customMapping != null && customMapping.getNamespaces() != null) {
             debug("Found ", Integer.toString(customMapping.getNamespaces().size()), " mapped namspaces ..");
         }
         debug("Added ", Integer.toString(mappedTypes.size()), " mapped types ..");
@@ -253,8 +253,8 @@ public class CmisConnector extends Connector {
             String nsUri = entry.getValue();
             if (!isNsAlreadyRegistered(null, registry, nsPrefix, nsUri)) {
                 registry.registerNamespace(nsPrefix, nsUri);
-                prefixes.addNamespace(nsPrefix, nsUri);
             }
+            prefixes.addNamespace(nsPrefix, nsUri);
         }
     }
 
@@ -321,7 +321,12 @@ public class CmisConnector extends Connector {
                 // to restore identifier of the original cmis:document. it is easy
                 String cmisId = objectId.getIdentifier();
 
-                org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) session.getObject(cmisId);
+                org.apache.chemistry.opencmis.client.api.Document doc = null;
+                try {
+                    doc = asDocument(session.getObject(cmisId));
+                } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
+                    return true;
+                }
 
                 // object exists?
                 if (doc == null) {
@@ -337,21 +342,54 @@ public class CmisConnector extends Connector {
 //                    deleteStreamVersioned(doc);
                     debug("ignore content stream deletion for versioned document.");
                 } else {
-                    doc.deleteContentStream();
+                    try {
+                        doc = asDocument(session.getObject(cmisId));
+                        if (doc != null)
+                            doc.deleteContentStream();
+                    } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
+                        return true;
+                    }
+
                 }
 
                 return true;
             case OBJECT:
                 // these type points to either cmis:document or cmis:folder so
                 // we can just delete it using original identifier defined in cmis domain.
-                CmisObject object = session.getObject(objectId.getIdentifier());
+                CmisObject object = null;
+                try {
+                    object = session.getObject(objectId.getIdentifier());
+                } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
+                    return true;
+                }
 
                 // check that object exist
                 if (object == null) {
-                    return false;
+                    return true;
                 }
+                if (object instanceof Folder) {
+                    debug("deleting folder ", object.getId());
+//                    ((Folder) object).deleteTree(true, UnfileObject.UNFILE, false);
+                    try {
+                        object = session.getObject(objectId.getIdentifier());
+                        if (object != null)
+                            ((Folder) object).deleteTree(true, UnfileObject.DELETE, false);      // todo check for unfiled support + unfile
+                    } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
+                        return true;
+                    }
 
-                object.delete(true);
+//                    folder.delete(true);
+                } else {
+                    debug("deleting document ", object.getId());
+                    try {
+                        object = session.getObject(objectId.getIdentifier());
+                        if (object != null)
+                            object.delete(true);
+                    } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
+                        return true;
+                    }
+
+                }
 
                 return true;
             default:
@@ -618,23 +656,41 @@ public class CmisConnector extends Connector {
                     }
                 }
 
-                /*if (delta.getChildrenChanges().getRemoved().size() > 0) {
-                    for (String childId: delta.getChildrenChanges().getRemoved()) {
-                        CmisObject object = session.getObject(childId);
-                        debug("removing child", childId, "with parent", object.getProperty("cmis:parentId").getValue().toString());
-                        Map<String, Object> updateProperties = new HashMap<String, Object>();
+//                if (delta.getChildrenChanges().getRemoved().size() > 0) {
+//                    for (String childId : delta.getChildrenChanges().getRemoved()) {
+//                        CmisObject object = session.getObject(childId);
+//                        debug("removing child", childId, "with parent", object.getProperty("cmis:parentId").getValue().toString());
+//                        CmisObject cmisFolerObject = session.getObject(objectId.getIdentifier());
 
-                        updateProperties.put("cmis:parentId", null);
-                        if (!updateProperties.isEmpty()) {
+//                        session.getBinding().getMultiFilingService().removeObjectFromFolder(repositoryId, object.getId(), cmisFolerObject.getId(), null);
+//                        ((FileableCmisObject) object).removeFromFolder(cmisFolerObject);
+                        /*if (object instanceof Folder) {
+                            ((Folder) object).deleteTree(true, UnfileObject.DELETESINGLEFILED, false);
+                        } else {
+                            ((FileableCmisObject) object).delete(true);
+                        }*/
+
+//                        debug("move ", object.getId());
+//                        if (!cmisFolerObject.getId().equals(session.getRootFolder().getId()))
+//                            ((FileableCmisObject) object).move(cmisFolerObject, session.getRootFolder());
+
+
+
+                        /*Map<String, Object> updProperties = new HashMap<String, Object>();
+                        updProperties.put(PropertyIds.PARENT_ID, null);
+                        updProperties.put(PropertyIds.PATH, null);
+                        debug("update properties?? ", updProperties.isEmpty() ? "No" : "Yep");
+                        if (!updProperties.isEmpty()) {
 
                             if ((object instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
-                                updateVersionedDoc(object, updateProperties, null);
+                                updateVersionedDoc(object, updProperties, null);
                             } else {
-                                object.updateProperties(updateProperties);
+                                object.updateProperties(updProperties);
                             }
-                        }
-                    }
-                }*/
+                        }*/
+
+//                    }
+//                }
 
                 debug();
                 debug("======= update object =============");
@@ -1195,8 +1251,8 @@ public class CmisConnector extends Connector {
             if (!isNsAlreadyRegistered(cmisType, registry, nsPrefix, nsUri)) {
                 debug("register namespace type: ", nsPrefix, ":", nsUri);
                 registry.registerNamespace(nsPrefix, nsUri);
-                prefixes.addNamespace(nsPrefix, nsUri);
             }
+            prefixes.addNamespace(nsPrefix, nsUri);
         }
 
 

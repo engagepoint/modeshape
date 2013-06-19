@@ -17,7 +17,7 @@
             "cacheTtlSeconds": 5,
             "aclService": "http://localhost:8090/services/ACLService?wsdl",
             "discoveryService": "http://localhost:8090/services/DiscoveryService?wsdl",
-            "multifilingService": "http://localhost:8090/services/MultifilingService?wsdl",
+            "multifilingService": "http://localhost:8090/services/MultiFilingService?wsdl",
             "navigationService": "http://localhost:8090/services/NavigationService?wsdl",
             "objectService": "http://localhost:8090/services/ObjectService?wsdl",
             "policyService": "http://localhost:8090/services/PolicyService?wsdl",
