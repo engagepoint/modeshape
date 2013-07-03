@@ -419,12 +419,23 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     AbstractJcrNode node( NodeKey nodeKey,
                           AbstractJcrNode.Type expectedType,
                           NodeKey parentKey ) throws ItemNotFoundException {
-        CachedNode cachedNode = cache.getNode(nodeKey);
-        if (cachedNode == null) {
-            // The node must not exist or must have been deleted ...
-            throw new ItemNotFoundException(nodeKey.toString());
-        }
-        AbstractJcrNode node = jcrNodes.get(nodeKey);
+    	CachedNode cachedNode = null;
+        AbstractJcrNode node = null; 
+        
+    	if (nodeKey != null) {
+    		cachedNode = cache.getNode(nodeKey);
+            if (cachedNode == null) {
+                // The node must not exist or must have been deleted ...
+                throw new ItemNotFoundException(nodeKey.toString());
+            }
+            node = jcrNodes.get(nodeKey);
+    	} else {
+    		try {
+    			cachedNode = cache.getNode(nodeKey);
+    			node = jcrNodes.get(nodeKey);
+    		} catch (Exception e) {} 
+    	}
+        
         if (node == null) {
             node = node(cachedNode, expectedType, parentKey);
         } else if (parentKey != null) {

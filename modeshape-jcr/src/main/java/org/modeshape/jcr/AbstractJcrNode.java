@@ -3005,11 +3005,16 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         // prevents the removal."
         AbstractJcrNode parent = null;
         try {
-            parent = getParent();
-        } catch (ItemNotFoundException e) {
+            parent = getParent(); 
+        } catch (Exception e) {
             // expected by the TCK
-            throw new InvalidItemStateException(e);
         }
+        
+        if (parent == null) { // unfiled
+        	sessionCache().destroy(key());
+        	return;
+        }
+
         Path path = null;
         try {
             parent.checkForLock();

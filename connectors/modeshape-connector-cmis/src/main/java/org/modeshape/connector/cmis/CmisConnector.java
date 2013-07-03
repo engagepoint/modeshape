@@ -44,15 +44,20 @@ import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
-import org.modeshape.common.util.IoUtil;
+
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.CryptoUtils;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
 import org.modeshape.jcr.JcrLexicon;
+
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
+import org.modeshape.jcr.cache.DocumentStoreException;
 import org.modeshape.jcr.federation.spi.Connector;
 import org.modeshape.jcr.federation.spi.DocumentChanges;
+import org.modeshape.jcr.federation.spi.PageKey;
+import org.modeshape.jcr.federation.spi.PageWriter;
+import org.modeshape.jcr.federation.spi.Pageable;
 import org.modeshape.jcr.federation.spi.DocumentChanges.PropertyChanges;
 import org.modeshape.jcr.federation.spi.DocumentReader;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
@@ -127,7 +132,7 @@ import java.util.*;
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector {
+public class CmisConnector extends Connector { //implements Pageable {
 
     // path and id for the repository node
     private static final String REPOSITORY_INFO_ID = "repositoryInfo";
@@ -164,6 +169,12 @@ public class CmisConnector extends Connector {
     private boolean addRequiredPropertiesOnRead = false; // add required properties to a document if not present
 
     private Prefix prefixes = new Prefix();
+	
+	private String[] typesMapping;
+
+	public String[] getTypesMapping() {
+		return typesMapping;
+	}
 
     public CmisConnector() {
         super();
@@ -296,7 +307,7 @@ public class CmisConnector extends Connector {
                 return null;
         }
     }
-
+    
     @Override
     public String getDocumentId(String path) {
         // establish relation between path and object identifier
@@ -473,7 +484,12 @@ public class CmisConnector extends Connector {
                 // if node has properties we need to pickup cmis object from
                 // cmis repository, convert properties from jcr domain to cmis
                 // and update properties
-                cmisObject = session.getObject(objectId.getIdentifier());
+                cmisObject = null;
+                try {
+                	cmisObject = session.getObject(objectId.getIdentifier());
+                } catch (Exception e) {
+                	debug("Not found object with id - " + objectId.getIdentifier());
+                }
 
                 // unknown object?
                 if (cmisObject == null) {
@@ -807,7 +823,7 @@ public class CmisConnector extends Connector {
     public String newDocumentId(String parentId,
                                 Name name,
                                 Name primaryType) {
-        HashMap<String, Object> params = new HashMap<String, Object>();
+        Map<String, Object> params = new HashMap<String, Object>();
         try {
             debug("-============== NEW DOCUMENT ID ================-", parentId, " / ", name.toString(), "[", primaryType.toString(), " ]");
             // let'start from checking primary type
@@ -822,8 +838,7 @@ public class CmisConnector extends Connector {
             debug("type ", cmisObjectTypeName);
             cmisObjectTypeName = jcrTypeToCmis(cmisObjectTypeName);
             debug("resolved type ", cmisObjectTypeName);
-            Folder parent = (Folder) session.getObject(parentId);
-
+            
             // Ivan, we can pick up object type and property definition map from CMIS repo
             // if not found consider to do an alternative search
             ObjectType objectType = session.getTypeDefinition(cmisObjectTypeName);
@@ -839,8 +854,11 @@ public class CmisConnector extends Connector {
                     }
                 }
             }
-
-            String path = parent.getPath() + "/" + name.getLocalName();
+            
+            Folder parent = null;
+            try {
+            	parent = (Folder) session.getObject(parentId);
+            } catch (Exception e) {}
 
             // assign(override) 100% mandatory properties
             params.put(PropertyIds.OBJECT_TYPE_ID, objectType.getId());
@@ -850,30 +868,44 @@ public class CmisConnector extends Connector {
             // create object and id for it.
             switch (objectType.getBaseTypeId()) {
                 case CMIS_FOLDER:
-                    params.put(PropertyIds.PATH, path);
-                    String newFolderId = parent.createFolder(params).getId();
-                    result = ObjectId.toString(ObjectId.Type.OBJECT, newFolderId);
-                    debug("return folder id", result, ". new folder id ", newFolderId);
+                	if (parent == null) {
+                		org.apache.chemistry.opencmis.client.api.ObjectId id = session.createFolder(params, 
+                				(org.apache.chemistry.opencmis.client.api.ObjectId) null);
+                		result = ObjectId.toString(ObjectId.Type.OBJECT, id.toString());
+                	} else {
+                		String path = parent.getPath() + "/" + name.getLocalName();
+                		params.put(PropertyIds.PATH, path);
+                		String newFolderId = parent.createFolder(params).getId();
+                		result = newFolderId;
+                		debug("return folder id", result, ". new folder id ", newFolderId);
+                	}
 //                return result;
                     break;
                 case CMIS_DOCUMENT:
-                    debug("new Doc, parentId", parentId);
-                    VersioningState versioningState = VersioningState.NONE;
-                    if (objectType instanceof DocumentTypeDefinition) {
-                        DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
-                        versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
-                    }
-                    debug("to call. createDocument..", "with properties:");
-                    for (Map.Entry<String, Object> entry : params.entrySet()) {
-                        debug("property", entry.getKey(), "value", entry.getValue().toString());
-                    }
-                    debug("call prent.createDocument..");
-                    org.apache.chemistry.opencmis.client.api.Document document = parent.createDocument(params, null, versioningState);
-                    String versionId = ObjectId.toString(ObjectId.Type.OBJECT, document.getId());
-                    debug("return CMIS_DOCUMENT", versionId);
-                    String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
-                    debug("return CMIS_DOCUMENT", resultId);
-                    result = resultId;
+                	VersioningState versioningState = VersioningState.NONE;
+                	if (parent == null) {
+                		org.apache.chemistry.opencmis.client.api.ObjectId id = session.createDocument(params, 
+                				(org.apache.chemistry.opencmis.client.api.ObjectId) null, null, versioningState, null, null, null);
+                		result = id.getId();
+                	} else {
+                		debug("new Doc, parentId", parentId);
+                    
+                		if (objectType instanceof DocumentTypeDefinition) {
+                			DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
+                			versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
+                		}
+                		debug("to call. createDocument..", "with properties:");
+                		for (Map.Entry<String, Object> entry : params.entrySet()) {
+                			debug("property", entry.getKey(), "value", entry.getValue().toString());
+                		}
+                		debug("call prent.createDocument..");
+                		org.apache.chemistry.opencmis.client.api.Document document = parent.createDocument(params, null, versioningState);
+                		String versionId = ObjectId.toString(ObjectId.Type.OBJECT, document.getId());
+                		debug("return CMIS_DOCUMENT", versionId);
+                		String resultId = (versioningState != VersioningState.NONE) ? asDocument(session.getObject(versionId)).getVersionSeriesId() : versionId;
+                		debug("return CMIS_DOCUMENT", resultId);
+                		result = resultId;
+                	}
 //                return resultId;
                     break;
                 default:
@@ -910,7 +942,7 @@ public class CmisConnector extends Connector {
         }
 
         // object does not exist? return null
-        if (cmisObject == null) {
+        if (cmisObject == null) { 
             return null;
         }
 
@@ -1020,7 +1052,7 @@ public class CmisConnector extends Connector {
 
         // children
         writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, internalId), JcrConstants.JCR_CONTENT);
-
+       
         return writer.document();
     }
 

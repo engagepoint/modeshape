@@ -31,11 +31,14 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
+
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.nodetype.NodeTypeManager;
+
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
@@ -78,7 +81,7 @@ public class Connectors {
      */
     private Map<String, Connector> sourceKeyToConnectorMap = new HashMap<String, Connector>();
 
-    /**
+	/**
      * A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace
      */
     private Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections = new HashMap<String, List<RepositoryConfiguration.ProjectionConfiguration>>();
@@ -147,6 +150,18 @@ public class Connectors {
             }
         }
     }
+    
+    public Connector findConnectorByName(String name) {
+    	Connector connector = null;
+    	for (Entry<String, Connector> entry : sourceKeyToConnectorMap.entrySet()) {
+    		if (entry.getValue().getSourceName().equalsIgnoreCase(name)) {
+    			connector = entry.getValue();
+    			break;
+    		}
+    	}
+    	
+    	return connector;
+    }
 
     private boolean projectedPathExists( JcrSession session,
                                          RepositoryConfiguration.ProjectionConfiguration projectionCfg ) throws RepositoryException {
@@ -169,6 +184,10 @@ public class Connectors {
         return false;
     }
 
+    public Map<String, Connector> getSourceKeyToConnectorMap() {
+		return sourceKeyToConnectorMap;
+	}
+    
     private void loadStoredProjections() {
         assert !initialized;
         SessionCache systemSession = repository.createSystemSession(repository.context(), false);
@@ -539,6 +558,10 @@ public class Connectors {
      */
     public DocumentTranslator getDocumentTranslator() {
         return repository.repositoryCache().getDocumentTranslator();
+    }
+    
+    public RepositoryConfiguration getRepositoryConfiguration() {
+    	return repository.getRepositoryConfiguration();
     }
 
     /**

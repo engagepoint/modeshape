@@ -202,6 +202,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     private final AtomicReference<State> state = new AtomicReference<State>(State.NOT_RUNNING);
     private final Lock stateLock = new ReentrantLock();
     private final AtomicBoolean allowAutoStartDuringLogin = new AtomicBoolean(AUTO_START_REPO_UPON_LOGIN);
+    private Connectors connectors;
 
     /**
      * Create a Repository instance given the {@link RepositoryConfiguration configuration}.
@@ -253,6 +254,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     @Override
     public String getName() {
         return repositoryName.get();
+    }
+    
+    public Connectors getConnectors() {
+    	return this.connectors;
     }
 
     /**
@@ -359,6 +364,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 state.completeInitialization();
                 this.state.set(State.RUNNING);
                 state.postInitialize();
+                this.connectors = state.getConnectors();
             }
             return state;
         } catch (Exception e) {
@@ -780,7 +786,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         descriptors.put(Repository.IDENTIFIER_STABILITY, valueFor(factories, Repository.IDENTIFIER_STABILITY_INDEFINITE_DURATION));
         descriptors.put(Repository.OPTION_XML_IMPORT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_XML_EXPORT_SUPPORTED, valueFor(factories, true));
-        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, false));
+        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_SIMPLE_VERSIONING_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_ACTIVITIES_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_BASELINES_SUPPORTED, valueFor(factories, false));
@@ -1194,6 +1200,14 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 resumeExistingUserTransaction();
                 throw (t instanceof Exception) ? (Exception)t : new RuntimeException(t);
             }
+        }
+
+        public Connectors getConnectors() {
+        	return connectors;
+        }
+        
+        public RepositoryConfiguration getRepositoryConfiguration() {
+        	return config;
         }
 
         protected Transactions createTransactions( TransactionMode mode,

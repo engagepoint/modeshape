@@ -44,14 +44,11 @@ public class JcrSystemNode extends JcrNode {
 
     @Override
     protected void doRemove() throws ConstraintViolationException, RepositoryException {
-        String msg = JcrI18n.unableToRemoveSystemNodes.text(location(), workspaceName());
-        throw new ConstraintViolationException(msg);
+    	super.doRemove(); // for unfiled support
     }
 
     @Override
     protected void checkNodeTypeCanBeModified() throws RepositoryException {
-        String msg = JcrI18n.unableToModifySystemNodes.text(location(), workspaceName());
-        throw new ConstraintViolationException(msg);
+        // allowed for unfiled support
     }
-
 }
