@@ -168,6 +168,7 @@ public class CmisConnector extends Connector { //implements Pageable {
     private boolean debug = false;
     private boolean ignoreEmptyPropertiesOnCreate = false; // to not reset required properties on document create
     private boolean addRequiredPropertiesOnRead = false; // add required properties to a document if not present
+    private String clientPortProvider; // client port container
 
     private Prefix prefixes = new Prefix();
 	
@@ -228,6 +229,8 @@ public class CmisConnector extends Connector { //implements Pageable {
         parameter.put(SessionParameter.WEBSERVICES_REPOSITORY_SERVICE, repositoryService);
         parameter.put(SessionParameter.WEBSERVICES_VERSIONING_SERVICE, versioningService);
         parameter.put(SessionParameter.REPOSITORY_ID, repositoryId);
+        if (StringUtils.isNotEmpty(clientPortProvider))
+            parameter.put(SessionParameter.WEBSERVICES_JAXWS_IMPL, clientPortProvider);
 
         SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
         session = factory.createSession(parameter, null, new StandardAuthenticationProvider() {
