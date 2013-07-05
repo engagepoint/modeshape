@@ -31,6 +31,7 @@ import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
+import org.apache.chemistry.opencmis.commons.definitions.Choice;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.TypeDefinition;
@@ -167,6 +168,7 @@ public class CmisConnector extends Connector { //implements Pageable {
     private boolean debug = false;
     private boolean ignoreEmptyPropertiesOnCreate = false; // to not reset required properties on document create
     private boolean addRequiredPropertiesOnRead = false; // add required properties to a document if not present
+    private String clientPortProvider; // client port container
 
     private Prefix prefixes = new Prefix();
 	
@@ -227,6 +229,8 @@ public class CmisConnector extends Connector { //implements Pageable {
         parameter.put(SessionParameter.WEBSERVICES_REPOSITORY_SERVICE, repositoryService);
         parameter.put(SessionParameter.WEBSERVICES_VERSIONING_SERVICE, versioningService);
         parameter.put(SessionParameter.REPOSITORY_ID, repositoryId);
+        if (StringUtils.isNotEmpty(clientPortProvider))
+            parameter.put(SessionParameter.WEBSERVICES_JAXWS_IMPL, clientPortProvider);
 
         SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
         session = factory.createSession(parameter, null, new StandardAuthenticationProvider() {
@@ -1341,6 +1345,15 @@ public class CmisConnector extends Connector { //implements Pageable {
             if (jcrProp.isProtected()/* && parentsHasPropertyDeclared(typeManager, type, jcrProp)*/) {
 //                debug("ignore", jcrProp.getName());
                 continue;
+            }
+
+            if (cmisPropDef.getChoices() != null && cmisPropDef.getChoices().size() > 0) {
+                LinkedList<String> choices = new LinkedList<String>();
+                for (Choice choice : cmisPropDef.getChoices()) {
+                    if (choice.getValue() != null && choice.getValue().size() > 0)
+                        choices.add((String) choice.getValue().get(0));
+                }
+                jcrProp.setValueConstraints(choices.toArray(new String[choices.size()]));
             }
 
 //            debug("adding", jcrProp.getName());

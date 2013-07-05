@@ -328,7 +328,7 @@
         <spring.mock>2.0.7</spring.mock>
 
         <!-- Apache chemistry version -->
-        <chemistry.version>0.9.0-beta-1</chemistry.version>
+        <chemistry.version>0.10.0-SNAPSHOT</chemistry.version>
 
         <!--
             JBOSS AS/EAP constants
@@ -1138,6 +1138,12 @@
             <dependency>
                 <groupId>org.apache.chemistry.opencmis</groupId>
                 <artifactId>chemistry-opencmis-client-impl</artifactId>
+                <version>${chemistry.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.chemistry.opencmis</groupId>
+                <artifactId>chemistry-opencmis-client-bindings</artifactId>
                 <version>${chemistry.version}</version>
             </dependency>
 
