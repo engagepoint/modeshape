@@ -10,6 +10,7 @@ public class TypeMappingConfigUtil {
     public static String PROPERTY_JCR_TYPE_NAME = "jcrName";
     public static String PROPERTY_EXTERNAL_TYPE_NAME = "extName";
     public static String PROPERTY_MAPPED_PROPERTIES = "propertyMappings";
+    public static String PROPERTY_IGNORE_EXTERNAL_PROPERTIES = "ignoreExternalProperties";
     public static String PROPERTY_JCR_NAMESPACE = "jcrNamespaceUri";
 
     public static MappedTypesContainer getMappedTypes(TypeCustomMappingList typeMappings) {
@@ -27,11 +28,14 @@ public class TypeMappingConfigUtil {
             if (typeMapping.getDocument(PROPERTY_MAPPED_PROPERTIES) != null) {
                 Iterable<Document.Field> propertyMappings = typeMapping.getDocument(PROPERTY_MAPPED_PROPERTIES).fields();
                 for (Document.Field propertyMapping : propertyMappings) {
-//                    System.out.println("Prop mapping: " + propertyMapping.getName() + " = " + propertyMapping.getValueAsString());
                     mappedCustomType.addPropertyMapping(propertyMapping.getName(), propertyMapping.getValueAsString());
                 }
             }
-
+            
+            String ignoreExternalProperties = typeMapping.getString(PROPERTY_IGNORE_EXTERNAL_PROPERTIES);
+            if (ignoreExternalProperties != null) {
+            	mappedCustomType.setIgnoreExternalProperties(ignoreExternalProperties);
+            }
             result.addTypeMapping(mappedCustomType);
         }
 

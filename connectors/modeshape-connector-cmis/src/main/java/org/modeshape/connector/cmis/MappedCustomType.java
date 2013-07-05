@@ -1,16 +1,15 @@
 package org.modeshape.connector.cmis;
 
-
 import java.util.HashMap;
 import java.util.Map;
 
 public class MappedCustomType {
 
     private String jcrNamespaceUri;
-    private String jcrName;
+    private String[] ignoreExternalProperties;
+	private String jcrName;
     private String extName;
-
-
+    
     Map<String, String> indexJcrProperties = new HashMap<String, String>();
     Map<String, String> indexExtProperties = new HashMap<String, String>();
 
@@ -30,6 +29,10 @@ public class MappedCustomType {
     public String getJcrNamespaceUri() {
         return jcrNamespaceUri;
     }
+    
+    public String[] getIgnoreExternalProperties() {
+		return ignoreExternalProperties;
+	}
 
     public void addPropertyMapping(String jcrName, String extName) {
         indexJcrProperties.put(jcrName, extName);
@@ -48,5 +51,9 @@ public class MappedCustomType {
 
     public void setJcrNamespaceUri(String jcrNamespaceUri) {
         this.jcrNamespaceUri = jcrNamespaceUri;
+    }
+    
+    public void setIgnoreExternalProperties(String ignoreExternalProps) {
+    	this.ignoreExternalProperties = ignoreExternalProps.split(",");
     }
 }

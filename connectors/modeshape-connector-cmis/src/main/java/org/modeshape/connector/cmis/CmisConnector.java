@@ -1109,7 +1109,7 @@ public class CmisConnector extends Connector { //implements Pageable {
 //        debug("properties for ", object.getType().getId(), typeMapping != null ? typeMapping.getJcrName() : "<no jcr mapping>");
         for (Property<?> property : list) {
 //            debug("Process property -- : [", property.getId(), " ] with value:", property.getValueAsString());
-            String pname = properties.findJcrName(property.getId());
+            String pname = properties.findJcrName(property.getId()); 
             PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(property.getId());
 
             boolean ignore = (pname != null && !pname.startsWith("jcr:")) && ((propertyDefinition.getUpdatability() == Updatability.READONLY)
@@ -1120,7 +1120,26 @@ public class CmisConnector extends Connector { //implements Pageable {
                 Object[] values = properties.jcrValues(property);
                 if (propertyDefinition.isRequired() && (values == null || values.length == 0)) {
                     debug("WARNING: property [", property.getId(), "] has empty value!!!!");
+                } 
+                
+                // check is filtered(ignored)
+                if ((!propertyDefinition.isRequired()) && (typeMapping != null) && (typeMapping.getIgnoreExternalProperties() != null)) {
+                	String[] ignoreExternalProperties = typeMapping.getIgnoreExternalProperties();
+                	String externalProperty = typeMapping.toExtProperty(propertyTargetName);
+                	boolean isIgnored = false;
+                	for (String ignoreExternalProperty : ignoreExternalProperties) {
+                		if (ignoreExternalProperty.trim().equalsIgnoreCase(externalProperty)) {
+                			isIgnored = true;
+                			requiredExtProperties.remove(property.getId());
+                			debug("WARNING: property [", property.getId(), "] was ignored by filtering!!!!");
+                			break;
+                		}
+                	}
+                	if (isIgnored) {
+                		continue; // skip this property as filtered by ignore
+                	}
                 }
+                
 //                debug("adding Transformed property ", propertyTargetName, "with values:", (values != null && values.length > 0) ? values[0].toString() : "");
                 writer.addProperty(propertyTargetName, values);
             }
