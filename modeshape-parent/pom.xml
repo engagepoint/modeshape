@@ -328,7 +328,7 @@
         <spring.mock>2.0.7</spring.mock>
 
         <!-- Apache chemistry version -->
-        <chemistry.version>0.10.0-EP-SNAPSHOT</chemistry.version>
+        <chemistry.version>0.10.0-SNAPSHOT</chemistry.version>
 
         <!--
             JBOSS AS/EAP constants
