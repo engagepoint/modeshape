@@ -133,7 +133,7 @@ import java.util.*;
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector { //implements Pageable {
+public class CmisConnector extends Connector {
 
     // path and id for the repository node
     private static final String REPOSITORY_INFO_ID = "repositoryInfo";
@@ -246,6 +246,16 @@ public class CmisConnector extends Connector { //implements Pageable {
         registerPredefinedNamspaces(registry);
         importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry);
         registerRepositoryInfoType(nodeTypeManager);
+    }
+
+    public MappedTypesContainer getMappedTypes () {
+        return mappedTypes;
+    }
+
+
+
+    public Session getSession() {
+        return session;
     }
 
     /*
