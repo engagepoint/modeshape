@@ -5,6 +5,8 @@ import org.modeshape.connector.cmis.MappedCustomType;
 import org.modeshape.connector.cmis.MappedTypesContainer;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 
+import java.util.List;
+
 public class TypeMappingConfigUtil {
 
     public static String PROPERTY_JCR_TYPE_NAME = "jcrName";
@@ -32,8 +34,8 @@ public class TypeMappingConfigUtil {
                 }
             }
             
-            String ignoreExternalProperties = typeMapping.getString(PROPERTY_IGNORE_EXTERNAL_PROPERTIES);
-            if (ignoreExternalProperties != null) {
+            List<String> ignoreExternalProperties = (List<String>) typeMapping.getArray(PROPERTY_IGNORE_EXTERNAL_PROPERTIES);
+            if (ignoreExternalProperties != null && ignoreExternalProperties.size() > 0) {
             	mappedCustomType.setIgnoreExternalProperties(ignoreExternalProperties);
             }
             result.addTypeMapping(mappedCustomType);

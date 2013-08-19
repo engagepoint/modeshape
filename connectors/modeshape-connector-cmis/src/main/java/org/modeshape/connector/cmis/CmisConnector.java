@@ -1128,33 +1128,17 @@ public class CmisConnector extends Connector {
 
             boolean ignore = (pname != null && !pname.startsWith("jcr:")) && ((propertyDefinition.getUpdatability() == Updatability.READONLY)
                     || type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value()));
-//            debug("Converted property ", pname);
+
+
+            // check if ignore defined explicitly with configuration -> ignoreExternalProperties
+            ignore = ignore || ((typeMapping != null) && typeMapping.getIgnoreExternalProperties().contains(pname));
+
             if (pname != null && !pname.startsWith(CMIS_PREFIX) && !ignore) {
                 String propertyTargetName = typeMapping != null ? typeMapping.toJcrProperty(pname) : pname;
                 Object[] values = properties.jcrValues(property);
                 if (propertyDefinition.isRequired() && (values == null || values.length == 0)) {
                     debug("WARNING: property [", property.getId(), "] has empty value!!!!");
-                } 
-                
-                // check is filtered(ignored)
-                if ((!propertyDefinition.isRequired()) && (typeMapping != null) && (typeMapping.getIgnoreExternalProperties() != null)) {
-                	String[] ignoreExternalProperties = typeMapping.getIgnoreExternalProperties();
-                	String externalProperty = typeMapping.toExtProperty(propertyTargetName);
-                	boolean isIgnored = false;
-                	for (String ignoreExternalProperty : ignoreExternalProperties) {
-                		if (ignoreExternalProperty.trim().equalsIgnoreCase(externalProperty)) {
-                			isIgnored = true;
-                			requiredExtProperties.remove(property.getId());
-                			debug("WARNING: property [", property.getId(), "] was ignored by filtering!!!!");
-                			break;
-                		}
-                	}
-                	if (isIgnored) {
-                		continue; // skip this property as filtered by ignore
-                	}
                 }
-                
-//                debug("adding Transformed property ", propertyTargetName, "with values:", (values != null && values.length > 0) ? values[0].toString() : "");
                 writer.addProperty(propertyTargetName, values);
             }
             requiredExtProperties.remove(property.getId());
@@ -1338,6 +1322,7 @@ public class CmisConnector extends Connector {
         for (String name : names) {
 //            debug("importing property: ", name, " ...");
             if (name.startsWith(CMIS_PREFIX)) continue; // ignore them. they must be handled/mapped with default logic
+            if (mapping != null && mapping.getIgnoreExternalProperties().contains(name)) continue; // explicit ignore
 
             PropertyDefinition<?> cmisPropDef = props.get(name);
             PropertyDefinitionTemplate jcrProp = typeManager.createPropertyDefinitionTemplate();
