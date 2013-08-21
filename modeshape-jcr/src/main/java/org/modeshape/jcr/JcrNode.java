@@ -72,6 +72,8 @@ class JcrNode extends AbstractJcrNode {
     public AbstractJcrNode getParent() throws ItemNotFoundException, RepositoryException {
         checkSession();
         NodeKey parentKey = node().getParentKey(sessionCache());
+        // no parent - seems to be unfiled
+        if (parentKey == null) parentKey = new NodeKey(session().getNode(JcrWorkspace.PATH_UNFILED_NODE).getIdentifier());
         return session().node(parentKey, null);
     }
 

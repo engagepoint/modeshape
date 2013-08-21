@@ -36,23 +36,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
-import javax.jcr.AccessDeniedException;
-import javax.jcr.Credentials;
-import javax.jcr.InvalidItemStateException;
-import javax.jcr.InvalidSerializedDataException;
-import javax.jcr.ItemExistsException;
-import javax.jcr.ItemNotFoundException;
-import javax.jcr.LoginException;
-import javax.jcr.NamespaceException;
-import javax.jcr.NoSuchWorkspaceException;
-import javax.jcr.Node;
-import javax.jcr.PathNotFoundException;
-import javax.jcr.Property;
-import javax.jcr.ReferentialIntegrityException;
-import javax.jcr.Repository;
-import javax.jcr.RepositoryException;
-import javax.jcr.Session;
-import javax.jcr.UnsupportedRepositoryOperationException;
+import javax.jcr.*;
 import javax.jcr.lock.LockException;
 import javax.jcr.nodetype.ConstraintViolationException;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
@@ -480,10 +464,13 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             if (expectedType == null) {
                 Name primaryType = cachedNode.getPrimaryType(cache);
                 expectedType = Type.typeForPrimaryType(primaryType);
+
                 if (expectedType == null) {
                     // If this node from the system workspace, then the default is Type.SYSTEM rather than Type.NODE ...
                     if (repository().systemWorkspaceKey().equals(nodeKey.getWorkspaceKey())) {
-                        expectedType = Type.SYSTEM;
+                        // catch if unfiled sub-tree is going to be requested and then return NODE
+                        boolean isUnfiledChild = cachedNode.getPath(cache).toString().startsWith(Workspace.PATH_UNFILED_NODE);
+                        expectedType = isUnfiledChild ? Type.NODE : Type.SYSTEM;
                     } else {
                         expectedType = Type.NODE;
                     }

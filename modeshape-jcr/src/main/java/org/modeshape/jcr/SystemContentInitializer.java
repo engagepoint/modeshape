@@ -23,6 +23,7 @@
  */
 package org.modeshape.jcr;
 
+import javax.jcr.Workspace;
 import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeKey;
 import org.modeshape.jcr.cache.RepositoryCache.ContentInitializer;
@@ -60,6 +61,9 @@ class SystemContentInitializer implements ContentInitializer {
 
         // Create the "/jcr:system/mode:namespaces" node ...
         namespaces = createNode(session, system, "mode:namespaces", ModeShapeLexicon.NAMESPACES, ModeShapeLexicon.NAMESPACES);
+
+        // Create the "/jcr:system/jcr:unfiled" node ...
+        namespaces = createNode(session, system, Workspace.NAME_UNFILED_NODE, JcrLexicon.UNFILED_STORAGE, JcrNtLexicon.FOLDER);
 
         // Create the standard namespaces ...
         // createNamespace(session, namespaces, "", ""); // Don't initialize the "" namespaces

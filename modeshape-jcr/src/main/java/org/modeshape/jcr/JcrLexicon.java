@@ -112,6 +112,7 @@ public class JcrLexicon {
     public static final Name VERSION_HISTORY = new BasicName(Namespace.URI, "versionHistory");
     public static final Name VERSION_LABELS = new BasicName(Namespace.URI, "versionLabels");
     public static final Name VERSION_STORAGE = new BasicName(Namespace.URI, "versionStorage");
+    public static final Name UNFILED_STORAGE = new BasicName(Namespace.URI, "unfiled");
     public static final Name XMLTEXT = new BasicName(Namespace.URI, "xmltext");
 
 }

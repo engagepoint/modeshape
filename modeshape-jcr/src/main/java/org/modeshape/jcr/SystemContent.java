@@ -50,6 +50,7 @@ import javax.jcr.version.OnParentVersionAction;
 import org.modeshape.common.SystemFailureException;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.jcr.RepositoryLockManager.ModeShapeLock;
+import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.cache.CachedNode;
 import org.modeshape.jcr.cache.ChildReference;
@@ -89,6 +90,7 @@ public class SystemContent {
     private NodeKey namespacesKey;
     private NodeKey locksKey;
     private NodeKey versionStorageKey;
+    private NodeKey unfiledStorageKey;
     private final PropertyFactory propertyFactory;
     private final ValueFactory<Boolean> booleans;
     private final ValueFactory<String> strings;
@@ -170,6 +172,16 @@ public class SystemContent {
         return versionStorageKey;
     }
 
+    public NodeKey unfiledStorageKey() {
+        if (unfiledStorageKey == null) {
+            // This is idempotent, so no need to lock
+            CachedNode systemNode = systemNode();
+            ChildReference locksRef = systemNode.getChildReferences(system).getChild(JcrLexicon.UNFILED_STORAGE);
+            unfiledStorageKey = locksRef.getKey();
+        }
+        return unfiledStorageKey;
+    }
+
     public CachedNode systemNode() {
         return system.getNode(systemKey());
     }
@@ -188,6 +200,10 @@ public class SystemContent {
 
     public CachedNode versionStorageNode() {
         return system.getNode(versionStorageKey());
+    }
+
+    public CachedNode unfiledStorageNode() {
+        return system.getNode(unfiledStorageKey());
     }
 
     public MutableCachedNode mutableNodeTypesNode() {
@@ -1000,6 +1016,47 @@ public class SystemContent {
         assert frozenNode != null;
 
         return history;
+    }
+
+
+    /**
+
+     * <p>
+     * Given a NodeKey for a node that has an identifier part of "fae2b929-c5ef-4ce5-9fa1-514779ca0ae3", the SHA-1 hash of this
+     * identifier part is "b46dde8905f76361779339fa3ccacc4f47664255". The path to the version history for this node is as follows:
+     *
+     * <pre>
+     *  + jcr:system
+     *    + jcr:unfiled   {jcr:primaryType = nt:folder}
+
+     * </pre>
+     *
+     * @return the unfiled node; never null
+     */
+    protected MutableCachedNode initializeUnfiledStorage() {
+        CachedNode node = unfiledStorageNode();
+        MutableCachedNode mutable = null;
+
+        // Find the parent of the version history node by walking the path and creating any missing intermediate folders ...
+
+        ChildReferences childRefs = node.getChildReferences(system);
+        ChildReference ref = childRefs.getChild(JcrLexicon.UNFILED_STORAGE);
+        if (ref != null) {
+            // Look up the child node ...
+            node = system.getNode(ref);
+        } else {
+            // Create the intermediate node ...
+            MutableCachedNode mutableNode = system.mutable(node.getKey());
+            NodeKey key = systemKey().withRandomId();
+            Property primaryType = propertyFactory.create(JcrLexicon.PRIMARY_TYPE, JcrConstants.NT_FOLDER);
+            mutable = mutableNode.createChild(system, key, JcrLexicon.UNFILED_STORAGE, primaryType);
+            node = mutable;
+        }
+
+        MutableCachedNode mutableCachedNode = mutable != null ? mutable : system.mutable(node.getKey());
+        system.save();
+        return mutableCachedNode;
+
     }
 
     /**
