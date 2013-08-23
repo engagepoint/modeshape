@@ -1839,7 +1839,13 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 Set<Name> childrenNames = new HashSet<Name>();
 
                 for (NodeKey childKey : allChildren) {
-                    childrenNames.add(cache().getNode(childKey).getName(cache()));
+                    SessionCache tCache = cache();
+                    CachedNode tNode = tCache.getNode(childKey);
+                    if (tNode == null) {
+                        tCache = systemContent.cache();
+                        tNode = tCache.getNode(childKey);
+                    }
+                    childrenNames.add(tNode.getName(tCache));
                 }
 
                 for (JcrNodeDefinition defn : mandatoryChildDefns) {
