@@ -234,8 +234,9 @@ public class Properties {
                 else if (obj instanceof Integer) return (Integer) obj;
                 else return null;
             case DATETIME:
-                // FIXME
-                return new GregorianCalendar();
+                GregorianCalendar lCal = new GregorianCalendar();
+                lCal.setTime( (javax.xml.bind.DatatypeConverter.parseDateTime(document.getString(jcrName)).getTime() ));
+                return lCal;
             case URI:
                 try {
                     return new URI(document.getString(jcrName));
