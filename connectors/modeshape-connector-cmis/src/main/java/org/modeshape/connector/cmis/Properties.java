@@ -33,7 +33,9 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.PropertyType;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
+import org.infinispan.schematic.document.Json;
 import org.infinispan.schematic.internal.document.BasicArray;
+import org.infinispan.schematic.internal.document.BasicDocument;
 import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
@@ -234,8 +236,24 @@ public class Properties {
                 else if (obj instanceof Integer) return (Integer) obj;
                 else return null;
             case DATETIME:
+                Object date = document.get(jcrName);
+                if (date == null) {
+                    break;  //  There is no fields with such name
+                }
                 GregorianCalendar lCal = new GregorianCalendar();
-                lCal.setTime( (javax.xml.bind.DatatypeConverter.parseDateTime(document.getString(jcrName)).getTime() ));
+                if ( !( date instanceof BasicDocument) ) {
+                    break;  //  Unknown type
+                }
+                BasicDocument dateDocument = (BasicDocument)date;
+
+                if (! dateDocument.containsField(Json.ReservedField.DATE) ) {
+                    break;  //  Unknown fields
+                }
+                String dateAsString = dateDocument.getString(Json.ReservedField.DATE);
+                if ( dateAsString == null || dateAsString.trim().isEmpty() ) {
+                    break;
+                }
+                lCal.setTime( (javax.xml.bind.DatatypeConverter.parseDateTime(dateAsString).getTime() ));
                 return lCal;
             case URI:
                 try {
