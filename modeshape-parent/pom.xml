@@ -8,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.2-EP-SNAPSHOT</version>
+    <version>3.2.0.EP14-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -32,9 +32,9 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
-        <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
-        <url>http://github.com/ModeShape/modeshape</url>
+        <connection>scm:git:git@github.com:engagepoint/modeshape.git</connection>
+        <developerConnection>scm:git:git@github.com:engagepoint/modeshape.git</developerConnection>
+        <url>http://github.com/engagepoint/modeshape</url>
     </scm>
 
     <issueManagement>
@@ -328,7 +328,7 @@
         <spring.mock>2.0.7</spring.mock>
 
         <!-- Apache chemistry version -->
-        <chemistry.version>0.10.0-SNAPSHOT</chemistry.version>
+        <chemistry.version>0.10.0.EP14</chemistry.version>
 
         <!--
             JBOSS AS/EAP constants
