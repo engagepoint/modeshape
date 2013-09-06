@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-	  <version>3.2.0.EP14-SNAPSHOT</version>
+	  <version>3.2.0.14-SNAPSHOT</version>
     <relativePath>modeshape-parent/pom.xml</relativePath>
   </parent>
 
@@ -115,4 +115,25 @@
         </profile>
 		
 	</profiles>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-release-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>default</id>
+                        <goals>
+                            <goal>perform</goal>
+                        </goals>
+                        <configuration>
+                            <goals>install</goals>
+                            <arguments>-s settings.xml -DskipTests</arguments>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 </project>
