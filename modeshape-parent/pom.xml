@@ -8,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.2.0.15-SNAPSHOT</version>
+    <version>3.2-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -328,7 +328,7 @@
         <spring.mock>2.0.7</spring.mock>
 
         <!-- Apache chemistry version -->
-        <chemistry.version>0.10.0.EP14</chemistry.version>
+        <chemistry.version>0.10.0</chemistry.version>
 
         <!--
             JBOSS AS/EAP constants

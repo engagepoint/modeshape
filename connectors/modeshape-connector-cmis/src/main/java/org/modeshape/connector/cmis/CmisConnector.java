@@ -60,6 +60,7 @@ import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.jcr.Workspace;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
@@ -1577,5 +1578,11 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
             cachedTypeDefinitions.put(typeId, typeDefinition);
         }
         return cachedTypeDefinitions.get(typeId);
+    }
+
+    public Document getChildReference( String parentKey,
+                                       String childKey ) {
+        CmisObject object = session.getObject(childKey);
+        return newChildReference(object.getId(), object.getName());
     }
 }

@@ -242,7 +242,12 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
     public ChildReference getChildReference( NodeKey parentKey,
                                              NodeKey childKey ) {
         // Look up the information in the document store ...
-        Document doc = documentStore.getChildReference(parentKey.toString(), childKey.toString());
+        // tmp hack for connector + unfiled = name
+        String parentKeyString = parentKey == null ? null : parentKey.toString();
+        String childKeyString = childKey.toString();
+        //
+
+        Document doc = documentStore.getChildReference(parentKeyString, childKeyString);
         if (doc == null) return null;
         return translator.childReferenceFrom(doc);
     }

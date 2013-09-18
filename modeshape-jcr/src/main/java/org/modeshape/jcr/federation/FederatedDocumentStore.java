@@ -24,18 +24,6 @@
 
 package org.modeshape.jcr.federation;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import javax.jcr.Workspace;
-import javax.transaction.TransactionManager;
-import javax.transaction.xa.XAResource;
-
 import org.infinispan.schematic.SchematicDb;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
@@ -58,6 +46,11 @@ import org.modeshape.jcr.value.ReferenceFactory;
 import org.modeshape.jcr.value.basic.NodeKeyReference;
 import org.modeshape.jcr.value.basic.StringReference;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
+
+import javax.jcr.Workspace;
+import javax.transaction.TransactionManager;
+import javax.transaction.xa.XAResource;
+import java.util.*;
 
 /**
  * An implementation of {@link DocumentStore} which is used when federation is enabled
@@ -289,6 +282,7 @@ public class FederatedDocumentStore implements DocumentStore {
             if (document != null) {
                 // clone the document, so we don't alter the original
                 EditableDocument editableDocument = replaceConnectorIdsWithNodeKeys(document, connector.getSourceName());
+//                if (editableDocument.get("parent")==null) editableDocument.
                 editableDocument = updateCachingTtl(connector, editableDocument);
                 editableDocument = updateQueryable(connector, editableDocument);
 
@@ -437,12 +431,20 @@ public class FederatedDocumentStore implements DocumentStore {
     @Override
     public Document getChildReference(String parentKey,
                                       String childKey) {
-        if (isLocalSource(parentKey)) {
+        // tmp hack for connector + unfiled = name
+        boolean isExternal = (parentKey == null && !isLocalSource(childKey));
+        //------------------------
+        if (!isExternal && isLocalSource(parentKey)) {
             return localStore().getChildReference(parentKey, childKey);
         }
-        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        // tmp hack for connector + unfiled = name
+        Connector connector = (isExternal)
+                ? connectors.getConnectorForSourceKey(sourceKey(childKey))
+                : connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        //------------------------------
+
         if (connector != null) {
-            parentKey = documentIdFromNodeKey(parentKey);
+            parentKey = parentKey == null ? null : documentIdFromNodeKey(parentKey);
             childKey = documentIdFromNodeKey(childKey);
             Document doc = connector.getChildReference(parentKey, childKey);
             if (doc != null) {
