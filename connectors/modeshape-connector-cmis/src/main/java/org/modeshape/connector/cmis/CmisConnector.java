@@ -587,7 +587,7 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
                         // store properties for update
                         // incorrect value won't be parsed so cmisValue will have null which may overwrite default value for required property
                         // consider not to put empty values while store ??
-                        if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && cmisValue == null) {
+                        if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && (cmisValue == null || "".equals(cmisValue.toString()))) {
                             debug("WARNING: property [", cmisPropertyName, "] is required but EMPTY !!!!");
                             continue;
                         }
