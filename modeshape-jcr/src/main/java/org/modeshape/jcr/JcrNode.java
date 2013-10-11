@@ -90,7 +90,12 @@ class JcrNode extends AbstractJcrNode {
         SessionCache cache = sessionCache();
         NodeKey key = key();
         MutableCachedNode parent = mutableParent();
-        parent.removeChild(cache, key);
+        //  Hack for unfiled documents located in root, TODO: implement more gentle approach
+        if (parent != null) {
+            if (parent.getKey() != null ) {
+                parent.removeChild(cache, key);
+            }
+        }
         cache.destroy(key);
     }
 }

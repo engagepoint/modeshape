@@ -225,7 +225,12 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     protected final MutableCachedNode mutableParent() throws RepositoryException {
         SessionCache cache = sessionCache();
-        return cache.mutable(parentKey());
+        //  Hack for unfiled documents located in root, TODO: implement more gentle approach
+        NodeKey key = parentKey();
+        if (key == null) {
+            return null;
+        }
+        return cache.mutable(key);
     }
 
     @Override
