@@ -388,6 +388,9 @@ public class Database {
                                                  boolean inUse ) throws BinaryStoreException {
         try {
             PreparedStatement sql = inUse ? getUsedContentSql : getUnusedContentSql;
+            if (sql.isClosed()) {
+                sql =  inUse ? prepareStatement("get_used_content") : prepareStatement("get_unused_content");
+            }
             sql.setString(1, key.toString());
             return sql;
         } catch (SQLException e) {
