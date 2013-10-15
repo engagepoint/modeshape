@@ -1042,6 +1042,11 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
         if (folder.isRootFolder() && !hideRootFolderReference) {
             writer.addChild(ObjectId.toString(ObjectId.Type.REPOSITORY_INFO, ""), REPOSITORY_INFO_NODE_NAME);
         }
+        writer.addMixinType(NodeType.MIX_LAST_MODIFIED);
+        Property<Object> lastModified = folder.getProperty(PropertyIds.LAST_MODIFICATION_DATE);
+        Property<Object> lastModifiedBy = folder.getProperty(PropertyIds.LAST_MODIFIED_BY);
+        writer.addProperty(JcrLexicon.LAST_MODIFIED, properties.jcrValues(lastModified));
+        writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, properties.jcrValues(lastModifiedBy));
         return writer.document();
     }
 
@@ -1116,6 +1121,12 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
 
         writer.addProperty(JcrLexicon.LAST_MODIFIED, properties.jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, properties.jcrValues(lastModifiedBy));
+
+        writer.addMixinType(NodeType.MIX_CREATED);
+        Property<Object> created = doc.getProperty(PropertyIds.CREATION_DATE);
+        Property<Object> createdBy = doc.getProperty(PropertyIds.CREATED_BY);
+        writer.addProperty(JcrLexicon.CREATED, properties.jcrValues(created));
+        writer.addProperty(JcrLexicon.CREATED_BY, properties.jcrValues(createdBy));
 
         return writer.document();
     }
