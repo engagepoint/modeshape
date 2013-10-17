@@ -39,6 +39,7 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.util.Version;
 import org.hibernate.search.SearchFactory;
 import org.hibernate.search.engine.spi.SearchFactoryImplementor;
+import org.hibernate.search.indexes.impl.IndexManagerHolder;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.jcr.ExecutionContext;
 import org.modeshape.jcr.api.query.QueryCancelledException;
@@ -102,8 +103,20 @@ public class LuceneQueryEngine extends QueryEngine {
         ((LuceneQueryProcessor)this.processor).initialize(schema);
     }
 
+    /**
+     * Shuts down the query engine
+     */
     public void shutdown() {
         this.schema.shutdown();
+    }
+
+    /**
+     * Returns the global index manager.
+     *
+     * @return  a {@code IndexManagerHolder} instance.
+     */
+    public IndexManagerHolder getAllIndexesManager() {
+        return this.schema.getAllIndexesManager();
     }
 
     /**

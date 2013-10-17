@@ -25,11 +25,17 @@ package org.modeshape.sequencer.ddl;
 
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Map.Entry;
+import java.util.Set;
 import org.modeshape.common.annotation.Immutable;
 import org.modeshape.common.text.ParsingException;
 import org.modeshape.common.text.Position;
+import org.modeshape.common.util.CheckArg;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.sequencer.ddl.dialect.derby.DerbyDdlParser;
 import org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlParser;
@@ -51,6 +57,35 @@ import org.modeshape.sequencer.ddl.node.AstNodeFactory;
  */
 @Immutable
 public class DdlParsers {
+
+    /**
+     * Sorts the parser scores.
+     */
+    private static final Comparator<Entry<DdlParser, Integer>> SORTER = new Comparator<Entry<DdlParser, Integer>>() {
+
+        @Override
+        public int compare( final Entry<DdlParser, Integer> thisEntry,
+                            final Entry<DdlParser, Integer> thatEntry ) {
+            // reverse order as we want biggest value to sort first
+            int result = (thisEntry.getValue().compareTo(thatEntry.getValue()) * -1);
+
+            // default to standard SQL parser if score is a tie
+            if (result == 0) {
+                if (StandardDdlParser.ID.equals(thisEntry.getKey().getId())
+                    && !StandardDdlParser.ID.equals(thatEntry.getKey().getId())) {
+                    return -1;
+                }
+
+                if (StandardDdlParser.ID.equals(thatEntry.getKey().getId())
+                    && !StandardDdlParser.ID.equals(thisEntry.getKey().getId())) {
+                    return 1;
+                }
+            }
+
+            return result;
+        }
+
+    };
 
     public static final List<DdlParser> BUILTIN_PARSERS;
 
@@ -83,6 +118,177 @@ public class DdlParsers {
         this.parsers = (parsers != null && !parsers.isEmpty()) ? parsers : BUILTIN_PARSERS;
     }
 
+    private AstNode createDdlStatementsContainer( final String parserId ) {
+        final AstNode node = this.nodeFactory.node(StandardDdlLexicon.STATEMENTS_CONTAINER);
+        node.setProperty(JcrConstants.JCR_PRIMARY_TYPE, JcrConstants.NT_UNSTRUCTURED);
+        node.setProperty(StandardDdlLexicon.PARSER_ID, parserId);
+        return node;
+    }
+
+    /**
+     * @param id the identifier of the parser being requested (cannot be <code>null</code> or empty)
+     * @return the parser or <code>null</code> if not found
+     */
+    public DdlParser getParser( final String id ) {
+        CheckArg.isNotEmpty(id, "id");
+
+        for (final DdlParser parser : this.parsers) {
+            if (parser.getId().equals(id)) {
+                return parser;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @return a copy of the DDL parsers used in this instance (never <code>null</code> or empty)
+     */
+    public Set<DdlParser> getParsers() {
+        return new HashSet<DdlParser>(this.parsers);
+    }
+
+    /**
+     * @param ddl the DDL being parsed (cannot be <code>null</code> or empty)
+     * @param parserId the identifier of the parser to use (can be <code>null</code> or empty if best matched parser should be
+     *        used)
+     * @return the root tree {@link AstNode}
+     * @throws ParsingException if there is an error parsing the supplied DDL content
+     * @throws IllegalArgumentException if a parser with the specified identifier cannot be found
+     */
+    public AstNode parseUsing( final String ddl,
+                               final String parserId ) throws ParsingException {
+        CheckArg.isNotEmpty(ddl, "ddl");
+        CheckArg.isNotEmpty(parserId, "parserId");
+
+        DdlParser parser = getParser(parserId);
+
+        if (parser == null) {
+            throw new ParsingException(Position.EMPTY_CONTENT_POSITION, DdlSequencerI18n.unknownParser.text(parserId));
+        }
+
+        // create DDL root node
+        AstNode astRoot = createDdlStatementsContainer(parserId);
+
+        // parse
+        parser.parse(ddl, astRoot, null);
+
+        return astRoot;
+    }
+
+    /**
+     * Parse the supplied DDL using multiple parsers, returning the result of each parser with its score in the order of highest
+     * scoring to lowest scoring.
+     * 
+     * @param ddl the DDL being parsed (cannot be <code>null</code> or empty)
+     * @param firstParserId the identifier of the first parser to use (cannot be <code>null</code> or empty)
+     * @param secondParserId the identifier of the second parser to use (cannot be <code>null</code> or empty)
+     * @param additionalParserIds the identifiers of additional parsers that should be used; may be empty but not contain a null
+     *        identifier value
+     * @return the list of {@link ParsingResult} instances, one for each parser, ordered from highest score to lowest score (never
+     *         <code>null</code> or empty)
+     * @throws ParsingException if there is an error parsing the supplied DDL content
+     * @throws IllegalArgumentException if a parser with the specified identifier cannot be found
+     */
+    public List<ParsingResult> parseUsing( final String ddl,
+                                           final String firstParserId,
+                                           final String secondParserId,
+                                           final String... additionalParserIds ) throws ParsingException {
+        CheckArg.isNotEmpty(firstParserId, "firstParserId");
+        CheckArg.isNotEmpty(secondParserId, "secondParserId");
+
+        if (additionalParserIds != null) {
+            CheckArg.containsNoNulls(additionalParserIds, "additionalParserIds");
+        }
+
+        final int numParsers = ((additionalParserIds == null) ? 2 : (additionalParserIds.length + 2));
+        final List<DdlParser> selectedParsers = new ArrayList<DdlParser>(numParsers);
+
+        { // add first parser
+            final DdlParser parser = getParser(firstParserId);
+
+            if (parser == null) {
+                throw new ParsingException(Position.EMPTY_CONTENT_POSITION, DdlSequencerI18n.unknownParser.text(firstParserId));
+            }
+
+            selectedParsers.add(parser);
+        }
+
+        { // add second parser
+            final DdlParser parser = getParser(secondParserId);
+
+            if (parser == null) {
+                throw new ParsingException(Position.EMPTY_CONTENT_POSITION, DdlSequencerI18n.unknownParser.text(secondParserId));
+            }
+
+            selectedParsers.add(parser);
+        }
+
+        // add remaining parsers
+        if ((additionalParserIds != null) && (additionalParserIds.length != 0)) {
+            for (final String id : additionalParserIds) {
+                final DdlParser parser = getParser(id);
+
+                if (parser == null) {
+                    throw new ParsingException(Position.EMPTY_CONTENT_POSITION, DdlSequencerI18n.unknownParser.text(id));
+                }
+
+                selectedParsers.add(parser);
+            }
+        }
+
+        return parseUsing(ddl, selectedParsers);
+    }
+
+    private List<ParsingResult> parseUsing( final String ddl,
+                                            final List<DdlParser> parsers ) {
+        CheckArg.isNotEmpty(ddl, "ddl");
+
+        final List<ParsingResult> results = new ArrayList<DdlParsers.ParsingResult>(this.parsers.size());
+        final DdlParserScorer scorer = new DdlParserScorer();
+
+        for (final DdlParser parser : this.parsers) {
+            final String parserId = parser.getId();
+            int score = ParsingResult.NO_SCORE;
+            AstNode rootNode = null;
+            Exception error = null;
+
+            try {
+                // score
+                final Object scorerOutput = parser.score(ddl, null, scorer);
+                score = scorer.getScore();
+
+                // create DDL root node
+                rootNode = createDdlStatementsContainer(parserId);
+
+                // parse
+                parser.parse(ddl, rootNode, scorerOutput);
+            } catch (final RuntimeException e) {
+                error = e;
+            } finally {
+                final ParsingResult result = new ParsingResult(parserId, rootNode, score, error);
+                results.add(result);
+                scorer.reset();
+            }
+        }
+
+        Collections.sort(results);
+        return results;
+    }
+
+    /**
+     * Parse the supplied DDL using all registered parsers, returning the result of each parser with its score in the order of
+     * highest scoring to lowest scoring.
+     * 
+     * @param ddl the DDL being parsed (cannot be <code>null</code> or empty)
+     * @return the list or {@link ParsingResult} instances, one for each parser, ordered from highest score to lowest score
+     * @throws ParsingException if there is an error parsing the supplied DDL content
+     * @throws IllegalArgumentException if a parser with the specified identifier cannot be found
+     */
+    public List<ParsingResult> parseUsingAll( final String ddl ) throws ParsingException {
+        return parseUsing(ddl, this.parsers);
+    }
+
     /**
      * Parse the supplied DDL content and return the {@link AstNode root node} of the AST representation.
      * 
@@ -91,93 +297,101 @@ public class DdlParsers {
      * @return the root tree {@link AstNode}
      * @throws ParsingException if there is an error parsing the supplied DDL content
      */
-    public AstNode parse( String ddl, String fileName ) throws ParsingException {
-        assert ddl != null;
-
-        // Go through each parser and score the DDL content ...
-        List<ScoredParser> scoredParsers = new LinkedList<ScoredParser>();
-        for (DdlParser parser : parsers) {
-            DdlParserScorer scorer = new DdlParserScorer();
-            try {
-                Object scoreResult = parser.score(ddl, fileName, scorer);
-                scoredParsers.add(new ScoredParser(parser, scorer, scoreResult));
-            } catch (Throwable t) {
-                // Continue ...
-            }
-        }
-
-        if (!scoredParsers.isEmpty()) {
-            Collections.sort(scoredParsers);
-        } else {
-            // Just keep the parsers in order ...
-            for (DdlParser parser : parsers) {
-                scoredParsers.add(new ScoredParser(parser, new DdlParserScorer(), null));
-            }
-        }
-
-        // Go through each of the parsers (in order) to parse the content. Start with the first one
-        // and return if there is no parsing failure; otherwise, just continue with the next parser
-        // until no failure ...
-        AstNode astRoot = null;
+    public AstNode parse( final String ddl,
+                          final String fileName ) throws ParsingException {
+        CheckArg.isNotEmpty(ddl, "ddl");
         RuntimeException firstException = null;
-        for (ScoredParser scoredParser : scoredParsers) {
+
+        // Go through each parser and score the DDL content
+        final Map<DdlParser, Integer> scoreMap = new HashMap<DdlParser, Integer>(this.parsers.size());
+        final DdlParserScorer scorer = new DdlParserScorer();
+
+        for (final DdlParser parser : this.parsers) {
             try {
-                astRoot = nodeFactory.node(StandardDdlLexicon.STATEMENTS_CONTAINER);
-                astRoot.setProperty(JcrConstants.JCR_PRIMARY_TYPE, JcrConstants.NT_UNSTRUCTURED);
-                DdlParser parser = scoredParser.getParser();
-                parser.parse(ddl, astRoot, scoredParser.getScoringResult());
-                astRoot.setProperty(StandardDdlLexicon.PARSER_ID, parser.getId());
-                // Success, so return the resulting AST ...
-                return astRoot;
-            } catch (ParsingException t) {
-                if (firstException == null) firstException = t;
-                // Continue ...
-            } catch (RuntimeException t) {
-                if (firstException == null) firstException = t;
-                // Continue ...
+                parser.score(ddl, fileName, scorer);
+                scoreMap.put(parser, scorer.getScore());
+            } catch (RuntimeException e) {
+                if (firstException == null) {
+                    firstException = e;
+                }
+            } finally {
+                scorer.reset();
             }
         }
-        if (firstException != null) {
+
+        if (scoreMap.isEmpty()) {
+            if (firstException == null) {
+                throw new ParsingException(Position.EMPTY_CONTENT_POSITION,
+                                           DdlSequencerI18n.errorParsingDdlContent.text(this.parsers.size()));
+            }
+
             throw firstException;
         }
-        // No exceptions, but nothing was found ...
-        throw new ParsingException(new Position(-1, 1, 0), DdlSequencerI18n.errorParsingDdlContent.text());
+
+        // sort the scores
+        final List<Entry<DdlParser, Integer>> scoredParsers = new ArrayList<Entry<DdlParser, Integer>>(scoreMap.entrySet());
+        Collections.sort(scoredParsers, SORTER);
+
+        firstException = null;
+        AstNode astRoot = null;
+
+        for (final Entry<DdlParser, Integer> scoredParser : scoredParsers) {
+            try {
+                final DdlParser parser = scoredParser.getKey();
+
+                // create DDL root node
+                astRoot = createDdlStatementsContainer(parser.getId());
+
+                // parse
+                parser.parse(ddl, astRoot, null);
+                return astRoot; // successfully parsed
+            } catch (final RuntimeException e) {
+                if (astRoot != null) {
+                    astRoot.removeFromParent();
+                }
+
+                if (firstException == null) {
+                    firstException = e;
+                }
+            }
+        }
+
+        if (firstException == null) {
+            throw new ParsingException(Position.EMPTY_CONTENT_POSITION, DdlSequencerI18n.errorParsingDdlContent.text());
+        }
+
+        throw firstException;
     }
 
-    protected static class ScoredParser implements Comparable<ScoredParser> {
-        private final DdlParserScorer scorer;
-        private final DdlParser parser;
-        private final Object scoringResult;
+    /**
+     * Represents a parsing result of one parser parsing one DDL input.
+     */
+    @Immutable
+    public class ParsingResult implements Comparable<ParsingResult> {
 
-        protected ScoredParser( DdlParser parser,
-                                DdlParserScorer scorer,
-                                Object scoringResult ) {
-            this.parser = parser;
-            this.scorer = scorer;
-            this.scoringResult = scoringResult;
-            assert this.parser != null;
-            assert this.scorer != null;
-        }
+        public static final int NO_SCORE = -1;
+
+        private final Exception error;
+        private final String id;
+        private final AstNode rootNode;
+        private final int score;
 
         /**
-         * @return parser
+         * @param parserId the parser identifier (cannot be <code>null</code> or empty)
+         * @param rootTreeNode the node at the root of the parse tree (can be <code>null</code> if an error occurred)
+         * @param parserScore the parsing score (can have {@link #NO_SCORE no score} if an error occurred
+         * @param parsingError an error that occurred during parsing (can be <code>null</code>)
          */
-        public DdlParser getParser() {
-            return parser;
-        }
+        public ParsingResult( final String parserId,
+                              final AstNode rootTreeNode,
+                              final int parserScore,
+                              final Exception parsingError ) {
+            CheckArg.isNotEmpty(parserId, "parserId");
 
-        /**
-         * @return scorer
-         */
-        public DdlParserScorer getScorer() {
-            return scorer;
-        }
-
-        /**
-         * @return scoringResult
-         */
-        public Object getScoringResult() {
-            return scoringResult;
+            this.id = parserId;
+            this.rootNode = rootTreeNode;
+            this.score = parserScore;
+            this.error = parsingError;
         }
 
         /**
@@ -186,9 +400,42 @@ public class DdlParsers {
          * @see java.lang.Comparable#compareTo(java.lang.Object)
          */
         @Override
-        public int compareTo( ScoredParser that ) {
-            if (that == null) return 1;
-            return that.getScorer().getScore() - this.getScorer().getScore();
+        public int compareTo( final ParsingResult that ) {
+            if ((this == that) || (this.score == that.score)) {
+                return 0;
+            }
+
+            return ((this.score > that.score) ? -1 : 1);
         }
+
+        /**
+         * @return the parsing error (<code>null</code> if no error occurred)
+         */
+        public Exception getError() {
+            return this.error;
+        }
+
+        /**
+         * @return the parser identifier (never <code>null</code> or empty)
+         */
+        public String getParserId() {
+            return this.id;
+        }
+
+        /**
+         * @return the root <code>AstNode</code> (can be <code>null</code> if a parsing error occurred)
+         */
+        public AstNode getRootTree() {
+            return this.rootNode;
+        }
+
+        /**
+         * @return the parsing score
+         */
+        public int getScore() {
+            return this.score;
+        }
+
     }
+
 }

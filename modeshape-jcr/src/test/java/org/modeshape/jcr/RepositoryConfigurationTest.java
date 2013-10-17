@@ -31,10 +31,16 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.fail;
+import org.infinispan.schematic.Schematic;
+import org.infinispan.schematic.document.Document;
 import org.junit.Before;
 import org.junit.Test;
+import org.modeshape.common.FixFor;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.jcr.RepositoryConfiguration.AnonymousSecurity;
+import org.modeshape.jcr.RepositoryConfiguration.Default;
+import org.modeshape.jcr.RepositoryConfiguration.DocumentOptimization;
+import org.modeshape.jcr.RepositoryConfiguration.FieldName;
 import org.modeshape.jcr.RepositoryConfiguration.JaasSecurity;
 import org.modeshape.jcr.RepositoryConfiguration.Security;
 import org.modeshape.jcr.RepositoryConfiguration.TransactionMode;
@@ -88,6 +94,12 @@ public class RepositoryConfigurationTest {
     }
 
     @Test
+    public void shouldAcceptSequencerWithNoPathExpression() throws Exception {
+        RepositoryConfiguration config = RepositoryConfiguration.read("{ 'name' : 'Repo', \"sequencing\" : { 'sequencers' : { 'foo' : { 'classname' : 'xsdsequencer' } } } }");
+        assertValid(config);
+    }
+
+    @Test
     public void shouldNotReplaceBlankValuesWithNull() throws Exception {
         RepositoryConfiguration config = RepositoryConfiguration.read("{ 'name' : 'Repo', 'jndiName' : '' }");
         assertThat(config.getJndiName(), is(""));
@@ -102,7 +114,7 @@ public class RepositoryConfigurationTest {
 
     @Test
     public void shouldSuccessfullyValidateSampleRepositoryConfiguration() {
-        RepositoryConfiguration config = assertValid("sample-repo-config.json");
+        RepositoryConfiguration config = assertHasWarnings(1, "sample-repo-config.json");
         assertThat(config.getTransactionMode(), is(TransactionMode.AUTO));
     }
 
@@ -133,18 +145,13 @@ public class RepositoryConfigurationTest {
     }
 
     @Test
-    public void shouldSuccessfullyValidateSampleRepositoryConfigurationWithIndexStorageInInfinispan() {
-        assertValid("config/index-storage-config-infinispan.json");
-    }
-
-    @Test
     public void shouldSuccessfullyValidateThoroughRepositoryConfiguration() {
-        assertValid("config/thorough-repo-config.json");
+        assertHasWarnings(1, "config/thorough-repo-config.json");
     }
 
     @Test
     public void shouldSuccessfullyValidateThoroughRepositoryConfigurationWithDescriptions() {
-        assertValid("config/thorough-with-desc-repo-config.json");
+        assertHasWarnings(1, "config/thorough-with-desc-repo-config.json");
     }
 
     @Test
@@ -155,6 +162,16 @@ public class RepositoryConfigurationTest {
     @Test
     public void shouldSuccessfullyValidateDriverBasedBinaryStorageConfiguration() {
         assertValid("config/database-url-binary-storage.json");
+    }
+
+    @Test
+    public void shouldSuccessfullyValidateCompositeBinaryStorageConfiguration() {
+        assertValid("config/composite-binary-storage.json");
+    }
+
+    @Test
+    public void shouldSuccessfullyValidateCompositeBinaryStorageWithoutDefaultNamedStoreConfiguration() {
+        assertNotValid(1, "config/composite-binary-storage-without-default.json");
     }
 
     @Test
@@ -315,13 +332,13 @@ public class RepositoryConfigurationTest {
 
         RepositoryConfiguration config = RepositoryConfiguration.read("{ \"name\" : \"foo\", \"workspaces\" : {\"cacheConfiguration\":\""
                                                                       + cacheContainer + "\"} }");
-        System.out.println(config.validate());
+        print(config.validate());
         assertThat(config.validate().hasProblems(), is(false));
         assertEquals(cacheContainer, config.getWorkspaceCacheConfiguration());
 
         config = RepositoryConfiguration.read("{ 'name' : 'foo', 'workspaces' : { 'cacheConfiguration' : '" + cacheContainer
                                               + "' } }");
-        System.out.println(config.validate());
+        print(config.validate());
         assertThat(config.validate().hasProblems(), is(false));
         assertEquals(cacheContainer, config.getWorkspaceCacheConfiguration());
     }
@@ -341,6 +358,67 @@ public class RepositoryConfigurationTest {
         assertValid("config/repo-config-jdbc-binary-storage.json");
     }
 
+    @Test
+    @FixFor( "MODE-1752" )
+    public void shouldAllowCacheBinaryStorage() throws Exception {
+        assertValid("config/repo-config-cache-binary-storage.json");
+    }
+
+    @FixFor( "MODE-1988" )
+    @Test
+    public void shouldNotEnableDocumentOptimizationByDefault() {
+        RepositoryConfiguration config = new RepositoryConfiguration("repoName");
+        assertThat(config.getDocumentOptimization(), is(notNullValue()));
+        assertThat(config.getDocumentOptimization().isEnabled(), is(false));
+    }
+
+    @FixFor( "MODE-1988" )
+    @Test
+    public void shouldEnableDocumentOptimizationWithEmptyDocumentOptimizationField() {
+        Document doc = Schematic.newDocument(FieldName.NAME,
+                                             "repoName",
+                                             FieldName.STORAGE,
+                                             Schematic.newDocument(FieldName.DOCUMENT_OPTIMIZATION, Schematic.newDocument()));
+        RepositoryConfiguration config = new RepositoryConfiguration(doc, "repoName");
+        DocumentOptimization opt = config.getDocumentOptimization();
+        assertThat(opt, is(notNullValue()));
+        assertThat(opt.isEnabled(), is(false));
+    }
+
+    @FixFor( "MODE-1988" )
+    @Test
+    public void shouldEnableDocumentOptimizationWithValidChildCountTargetAndToleranceValues() {
+        Document docOpt = Schematic.newDocument(FieldName.OPTIMIZATION_CHILD_COUNT_TARGET,
+                                                500,
+                                                FieldName.OPTIMIZATION_CHILD_COUNT_TOLERANCE,
+                                                10);
+        Document doc = Schematic.newDocument(FieldName.NAME,
+                                             "repoName",
+                                             FieldName.STORAGE,
+                                             Schematic.newDocument(FieldName.DOCUMENT_OPTIMIZATION, docOpt));
+        RepositoryConfiguration config = new RepositoryConfiguration(doc, "repoName");
+        DocumentOptimization opt = config.getDocumentOptimization();
+        assertThat(opt, is(notNullValue()));
+        assertThat(opt.isEnabled(), is(true));
+        assertThat(opt.getIntervalInHours(), is(Default.OPTIMIZATION_INTERVAL_IN_HOURS));
+        assertThat(opt.getInitialTimeExpression(), is(Default.OPTIMIZATION_INITIAL_TIME));
+        assertThat(opt.getThreadPoolName(), is(Default.OPTIMIZATION_POOL));
+    }
+
+    @FixFor( "MODE-1988" )
+    @Test
+    public void shouldDisableDocumentOptimizationWithoutValidChildCountTargetValue() {
+        Document docOpt = Schematic.newDocument(FieldName.OPTIMIZATION_CHILD_COUNT_TOLERANCE, 10);
+        Document doc = Schematic.newDocument(FieldName.NAME,
+                                             "repoName",
+                                             FieldName.STORAGE,
+                                             Schematic.newDocument(FieldName.DOCUMENT_OPTIMIZATION, docOpt));
+        RepositoryConfiguration config = new RepositoryConfiguration(doc, "repoName");
+        DocumentOptimization opt = config.getDocumentOptimization();
+        assertThat(opt, is(notNullValue()));
+        assertThat(opt.isEnabled(), is(false));
+    }
+
     protected RepositoryConfiguration assertValid( RepositoryConfiguration config ) {
         Problems results = config.validate();
         assertThat(results.toString(), results.hasProblems(), is(false));
@@ -349,6 +427,10 @@ public class RepositoryConfigurationTest {
 
     protected RepositoryConfiguration assertValid( String configContent ) {
         return assertValid(assertRead(configContent));
+
+    }
+    protected RepositoryConfiguration assertHasWarnings( int numberOfWarnings, String configContent ) {
+        return assertHasWarnings(numberOfWarnings, assertRead(configContent));
     }
 
     protected void assertNotValid( int numberOfErrors,
@@ -359,6 +441,26 @@ public class RepositoryConfigurationTest {
         assertThat(results.toString(), results.errorCount(), is(numberOfErrors));
         if (print) {
             System.out.println(results);
+        }
+    }
+
+    protected RepositoryConfiguration assertHasWarnings( int numberOfWarnings,
+                                      RepositoryConfiguration config ) {
+        Problems results = config.validate();
+        assertThat(results.toString(), results.hasProblems(), is(true));
+        assertThat(results.toString(), results.hasErrors(), is(false));
+        assertThat(results.toString(), results.hasWarnings(), is(true));
+        assertThat(results.toString(), results.errorCount(), is(0));
+        assertThat(results.toString(), results.warningCount(), is(numberOfWarnings));
+        if (print) {
+            System.out.println(results);
+        }
+        return config;
+    }
+
+    protected void print( Object obj ) {
+        if (print) {
+            System.out.println(obj);
         }
     }
 

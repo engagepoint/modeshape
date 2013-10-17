@@ -38,7 +38,10 @@ import org.modeshape.sequencer.ddl.node.AstNode;
  */
 public final class TeiidDdlParser extends StandardDdlParser implements TeiidDdlConstants {
 
-    private static final String ID = "TEIID";
+    /**
+     * The Teiid parser identifier.
+     */
+    public static final String ID = "TEIID";
 
     private final Map<String, String> namespaceAliases;
     private final Collection<StatementParser> parsers;
@@ -154,4 +157,19 @@ public final class TeiidDdlParser extends StandardDdlParser implements TeiidDdlC
         throw new TeiidDdlParsingException(tokens, "Unparsable DDL statement");
     }
 
+    /**
+     * {@inheritDoc}
+     * 
+     * @see org.modeshape.sequencer.ddl.DdlParser#postProcess(org.modeshape.sequencer.ddl.node.AstNode)
+     */
+	@Override
+	public void postProcess(AstNode rootNode) {
+		super.postProcess(rootNode);
+		
+        for (final StatementParser parser : this.parsers) {
+        	parser.postProcess(rootNode);
+        }
+	}
+
+    
 }

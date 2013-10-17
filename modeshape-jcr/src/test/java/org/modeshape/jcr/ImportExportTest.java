@@ -38,6 +38,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Set;
 import javax.jcr.ImportUUIDBehavior;
 import javax.jcr.ItemExistsException;
 import javax.jcr.Node;
@@ -50,8 +51,11 @@ import javax.jcr.nodetype.ConstraintViolationException;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
+import org.modeshape.common.junit.SkipLongRunning;
 import org.modeshape.jcr.api.Binary;
 import org.modeshape.jcr.api.JcrTools;
+import org.modeshape.jcr.api.Workspace;
+import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.Path;
 
 /**
@@ -351,15 +355,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.CREATE_NEW);
         assertThat(session, is(notNullValue()));
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @Test
@@ -369,15 +365,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.REMOVE_EXISTING);
         assertThat(session, is(notNullValue()));
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @Test
@@ -387,15 +375,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.REPLACE_EXISTING);
         assertThat(session, is(notNullValue()));
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @Test
@@ -406,15 +386,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // Now import again to create a second copy ...
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.REMOVE_EXISTING);
@@ -443,15 +415,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -479,15 +443,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view-with-uuids.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -515,15 +471,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view-with-uuids.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -532,15 +480,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Verify that the original content has been replaced (since the SystemView contained UUIDs) and there is no copy ...
         assertThat(session, is(notNullValue()));
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -549,15 +489,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Verify that the original content has been replaced (since the SystemView contained UUIDs) and there is no copy ...
         assertThat(session, is(notNullValue()));
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @Test
@@ -568,15 +500,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view-with-uuids.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -587,15 +511,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
         assertThat(session, is(notNullValue()));
         assertNode("/a/b");
         assertNode("/a/c");
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -625,15 +541,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository with existing content ...
         assertImport("io/cars-system-view-with-uuids.xml", "/a/b", ImportBehavior.CREATE_NEW);
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
 
         // And attempt to reimport the same content (with UUIDs) into the repository that already has that content ...
         // print = true;
@@ -651,15 +559,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository ...
         assertImport("io/full-workspace-system-view-with-uuids.xml", "/", ImportBehavior.THROW); // no matching UUIDs expected
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @Test
@@ -784,15 +684,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository ...
         assertImport("io/full-workspace-document-view-with-uuids.xml", "/", ImportBehavior.THROW); // no matching UUIDs expected
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     // ----------------------------------------------------------------------------------------------------------------
@@ -806,15 +698,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
 
         // Set up the repository ...
         assertImport("io/full-workspace-document-view-with-uuids.xml", "/", ImportBehavior.THROW); // no matching UUIDs expected
-        assertNode("/a/b/Cars");
-        assertNode("/a/b/Cars/Hybrid");
-        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
-        assertNode("/a/b/Cars/Sports/Infiniti G37");
-        assertNode("/a/b/Cars/Utility/Land Rover LR3");
-        assertNoNode("/a/b/Cars[2]");
-        assertNoNode("/a/b/Cars/Hybrid[2]");
-        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
-        assertNoNode("/a/b/Cars/Sports[2]");
+        assertCarsImported();
     }
 
     @FixFor( "MODE-1171" )
@@ -1020,6 +904,179 @@ public class ImportExportTest extends SingleUseAbstractTest {
         assertNode("/" + prefix + ":childNode", "nt:unstructured");
     }
 
+    @FixFor( "MODE-1945" )
+    @Test
+    public void shouldBeAbleToImportDocumentViewTwiceWithRemoveExistingCollisionMode() throws Exception {
+        // Register the node types ...
+        tools.registerNodeTypes(session, "cars.cnd");
+
+        // Set up the repository ...
+        assertImport("io/full-workspace-document-view-with-uuids.xml", "/", ImportBehavior.REMOVE_EXISTING);
+        assertCarsImported();
+
+        assertImport("io/full-workspace-document-view-with-uuids.xml", "/", ImportBehavior.REMOVE_EXISTING);
+        assertCarsImported();
+    }
+
+    @FixFor( "MODE-1945" )
+    @Test
+    public void shouldBeAbleToImportSystemViewWithBinaryTwiceWithRemoveExistingCollisionMode2() throws Exception {
+        // Register the node types ...
+        tools.registerNodeTypes(session, "cnd/magnolia.cnd");
+        // Now import the file ...
+        assertImport("io/system-export-with-binary-data-and-uuids.xml", "/", ImportBehavior.REMOVE_EXISTING); // no matching UUIDs
+                                                                                                              // expected
+        assertImport("io/system-export-with-binary-data-and-uuids.xml", "/", ImportBehavior.REMOVE_EXISTING); // no matching UUIDs
+                                                                                                              // expected
+    }
+
+    @Test
+    @FixFor( "MODE-1961" )
+    public void shouldBeAbleToImportTwiceWithoutLoosingMixins() throws Exception {
+        tools.registerNodeTypes(session, "cnd/brix.cnd");
+        session.save();
+
+        InputStream brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        session.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        session.save();
+
+        JcrNode root = (JcrNode)session.getItem("/brix:root");
+        Set<Name> rootMixins = root.getMixinTypeNames();
+        assertTrue(rootMixins.contains(session.nameFactory().create("brix:node")));
+
+        brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        session.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        session.save();
+
+        root = (JcrNode)session.getItem("/brix:root");
+        rootMixins = root.getMixinTypeNames();
+        assertTrue(rootMixins.contains(session.nameFactory().create("brix:node")));
+    }
+
+    @Test
+    @FixFor( "MODE-2039" )
+    public void shouldImportVersionedSystemView() throws Exception {
+        assertImport("io/system-export-with-versioning.xml", "/", ImportBehavior.REMOVE_EXISTING); // no matching UUIDs expected
+    }
+
+    @Test
+    @FixFor( "MODE-2035" )
+    public void shouldExportViewsWithLocks() throws Exception {
+        Node node1 = session.getRootNode().addNode("node1");
+        node1.addMixin("mix:lockable");
+        Node node1_1 = node1.addNode("node1_1");
+        node1_1.addMixin("mix:lockable");
+        Node node2 = session.getRootNode().addNode("node2");
+        node2.addMixin("mix:lockable");
+        session.save();
+        session.getWorkspace().lockManager().lock("/node1", true, true, Long.MAX_VALUE, null);
+        session.getWorkspace().lockManager().lock("/node2", false, false, Long.MAX_VALUE, null);
+
+        testImportExport("/", "/", ExportType.SYSTEM, true, false, true);
+        testImportExport("/", "/", ExportType.DOCUMENT, true, false, true);
+    }
+
+    @Test
+    @FixFor( "MODE-2012" )
+    @SkipLongRunning( "There are 4 other test cases in JcrWorkspaceTest which validate the fix" )
+    public void shouldBeAbleToImportAndCloneWorkspaces() throws Exception {
+        String root = "/brix:root";
+
+        // setup
+        String workspaceA = "workspace_a";
+        String workspaceB = "workspace_b";
+        String workspaceC = "workspace_c";
+
+        Workspace wsA, wsB, wsC;
+        JcrSession sessA, sessB, sessC;
+
+        JcrWorkspace rootWS = session.getWorkspace();
+        rootWS.createWorkspace(workspaceA);
+        sessA = repository.login(workspaceA);
+
+        rootWS.createWorkspace(workspaceB);
+        sessB = repository.login(workspaceB);
+
+        rootWS.createWorkspace(workspaceC);
+        sessC = repository.login(workspaceC);
+
+        wsA = sessA.getWorkspace();
+        wsB = sessB.getWorkspace();
+        wsC = sessC.getWorkspace();
+
+        // namespace registering
+        wsA.getNamespaceRegistry().registerNamespace("brix", "http://brix-cms.googlecode.com");
+        wsB.getNamespaceRegistry().registerNamespace("brix", "http://brix-cms.googlecode.com");
+        wsC.getNamespaceRegistry().registerNamespace("brix", "http://brix-cms.googlecode.com");
+
+        // initial imports
+        tools.registerNodeTypes(sessA, "cnd/brix.cnd");
+        sessA.save();
+        InputStream brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        sessA.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        sessA.save();
+
+        tools.registerNodeTypes(sessB, "cnd/brix.cnd");
+        sessB.save();
+
+        brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        sessB.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        sessB.save();
+
+        tools.registerNodeTypes(sessC, "cnd/brix.cnd");
+        sessC.save();
+
+        brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        sessC.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        sessC.save();
+
+        // re-import
+        if (print) {
+            new JcrTools().printSubgraph(sessA.getNode(root));
+        }
+        sessA.getItem(root).remove();
+        sessA.save();
+
+        brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        sessA.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        sessA.save();
+
+        // now we clone the workspace A over the other ones at the path of root...
+        wsB.getSession().removeItem(root);
+        wsB.getSession().save();
+        wsB.clone(workspaceA, root, root, true);
+        wsB.getSession().save();
+
+        wsC.getSession().removeItem(root);
+        wsC.getSession().save();
+        wsC.clone(workspaceB, root, root, true);
+        wsC.getSession().save();
+
+        // re-import a second time
+        sessA.getItem(root).remove();
+        sessA.save();
+
+        brixWorkspace = resourceStream("io/brixWorkspace.xml");
+        sessA.importXML("/", brixWorkspace, ImportUUIDBehavior.IMPORT_UUID_COLLISION_REMOVE_EXISTING);
+        sessA.save();
+
+        sessA.logout();
+        sessB.logout();
+        sessC.logout();
+    }
+
+    private void assertCarsImported() throws RepositoryException {
+        assertNode("/a/b/Cars");
+        assertNode("/a/b/Cars/Hybrid");
+        assertNode("/a/b/Cars/Hybrid/Toyota Prius");
+        assertNode("/a/b/Cars/Sports/Infiniti G37");
+        assertNode("/a/b/Cars/Utility/Land Rover LR3");
+        assertNoNode("/a/b/Cars[2]");
+        assertNoNode("/a/b/Cars/Hybrid[2]");
+        assertNoNode("/a/b/Cars/Hybrid/Toyota Prius[2]");
+        assertNoNode("/a/b/Cars/Sports[2]");
+    }
+
     // ----------------------------------------------------------------------------------------------------------------
     // Utilities
     // ----------------------------------------------------------------------------------------------------------------
@@ -1132,5 +1189,4 @@ public class ImportExportTest extends SingleUseAbstractTest {
             ostream.close();
         }
     }
-
 }

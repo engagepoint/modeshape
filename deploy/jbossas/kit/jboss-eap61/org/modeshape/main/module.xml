@@ -26,7 +26,6 @@
         <resource-root path="modeshape-jcr-${project.version}.jar"/>
         <resource-root path="modeshape-jbossas-subsystem-${project.version}.jar"/>
         <resource-root path="modeshape-schematic-${project.version}.jar"/>
-        <resource-root path="conf"/>
         <resource-root path="res"/>
         <resource-root path="deployments"/>
     </resources>
@@ -59,6 +58,7 @@
         <!-- For security provider ... -->
         <module name="javax.servlet.api"/>
         <module name="javax.resource.api"/>
+        <module name="javax.security.jacc.api"/>
         <!-- For logging ... -->
         <module name="org.jboss.logging"/>
         <!-- For the subsystem ... -->
@@ -67,6 +67,11 @@
         <module name="org.jboss.modules"/>
         <module name="org.jboss.msc"/>
         <module name="org.jboss.as.server"/>
+
+        <!--Needed for clustering configurations-->
+        <module name="org.jboss.as.clustering.infinispan"/>
+        <!--Needed for indexing via JMS-->
+        <module name="javax.jms.api"/>
     </dependencies>
 
 </module>

@@ -26,7 +26,10 @@ package org.modeshape.connector.git;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -118,6 +121,12 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
     private String remoteName = DEFAULT_REMOTE_NAME;
 
     /**
+     * The optional string value representing the name of the remote that serves as the primary remote repository. By default this
+     * is "origin". This is set via reflection.
+     */
+    private List<String> parsedRemoteNames;
+
+    /**
      * The optional boolean value specifying whether the connector should set the "jcr:mimeType" property on the "jcr:content"
      * child node under each "git:file" node. By default this is '{@value GitConnector#DEFAULT_INCLUDE_MIME_TYPE}'. This is set
      * via reflection.
@@ -168,10 +177,12 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
 
         // Make sure the remote exists ...
         Set<String> remoteNames = repository.getConfig().getSubsections("remote");
+        parsedRemoteNames = new ArrayList<String>();
         String remoteName = null;
         for (String desiredName : this.remoteName.split(",")) {
             if (remoteNames.contains(desiredName)) {
                 remoteName = desiredName;
+                parsedRemoteNames.add(desiredName);
                 break;
             }
         }
@@ -231,7 +242,7 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
             String parentId = callSpec.getParentId();
             assert parentId != null;
             writer.setParent(parentId);
-            //check if the document should be indexed or not, based on the global connector setting and the specific function
+            // check if the document should be indexed or not, based on the global connector setting and the specific function
             if (!this.isQueryable() || !function.isQueryable(callSpec)) {
                 writer.setNotQueryable();
             }
@@ -277,6 +288,12 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
     }
 
     @Override
+    public Collection<String> getDocumentPathsById( String id ) {
+        // Our paths are basically used as IDs, so the ID is the path ...
+        return Collections.singletonList(id);
+    }
+
+    @Override
     public boolean hasDocument( String id ) {
         Document doc = getDocumentById(id);
         return doc != null;
@@ -295,6 +312,10 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
 
     protected final String remoteName() {
         return remoteName;
+    }
+
+    protected final List<String> remoteNames() {
+        return parsedRemoteNames;
     }
 
     protected List<String> getQueryableBranches() {

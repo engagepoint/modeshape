@@ -39,15 +39,19 @@ public final class ClusteringHelper {
     private ClusteringHelper() {
     }
 
+    /**
+     * Binds JGroups to 'localhost'.
+     *
+     * @throws UnknownHostException if 'localhost' cannot be determined on the running machine.
+     */
     public static void bindJGroupsToLocalAddress() throws UnknownHostException {
         InetAddress localHost = getLocalHost();
         System.setProperty(Global.BIND_ADDR, localHost.getHostAddress());
         System.setProperty(Global.EXTERNAL_ADDR, localHost.getHostAddress());
     }
 
-    private static InetAddress getLocalHost() throws UnknownHostException {
-        String ipv6Prop = System.getProperty(Global.IPv6);
-        boolean preferIpv6 = ipv6Prop != null && Boolean.TRUE.toString().equalsIgnoreCase(ipv6Prop);
+    public static InetAddress getLocalHost() throws UnknownHostException {
+        boolean preferIpv6 = Boolean.getBoolean(Global.IPv6);
 
         InetAddress localHost = null;
         InetAddress[] localHostAddresses = InetAddress.getAllByName("localhost");
@@ -64,6 +68,9 @@ public final class ClusteringHelper {
         return localHost;
     }
 
+    /**
+     * Removes any custom JGroups bindings.
+     */
     public static void removeJGroupsBindings() {
         System.clearProperty(Global.BIND_ADDR);
         System.clearProperty(Global.EXTERNAL_ADDR);

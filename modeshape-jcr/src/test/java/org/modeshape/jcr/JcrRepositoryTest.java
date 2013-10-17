@@ -23,8 +23,12 @@
  */
 package org.modeshape.jcr;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.hamcrest.collection.IsArrayContaining.hasItemInArray;
 import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNot.not;
 import static org.hamcrest.core.IsNull.notNullValue;
 import static org.hamcrest.core.IsNull.nullValue;
 import static org.junit.Assert.assertEquals;
@@ -46,6 +50,7 @@ import javax.jcr.NamespaceException;
 import javax.jcr.NoSuchWorkspaceException;
 import javax.jcr.Node;
 import javax.jcr.Repository;
+import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.ValueFormatException;
 import javax.jcr.nodetype.ConstraintViolationException;
@@ -58,10 +63,14 @@ import org.junit.Before;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
-import org.modeshape.jcr.RepositoryStatistics.DurationActivity;
-import org.modeshape.jcr.RepositoryStatistics.History;
-import org.modeshape.jcr.RepositoryStatistics.Statistics;
+import org.modeshape.common.collection.Problems;
+import org.modeshape.common.statistic.Stopwatch;
+import org.modeshape.common.util.FileUtil;
+import org.modeshape.jcr.RepositoryStatistics.MetricHistory;
+import org.modeshape.jcr.api.monitor.DurationActivity;
 import org.modeshape.jcr.api.monitor.DurationMetric;
+import org.modeshape.jcr.api.monitor.History;
+import org.modeshape.jcr.api.monitor.Statistics;
 import org.modeshape.jcr.api.monitor.ValueMetric;
 import org.modeshape.jcr.api.monitor.Window;
 
@@ -74,6 +83,8 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
 
     @Before
     public void beforeEach() throws Exception {
+        FileUtil.delete("target/persistent_repository");
+
         environment = new TestingEnvironment();
         config = new RepositoryConfiguration("repoName", environment);
         repository = new JcrRepository(config);
@@ -173,12 +184,12 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
         assertThat(session2.getRootNode(), is(notNullValue()));
     }
 
-    @FixFor( "MODE-1834" )
+    @FixFor( {"MODE-1834", "MODE-2004"} )
     @Test
     public void shouldAllowCreatingNewWorkspacesByDefaultWhenUsingTransactionManagerWithOptimisticLocking() throws Exception {
         shutdownDefaultRepository();
 
-        RepositoryConfiguration config = RepositoryConfiguration.read("config/repo-config-inmemory-jbosstxn-optimistic.json");
+        RepositoryConfiguration config = RepositoryConfiguration.read("config/repo-config-filesystem-jbosstxn-optimistic.json");
         repository = new JcrRepository(config);
         repository.start();
 
@@ -195,14 +206,24 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
         // Now create a session to that workspace ...
         JcrSession session2 = repository.login("new-workspace");
         assertThat(session2.getRootNode(), is(notNullValue()));
+
+        // Shut down the repository ...
+        assertThat(repository.shutdown().get(), is(true));
+
+        // Start up the repository again, this time by reading the persisted data ...
+        repository = new JcrRepository(config);
+        repository.start();
+
+        // And verify that the workspace existance was persisted properly ...
+        repository.login("new-workspace");
     }
 
-    @FixFor( "MODE-1834" )
+    @FixFor( {"MODE-1834", "MODE-2004"} )
     @Test
     public void shouldAllowCreatingNewWorkspacesByDefaultWhenUsingTransactionManagerWithPessimisticLocking() throws Exception {
         shutdownDefaultRepository();
 
-        RepositoryConfiguration config = RepositoryConfiguration.read("config/repo-config-inmemory-jbosstxn.json");
+        RepositoryConfiguration config = RepositoryConfiguration.read("config/repo-config-filesystem-jbosstxn-pessimistic.json");
         repository = new JcrRepository(config);
         repository.start();
 
@@ -219,6 +240,16 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
         // Now create a session to that workspace ...
         JcrSession session2 = repository.login("new-workspace");
         assertThat(session2.getRootNode(), is(notNullValue()));
+
+        // Shut down the repository ...
+        assertThat(repository.shutdown().get(), is(true));
+
+        // Start up the repository again, this time by reading the persisted data ...
+        repository = new JcrRepository(config);
+        repository.start();
+
+        // And verify that the workspace existance was persisted properly ...
+        repository.login("new-workspace");
     }
 
     @Test
@@ -272,6 +303,119 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
             descriptorValues.add(value.getString());
         }
         assertThat(descriptorValues, is(workspaceNames));
+    }
+
+    @Test
+    public void shouldProvideStatisticsImmediatelyAfterStartup() throws Exception {
+        History history = repository.getRepositoryStatistics()
+                                    .getHistory(ValueMetric.WORKSPACE_COUNT, Window.PREVIOUS_60_SECONDS);
+        Statistics[] stats = history.getStats();
+        assertThat(stats.length, is(not(0)));
+        assertThat(history.getTotalDuration(TimeUnit.SECONDS), is(60L));
+        System.out.println(history);
+    }
+
+    /**
+     * Skipping this test because it purposefully runs over 60 minutes (!!!), mostly just waiting for the statistics thread to
+     * wake up once every 5 seconds.
+     * 
+     * @throws Exception
+     */
+    @Ignore
+    @Test
+    public void shouldProvideStatisticsForAVeryLongTime() throws Exception {
+        final AtomicBoolean stop = new AtomicBoolean(false);
+        final JcrRepository repository = this.repository;
+        Thread worker = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                JcrSession[] openSessions = new JcrSession[100 * 6];
+                int index = 0;
+                while (!stop.get()) {
+                    try {
+                        for (int i = 0; i != 6; ++i) {
+                            JcrSession session1 = repository.login();
+                            assertThat(session1.getRootNode(), is(notNullValue()));
+                            openSessions[index++] = session1;
+                        }
+                        if (index >= openSessions.length) {
+                            for (int i = 0; i != openSessions.length; ++i) {
+                                openSessions[i].logout();
+                                openSessions[i] = null;
+                            }
+                            index = 0;
+                        }
+                        Thread.sleep(MILLISECONDS.convert(3, SECONDS));
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                        stop.set(true);
+                        break;
+                    }
+                }
+            }
+        });
+        worker.start();
+        // Status thread ...
+        final Stopwatch sw = new Stopwatch();
+        Thread status = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                System.out.println("Starting ...");
+                sw.start();
+                int counter = 0;
+                while (!stop.get()) {
+                    try {
+                        Thread.sleep(MILLISECONDS.convert(10, SECONDS));
+                        if (!stop.get()) {
+                            ++counter;
+                            sw.lap();
+                            System.out.println("   continuing after " + sw.getTotalDuration().toSimpleString());
+                        }
+                        if (counter % 24 == 0) {
+                            History history = repository.getRepositoryStatistics().getHistory(ValueMetric.SESSION_COUNT,
+                                                                                              Window.PREVIOUS_60_SECONDS);
+                            System.out.println(history);
+                        }
+                    } catch (Throwable t) {
+                        t.printStackTrace();
+                        stop.set(true);
+                        break;
+                    }
+                }
+            }
+        });
+        status.start();
+
+        // wait for 65 minutes, so that the statistics have a value ...
+        Thread.sleep(MILLISECONDS.convert(65, MINUTES));
+        stop.set(true);
+        System.out.println();
+        Thread.sleep(MILLISECONDS.convert(5, SECONDS));
+
+        History history = repository.getRepositoryStatistics().getHistory(ValueMetric.SESSION_COUNT, Window.PREVIOUS_60_MINUTES);
+        Statistics[] stats = history.getStats();
+        System.out.println(history);
+        assertThat(stats.length, is(MetricHistory.MAX_MINUTES));
+        assertThat(stats[0], is(notNullValue()));
+        assertThat(stats[11], is(notNullValue()));
+        assertThat(stats[59], is(notNullValue()));
+        assertThat(history.getTotalDuration(TimeUnit.MINUTES), is(60L));
+
+        history = repository.getRepositoryStatistics().getHistory(ValueMetric.SESSION_COUNT, Window.PREVIOUS_60_SECONDS);
+        stats = history.getStats();
+        System.out.println(history);
+        assertThat(stats.length, is(MetricHistory.MAX_SECONDS));
+        assertThat(stats[0], is(notNullValue()));
+        assertThat(stats[11], is(notNullValue()));
+        assertThat(history.getTotalDuration(TimeUnit.SECONDS), is(60L));
+
+        history = repository.getRepositoryStatistics().getHistory(ValueMetric.SESSION_COUNT, Window.PREVIOUS_24_HOURS);
+        stats = history.getStats();
+        System.out.println(history);
+        assertThat(stats.length, is(not(0)));
+        assertThat(stats[0], is(nullValue()));
+        assertThat(stats[23], is(notNullValue()));
+        assertThat(history.getTotalDuration(TimeUnit.HOURS), is(24L));
     }
 
     /**
@@ -488,10 +632,15 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
         System.gc();
         Thread.sleep(100);
 
-        assertThat(repository.runningState().activeSessinCount(), is(0));
+        assertThat(repository.runningState().activeSessionCount(), is(0));
     }
 
-    @Ignore( "This test normally sleeps for 30 seconds" )
+    /**
+     * This test takes about 10 minutes to run, and is therefore @Ignore'd.
+     * 
+     * @throws Exception
+     */
+    @Ignore
     @Test
     public void shouldCleanUpLocksFromDeadSessions() throws Exception {
         String lockedNodeName = "lockedNode";
@@ -986,6 +1135,80 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
             repository.shutdown().get(3L, TimeUnit.SECONDS);
             JTATestUtil.clearJBossJTADefaultStoreLocation();
         }
+    }
+
+    @FixFor( "MODE-1902" )
+    @Test( expected = RepositoryException.class )
+    public void shouldFailToStartWhenNoIndexesExistAndRebuildOptionFailIfMissing() throws Exception {
+        shutdownDefaultRepository();
+
+        RepositoryConfiguration config = RepositoryConfiguration.read(getClass().getClassLoader()
+                                                                                .getResourceAsStream("config/repo-config-fail-if-missing-indexes.json"),
+                                                                      "Fail if missing indexes");
+        repository = new JcrRepository(config);
+        repository.start();
+    }
+
+    @Test
+    @FixFor( "MODE-2056")
+    public void shouldReturnActiveSessions() throws Exception {
+        shutdownDefaultRepository();
+
+        config = new RepositoryConfiguration("repoName", environment);
+        repository = new JcrRepository(config);
+        assertEquals(0, repository.getActiveSessionsCount());
+
+        repository.start();
+
+        JcrSession session1 = repository.login();
+        JcrSession session2 = repository.login();
+        assertEquals(2, repository.getActiveSessionsCount());
+        session2.logout();
+        assertEquals(1, repository.getActiveSessionsCount());
+        session1.logout();
+        assertEquals(0, repository.getActiveSessionsCount());
+        repository.login();
+        repository.shutdown().get();
+        assertEquals(0, repository.getActiveSessionsCount());
+    }
+
+    @FixFor( "MODE-2033" )
+    @Test
+    public void shouldStartAndReturnStartupProblems() throws Exception {
+        shutdownDefaultRepository();
+        RepositoryConfiguration config = RepositoryConfiguration.read(
+                getClass().getClassLoader().getResourceAsStream("config/repo-config-with-startup-problems.json"), "Deprecated config");
+        repository = new JcrRepository(config);
+        Problems problems = repository.getStartupProblems();
+        assertEquals("Expected 2 startup warnings:" + problems.toString(), 2, problems.warningCount());
+        assertEquals("Expected 2 startup errors: " + problems.toString(), 2, problems.errorCount());
+    }
+
+    @FixFor( "MODE-2033" )
+    @Test
+    public void shouldClearStartupProblemsOnRestart() throws Exception {
+        shutdownDefaultRepository();
+        RepositoryConfiguration config = RepositoryConfiguration.read(
+                getClass().getClassLoader().getResourceAsStream("config/repo-config-with-startup-problems.json"), "Deprecated config");
+        repository = new JcrRepository(config);
+        Problems problems = repository.getStartupProblems();
+        assertEquals("Invalid startup problems:" + problems.toString(), 4, problems.size());
+        repository.shutdown().get();
+        problems = repository.getStartupProblems();
+        assertEquals("Invalid startup problems:" + problems.toString(), 4, problems.size());
+    }
+
+    @FixFor( "MODE-2033" )
+    @Test
+    public void shouldReturnStartupProblemsAfterStarting() throws Exception {
+        shutdownDefaultRepository();
+        RepositoryConfiguration config = RepositoryConfiguration.read(
+                getClass().getClassLoader().getResourceAsStream("config/repo-config-with-startup-problems.json"), "Deprecated config");
+        repository = new JcrRepository(config);
+        repository.start();
+        Problems problems = repository.getStartupProblems();
+        assertEquals("Expected 2 startup warnings:" + problems.toString(), 2, problems.warningCount());
+        assertEquals("Expected 2 startup errors: " + problems.toString(), 2, problems.errorCount());
     }
 
     protected void nodeExists( Session session,

@@ -25,17 +25,27 @@
 package org.modeshape.connector.filesystem;
 
 import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javax.jcr.Node;
+import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
+import javax.jcr.Property;
 import javax.jcr.RepositoryException;
+import javax.jcr.Workspace;
 import org.junit.Before;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
@@ -47,19 +57,21 @@ import org.modeshape.jcr.api.Binary;
 import org.modeshape.jcr.api.JcrTools;
 import org.modeshape.jcr.api.Session;
 import org.modeshape.jcr.api.federation.FederationManager;
+import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 
 public class FileSystemConnectorTest extends SingleUseAbstractTest {
 
-    protected static final String PATH_TO_FILESYSTEM_SOURCE = "target/federation/files";
-    protected static final String FILESYSTEM_SOURCE_NAME = "file-resources";
     protected static final String TEXT_CONTENT = "Some text content";
 
     private Node testRoot;
     private Projection readOnlyProjection;
+    private Projection readOnlyProjectionWithExclusion;
+    private Projection readOnlyProjectionWithInclusion;
     private Projection storeProjection;
     private Projection jsonProjection;
     private Projection legacyProjection;
     private Projection noneProjection;
+    private Projection pagedProjection;
     private Projection[] projections;
     private JcrTools tools;
 
@@ -67,12 +79,18 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
     public void before() throws Exception {
         tools = new JcrTools();
         readOnlyProjection = new Projection("readonly-files", "target/federation/files-read");
+        readOnlyProjectionWithExclusion = new Projection("readonly-files-with-exclusion",
+                                                         "target/federation/files-read-exclusion");
+        readOnlyProjectionWithInclusion = new Projection("readonly-files-with-inclusion",
+                                                         "target/federation/files-read-inclusion");
         storeProjection = new Projection("mutable-files-store", "target/federation/files-store");
         jsonProjection = new Projection("mutable-files-json", "target/federation/files-json");
         legacyProjection = new Projection("mutable-files-legacy", "target/federation/files-legacy");
         noneProjection = new Projection("mutable-files-none", "target/federation/files-none");
+        pagedProjection = new PagedProjection("paged-files", "target/federation/paged-files");
 
-        projections = new Projection[] {readOnlyProjection, storeProjection, jsonProjection, legacyProjection, noneProjection};
+        projections = new Projection[] {readOnlyProjection, readOnlyProjectionWithInclusion, readOnlyProjectionWithExclusion,
+            storeProjection, jsonProjection, legacyProjection, noneProjection, pagedProjection};
 
         // Remove and then make the directory for our federation test ...
         for (Projection projection : projections) {
@@ -84,7 +102,6 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
         registerNodeTypes("cnd/flex.cnd");
 
         Session session = (Session)jcrSession();
-        testRoot = session.getRootNode().addNode("testFilesRoot");
         testRoot = session.getRootNode().addNode("testRoot");
         testRoot.addNode("node1");
         session.save();
@@ -94,15 +111,45 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
         jsonProjection.create(testRoot, "json");
         legacyProjection.create(testRoot, "legacy");
         noneProjection.create(testRoot, "none");
+        pagedProjection.create(testRoot, "pagedFiles");
     }
 
     @Test
+    @FixFor( "MODE-1982" )
     public void shouldReadNodesInAllProjections() throws Exception {
         readOnlyProjection.testContent(testRoot, "readonly");
         storeProjection.testContent(testRoot, "store");
         jsonProjection.testContent(testRoot, "json");
         legacyProjection.testContent(testRoot, "legacy");
         noneProjection.testContent(testRoot, "none");
+        pagedProjection.testContent(testRoot, "pagedFiles");
+    }
+
+    @Test
+    @FixFor( "MODE-1951" )
+    public void shouldReadNodesInProjectionWithInclusionFilter() throws Exception {
+        readOnlyProjectionWithInclusion.create(testRoot, "readonly-inclusion");
+
+        assertNotNull(session.getNode("/testRoot/readonly-inclusion"));
+        assertNotNull(session.getNode("/testRoot/readonly-inclusion/dir3"));
+        assertNotNull(session.getNode("/testRoot/readonly-inclusion/dir3/simple.json"));
+        assertNotNull(session.getNode("/testRoot/readonly-inclusion/dir3/simple.txt"));
+
+        assertPathNotFound("/testRoot/readonly-inclusion/dir1");
+        assertPathNotFound("/testRoot/readonly-inclusion/dir2");
+    }
+
+    @Test
+    @FixFor( "MODE-1951" )
+    public void shouldReadNodesInProjectionWithExclusionFilter() throws Exception {
+        readOnlyProjectionWithExclusion.create(testRoot, "readonly-exclusion");
+
+        assertNotNull(session.getNode("/testRoot/readonly-exclusion"));
+        assertNotNull(session.getNode("/testRoot/readonly-exclusion/dir3"));
+        assertNotNull(session.getNode("/testRoot/readonly-exclusion/dir1"));
+        assertNotNull(session.getNode("/testRoot/readonly-exclusion/dir2"));
+        assertPathNotFound("/testRoot/readonly-exclusion/dir3/simple.json");
+        assertPathNotFound("/testRoot/readonly-exclusion/dir3/simple.txt");
     }
 
     @Test
@@ -148,11 +195,67 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
     }
 
     @Test
+    @FixFor( {"MODE-1971", "MODE-1976"} )
+    public void shouldBeAbleToCopyExternalNodesInTheSameSource() throws Exception {
+        ((Workspace)session.getWorkspace()).copy("/testRoot/store/dir3/simple.json", "/testRoot/store/dir3/simple2.json");
+        Node file = session.getNode("/testRoot/store/dir3/simple2.json");
+        assertNotNull(file);
+        assertEquals("nt:file", file.getPrimaryNodeType().getName());
+
+        ((Workspace)session.getWorkspace()).copy("/testRoot/store/dir3", "/testRoot/store/dir4");
+        Node folder = session.getNode("/testRoot/store/dir4");
+        assertNotNull(folder);
+        assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
+    }
+
+    @Test
+    @FixFor( "MODE-1976" )
+    public void shouldBeAbleToCopyExternalNodesIntoTheRepository() throws Exception {
+        jcrSession().getRootNode().addNode("files");
+        jcrSession().save();
+        jcrSession().getWorkspace().copy("/testRoot/store/dir3/simple.json", "/files/simple.json");
+        Node file = session.getNode("/files/simple.json");
+        assertNotNull(file);
+        assertEquals("nt:file", file.getPrimaryNodeType().getName());
+    }
+
+    @Test
+    @FixFor( "MODE-1976" )
+    public void shouldBeAbleToCopyFromRepositoryToExternalSource() throws Exception {
+        jcrSession().getRootNode().addNode("files").addNode("dir", "nt:folder");
+        jcrSession().save();
+        jcrSession().getWorkspace().copy("/files/dir", "/testRoot/store/dir");
+        Node dir = session.getNode("/testRoot/store/dir");
+        assertNotNull(dir);
+        assertEquals("nt:folder", dir.getPrimaryNodeType().getName());
+    }
+
+    @Test
+    @FixFor( {"MODE-1971", "MODE-1977"} )
+    public void shouldBeAbleToMoveExternalNodes() throws Exception {
+        ((Workspace)session.getWorkspace()).move("/testRoot/store/dir3/simple.json", "/testRoot/store/dir3/simple2.json");
+        Node file = session.getNode("/testRoot/store/dir3/simple2.json");
+        assertNotNull(file);
+        assertEquals("nt:file", file.getPrimaryNodeType().getName());
+
+        ((Workspace)session.getWorkspace()).move("/testRoot/store/dir3", "/testRoot/store/dir4");
+        Node folder = session.getNode("/testRoot/store/dir4");
+        assertNotNull(folder);
+        assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
+    }
+
+    @Test
     public void shouldAllowUpdatingNodesInWritableJsonBasedProjection() throws Exception {
         Node file = session.getNode("/testRoot/json/dir3/simple.json");
         file.addMixin("flex:anyProperties");
         file.setProperty("extraProp", "extraValue");
+        Node content = file.getNode("jcr:content");
+        content.addMixin("flex:anyProperties");
+        content.setProperty("extraProp2", "extraValue2");
         session.save();
+        assertThat(file.getProperty("extraProp").getString(), is("extraValue"));
+        assertThat(file.getProperty("jcr:content/extraProp2").getString(), is("extraValue2"));
+        assertJsonSidecarFile(jsonProjection, "dir3/simple.json");
         assertJsonSidecarFile(jsonProjection, "dir3/simple.json");
         Node file2 = session.getNode("/testRoot/json/dir3/simple.json");
         assertThat(file2.getProperty("extraProp").getString(), is("extraValue"));
@@ -231,6 +334,23 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
         assertNotNull(root.getNode("test"));
     }
 
+    @Test
+    @FixFor( "MODE-2073" )
+    public void shouldBeAbleToCopyExternalNodesWithBinaryValuesIntoTheRepository() throws Exception {
+        javax.jcr.Binary externalBinary = jcrSession().getNode("/testRoot/store/dir3/simple.json/jcr:content").getProperty("jcr:data").getBinary();
+        jcrSession().getRootNode().addNode("files");
+        jcrSession().save();
+        jcrSession().getWorkspace().copy("/testRoot/store/dir3/simple.json", "/files/simple.json");
+        Node file = session.getNode("/files/simple.json");
+        assertNotNull(file);
+        assertEquals("nt:file", file.getPrimaryNodeType().getName());
+        Property property = file.getNode("jcr:content").getProperty("jcr:data");
+        assertNotNull(property);
+        javax.jcr.Binary copiedBinary = property.getBinary();
+        assertFalse(copiedBinary instanceof ExternalBinaryValue);
+        assertArrayEquals(IoUtil.readBytes(externalBinary.getStream()), IoUtil.readBytes(copiedBinary.getStream()));
+    }
+
     protected void assertNoSidecarFile( Projection projection,
                                         String filePath ) {
         assertThat(projection.getTestFile(filePath + JsonSidecarExtraPropertyStore.DEFAULT_EXTENSION).exists(), is(false));
@@ -303,10 +423,19 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
         assertThat(content.getProperty("jcr:lastModified").getLong(), is(lastModified));
     }
 
+    private void assertPathNotFound( String path ) throws Exception {
+        try {
+            session.getNode(path);
+            fail(path + " was found, even though it shouldn't have been");
+        } catch (PathNotFoundException e) {
+            // expected
+        }
+    }
+
     @Immutable
     protected class Projection {
+        protected final File directory;
         private final String name;
-        private final File directory;
 
         public Projection( String name,
                            String directoryPath ) {
@@ -386,6 +515,91 @@ public class FileSystemConnectorTest extends SingleUseAbstractTest {
         @Override
         public String toString() {
             return "Projection: " + name + " (at '" + directory.getAbsolutePath() + "')";
+        }
+    }
+
+    protected class PagedProjection extends Projection {
+
+        public PagedProjection( String name,
+                                String directoryPath ) {
+            super(name, directoryPath);
+        }
+
+        @Override
+        public void testContent( Node federatedNode,
+                                 String childName ) throws RepositoryException {
+            Session session = (Session)federatedNode.getSession();
+            String path = federatedNode.getPath() + "/" + childName;
+
+            assertFolder(session, path, "dir1", "dir2", "dir3", "dir4", "dir5");
+            assertFolder(session,
+                         path + "/dir1",
+                         "simple1.json",
+                         "simple2.json",
+                         "simple3.json",
+                         "simple4.json",
+                         "simple5.json",
+                         "simple6.json");
+            assertFolder(session, path + "/dir2", "simple1.json", "simple2.json");
+            assertFolder(session, path + "/dir3", "simple1.json");
+            assertFolder(session, path + "/dir4", "simple1.json", "simple2.json", "simple3.json");
+            assertFolder(session, path + "/dir5", "simple1.json", "simple2.json", "simple3.json", "simple4.json", "simple5.json");
+        }
+
+        private void assertFolder( Session session,
+                                   String path,
+                                   String... childrenNames ) throws RepositoryException {
+            Node folderNode = session.getNode(path);
+            assertThat(folderNode.getPrimaryNodeType().getName(), is("nt:folder"));
+            List<String> expectedChildren = new ArrayList<String>(Arrays.asList(childrenNames));
+
+            NodeIterator nodes = folderNode.getNodes();
+            assertEquals(expectedChildren.size(), nodes.getSize());
+            while (nodes.hasNext()) {
+                Node node = nodes.nextNode();
+                String nodeName = node.getName();
+                assertTrue(expectedChildren.contains(nodeName));
+                expectedChildren.remove(nodeName);
+            }
+        }
+
+        @Override
+        public void initialize() throws IOException {
+            if (directory.exists()) FileUtil.delete(directory);
+            directory.mkdirs();
+            // Make some content ...
+            new File(directory, "dir1").mkdir();
+            addFile("dir1/simple1.json", "data/simple.json");
+            addFile("dir1/simple2.json", "data/simple.json");
+            addFile("dir1/simple3.json", "data/simple.json");
+            addFile("dir1/simple4.json", "data/simple.json");
+            addFile("dir1/simple5.json", "data/simple.json");
+            addFile("dir1/simple6.json", "data/simple.json");
+
+            new File(directory, "dir2").mkdir();
+            addFile("dir2/simple1.json", "data/simple.json");
+            addFile("dir2/simple2.json", "data/simple.json");
+
+            new File(directory, "dir3").mkdir();
+            addFile("dir3/simple1.json", "data/simple.json");
+
+            new File(directory, "dir4").mkdir();
+            addFile("dir4/simple1.json", "data/simple.json");
+            addFile("dir4/simple2.json", "data/simple.json");
+            addFile("dir4/simple3.json", "data/simple.json");
+
+            new File(directory, "dir5").mkdir();
+            addFile("dir5/simple1.json", "data/simple.json");
+            addFile("dir5/simple2.json", "data/simple.json");
+            addFile("dir5/simple3.json", "data/simple.json");
+            addFile("dir5/simple4.json", "data/simple.json");
+            addFile("dir5/simple5.json", "data/simple.json");
+        }
+
+        private void addFile( String path,
+                              String contentFile ) throws IOException {
+            File file = new File(directory, path);
+            IoUtil.write(getClass().getClassLoader().getResourceAsStream(contentFile), new FileOutputStream(file));
         }
     }
 

@@ -24,6 +24,7 @@
 package org.modeshape.jboss.subsystem;
 
 import org.jboss.msc.service.ServiceName;
+import org.modeshape.common.util.CheckArg;
 import org.modeshape.jboss.service.IndexStorage;
 
 public class ModeShapeServiceNames {
@@ -68,22 +69,40 @@ public class ModeShapeServiceNames {
     }
 
     public static ServiceName indexStorageDirectoryServiceName( String repositoryName ) {
-        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "indexes.dir");
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "indexes","dir");
     }
 
     public static ServiceName indexSourceStorageDirectoryServiceName( String repositoryName ) {
-        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "indexes.source-dir");
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "indexes", "source-dir");
     }
 
-    public static ServiceName binaryStorageServiceName( String repositoryName ) {
+    public static ServiceName binaryStorageDefaultServiceName( String repositoryName ) {
         return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "binaries");
     }
 
+    public static ServiceName binaryStorageNestedServiceName( String repositoryName,
+                                                              String binaryStoreName ) {
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, binaryStoreName, "binaries");
+    }
+
     public static ServiceName binaryStorageDirectoryServiceName( String repositoryName ) {
-        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "binaries.dir");
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "binaries","dir");
+    }
+
+    public static ServiceName binaryStorageDirectoryServiceName( String repositoryName, String binaryStoreName ) {
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, binaryStoreName, "binaries","dir");
     }
 
     public static ServiceName referenceFactoryServiceName( String repositoryName ) {
         return repositoryServiceName(repositoryName).append("reference-factory");
+    }
+
+    /**
+     * @param repositoryName the repository name (cannot be <code>null</code>)
+     * @return the service name (never <code>null</code> or empty)
+     */
+    public static ServiceName monitorServiceName( String repositoryName ) {
+        CheckArg.isNotNull(repositoryName, "repositoryName");
+        return ServiceName.of(ServiceName.JBOSS, "modeshape", repositoryName, "monitor");
     }
 }

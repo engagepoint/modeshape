@@ -32,7 +32,6 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.Value;
@@ -329,6 +328,14 @@ public class SystemContent {
         if (nodeTypeNode != null) {
             // Update the properties ...
             nodeTypeNode.setProperties(system, properties);
+            //make sure each new supertype of the existing node is present *before* the existing node in the parent nodeTypes
+            //this because node type validation is a top-down process, expecting the parents before the children
+            for (NodeType superType : supertypes ) {
+                CachedNode superTypeNode = system.getNode(((JcrNodeType) superType).key());
+                if (superTypeNode instanceof MutableCachedNode && ((MutableCachedNode) superTypeNode).isNew()) {
+                    nodeTypes.reorderChild(system, superTypeNode.getKey(), nodeTypeNode.getKey());
+                }
+            }
         } else {
             // We have to create the node type node ...
             nodeTypeNode = nodeTypes.createChild(system, key, name, properties);
@@ -349,7 +356,9 @@ public class SystemContent {
         // Remove any children that weren't represented by a property definition or child node definition ...
         if (existingChildKeys != null && !existingChildKeys.isEmpty()) {
             for (NodeKey childKey : existingChildKeys) {
+                // Remove the child from the parent, then destrot it ...
                 nodeTypeNode.removeChild(system, childKey);
+                system.destroy(childKey);
             }
         }
     }
@@ -393,7 +402,7 @@ public class SystemContent {
         properties.add(propertyFactory.create(JcrLexicon.PROTECTED, propertyDef.isProtected()));
         properties.add(propertyFactory.create(JcrLexicon.ON_PARENT_VERSION,
                                               OnParentVersionAction.nameFromValue(propertyDef.getOnParentVersion())));
-        properties.add(propertyFactory.create(JcrLexicon.REQUIRED_TYPE, PropertyType.nameFromValue(propertyDef.getRequiredType())
+        properties.add(propertyFactory.create(JcrLexicon.REQUIRED_TYPE, org.modeshape.jcr.api.PropertyType.nameFromValue(propertyDef.getRequiredType())
                                                                                     .toUpperCase()));
 
         List<String> symbols = new ArrayList<String>();
@@ -779,7 +788,7 @@ public class SystemContent {
         return prefixFor(newNsNode.getSegment(system));
     }
 
-    public boolean unregisterNamespace( String namespaceUri ) {
+    protected boolean unregisterNamespace( String namespaceUri ) {
         MutableCachedNode namespaces = mutableNamespacesNode();
         NodeKey key = keyForNamespaceUri(namespaceUri);
         CachedNode nsNode = system.getNode(key);
@@ -789,6 +798,15 @@ public class SystemContent {
             return true;
         }
         return false;
+    }
+
+    protected void unregisterNodeTypes( JcrNodeType...nodeTypes) {
+        MutableCachedNode nodeTypesNode = mutableNodeTypesNode();
+        for (JcrNodeType nodeType : nodeTypes) {
+            NodeKey nodeTypeKey = nodeType.key();
+            nodeTypesNode.removeChild(system, nodeTypeKey);
+            system.destroy(nodeTypeKey);
+        }
     }
 
     protected final NodeKey keyForNamespaceUri( String namespaceUri ) {

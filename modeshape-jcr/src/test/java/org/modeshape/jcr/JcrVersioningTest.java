@@ -26,14 +26,17 @@ package org.modeshape.jcr;
 
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import java.net.URL;
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
+import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.UnsupportedRepositoryOperationException;
@@ -476,12 +479,14 @@ public class JcrVersioningTest extends SingleUseAbstractTest {
         session.save();
 
         Node child1 = parent1.addNode("child1", "Child");
+        assertThat(child1, is(notNullValue()));
         session.save();
 
         session.getWorkspace().createWorkspace("clone", "original");
         session = repository.login("clone");
 
         Node child2 = session.getNode("/parent1").addNode("child2", "Child");
+        assertThat(child2, is(notNullValue()));
         session.save();
 
         session = repository.login("original");
@@ -498,7 +503,411 @@ public class JcrVersioningTest extends SingleUseAbstractTest {
         }
         session.getNode("/parent1/child2");
     }
-    
+
+    @Test
+    @FixFor( "MODE-1912" )
+    public void shouldRemoveMixVersionablePropertiesWhenRemovingMixin() throws Exception {
+        Node node = session.getRootNode().addNode("testNode");
+        node.addMixin(JcrMixLexicon.VERSIONABLE.getString());
+        session.save();
+
+        // mix:referenceable
+        assertNotNull(node.getProperty(JcrLexicon.UUID.getString()));
+        // mix:simpleVersionable
+        assertTrue(node.getProperty(JcrLexicon.IS_CHECKED_OUT.getString()).getBoolean());
+        // mix:versionable
+        assertNotNull(node.getProperty(JcrLexicon.BASE_VERSION.getString()));
+        assertNotNull(node.getProperty(JcrLexicon.VERSION_HISTORY.getString()));
+        assertNotNull(node.getProperty(JcrLexicon.PREDECESSORS.getString()));
+
+        node.removeMixin(JcrMixLexicon.VERSIONABLE.getString());
+        session.save();
+
+        // mix:referenceable
+        assertPropertyIsAbsent(node, JcrLexicon.UUID.getString());
+        // mix:simpleVersionable
+        assertPropertyIsAbsent(node, JcrLexicon.IS_CHECKED_OUT.getString());
+        // mix:versionable
+        assertPropertyIsAbsent(node, JcrLexicon.VERSION_HISTORY.getString());
+        assertPropertyIsAbsent(node, JcrLexicon.BASE_VERSION.getString());
+        assertPropertyIsAbsent(node, JcrLexicon.PREDECESSORS.getString());
+    }
+
+    @Test
+    @FixFor( "MODE-1912" )
+    public void shouldRelinkVersionablePropertiesWhenRemovingAndReaddingMixVersionable() throws Exception {
+        JcrVersionManager jcrVersionManager = (JcrVersionManager)versionManager;
+
+        Node node = session.getRootNode().addNode("testNode");
+        node.addMixin(JcrMixLexicon.VERSIONABLE.getString());
+        session.save();
+        // create a new version
+        jcrVersionManager.checkin("/testNode");
+        jcrVersionManager.checkout("/testNode");
+        jcrVersionManager.checkin("/testNode");
+
+        JcrVersionHistoryNode originalVersionHistory = jcrVersionManager.getVersionHistory("/testNode");
+        Version originalBaseVersion = jcrVersionManager.getBaseVersion("/testNode");
+
+        // remove the mixin
+        jcrVersionManager.checkout("/testNode");
+        node.removeMixin(JcrMixLexicon.VERSIONABLE.getString());
+        session.save();
+
+        // re-create the mixin and check the previous version history & versionable properties have been relinked.
+        node.addMixin(JcrMixLexicon.VERSIONABLE.getString());
+        session.save();
+
+        // mix:referenceable
+        assertNotNull(node.getProperty(JcrLexicon.UUID.getString()));
+        // mix:simpleVersionable
+        assertTrue(node.getProperty(JcrLexicon.IS_CHECKED_OUT.getString()).getBoolean());
+        // mix:versionable
+        assertNotNull(node.getProperty(JcrLexicon.BASE_VERSION.getString()));
+        assertNotNull(node.getProperty(JcrLexicon.VERSION_HISTORY.getString()));
+        assertNotNull(node.getProperty(JcrLexicon.PREDECESSORS.getString()));
+
+        JcrVersionHistoryNode versionHistory = jcrVersionManager.getVersionHistory("/testNode");
+        Version baseVersion = jcrVersionManager.getBaseVersion("/testNode");
+
+        // check the actual
+        assertEquals(originalVersionHistory.key(), versionHistory.key());
+        assertEquals(originalBaseVersion.getCreated(), baseVersion.getCreated());
+        assertEquals(originalBaseVersion.getPath(), baseVersion.getPath());
+    }
+
+    @Test
+    @FixFor( "MODE-2002" )
+    public void shouldMergeEventualSuccessorVersions() throws Exception {
+        // Create a "/record", make it versionable and check it in
+        session.getRootNode().addNode("record").addMixin("mix:versionable");
+        session.save();
+        VersionManager versionManager = session.getWorkspace().getVersionManager();
+        versionManager.checkin("/record");
+
+        // Clone QA version of data
+        session.getWorkspace().createWorkspace("QA", session.getWorkspace().getName());
+        Session sessionQa = repository.login("QA");
+        VersionManager versionManagerQa = sessionQa.getWorkspace().getVersionManager();
+
+        // Change QA node first time
+        versionManagerQa.checkout("/record");
+        sessionQa.getNode("/record").setProperty("111", "111");
+        sessionQa.save();
+        versionManagerQa.checkin("/record");
+
+        // Change QA node second time
+        versionManagerQa.checkout("/record");
+        sessionQa.getNode("/record").setProperty("222", "222");
+        sessionQa.save();
+        versionManagerQa.checkin("/record");
+
+        // Checks before merge
+        // Check basic node - should not have any properties
+        assertFalse(session.getNode("/record").hasProperty("111"));
+        assertFalse(session.getNode("/record").hasProperty("222"));
+        // Check QA node - should have properties 111=111 and 222=222
+        assertTrue(sessionQa.getNode("/record").hasProperty("111"));
+        assertTrue(sessionQa.getNode("/record").hasProperty("222"));
+        assertEquals("111", sessionQa.getNode("/record").getProperty("111").getString());
+        assertEquals("222", sessionQa.getNode("/record").getProperty("222").getString());
+
+        // Merge
+        versionManager.merge("/record", sessionQa.getWorkspace().getName(), true);
+
+        // Checks after merge - basic node should have properties 111=111 and 222=222
+        assertTrue(session.getNode("/record").hasProperty("111"));
+        assertTrue(session.getNode("/record").hasProperty("222"));
+        assertEquals("111", session.getNode("/record").getProperty("111").getString());
+        assertEquals("222", session.getNode("/record").getProperty("222").getString());
+
+        sessionQa.logout();
+    }
+
+    @Test
+    @FixFor( "MODE-2005" )
+    public void shouldSetMergeFailedPropertyIfNodeIsCheckedIn() throws Exception {
+        // Create a record, make it versionable and check it in
+        session.getRootNode().addNode("record").addMixin("mix:versionable");
+        session.save();
+        VersionManager versionManager = session.getWorkspace().getVersionManager();
+        versionManager.checkin("/record");
+
+        // Clone QA version of data
+        session.getWorkspace().createWorkspace("QA", session.getWorkspace().getName());
+        Session sessionQa = repository.login("QA");
+        try {
+            VersionManager versionManagerQa = sessionQa.getWorkspace().getVersionManager();
+
+            // Change QA node first time
+            versionManagerQa.checkout("/record");
+            sessionQa.getNode("/record").setProperty("111", "111");
+            sessionQa.save();
+            versionManagerQa.checkin("/record");
+
+            // Change QA node second time, store version
+            versionManagerQa.checkout("/record");
+            sessionQa.getNode("/record").setProperty("222", "222");
+            sessionQa.save();
+            Version offendingVersion = versionManagerQa.checkin("/record");
+
+            // Change original node one time to make versions in this workspace and other workspace be on
+            // divergent branches, causing merge() to fail
+            versionManager.checkout("/record");
+            session.getNode("/record").setProperty("333", "333");
+            session.save();
+            versionManager.checkin("/record");
+
+            // Try to merge
+            NodeIterator nodeIterator = versionManager.merge("/record", sessionQa.getWorkspace().getName(), true);
+            assertTrue(nodeIterator.hasNext());
+
+            while (nodeIterator.hasNext()) {
+                Node record = nodeIterator.nextNode();
+                Version mergeFailedVersion = (Version)session.getNodeByIdentifier(record.getProperty("jcr:mergeFailed")
+                                                                                        .getValues()[0].getString());
+                assertEquals(offendingVersion.getIdentifier(), mergeFailedVersion.getIdentifier());
+                versionManager.cancelMerge("/record", mergeFailedVersion);
+                assertFalse(record.hasProperty("jcr:mergeFailed"));
+            }
+        } finally {
+            sessionQa.logout();
+        }
+    }
+
+    @Test
+    @FixFor( "MODE-2005" )
+    public void shouldSetMergeFailedPropertyIfNodeIsCheckedIn2() throws Exception {
+        // Create a record, make it versionable and check it in
+        session.getRootNode().addNode("record").addMixin("mix:versionable");
+        session.save();
+        VersionManager versionManager = session.getWorkspace().getVersionManager();
+        versionManager.checkin("/record");
+
+        // Clone QA version of data
+        session.getWorkspace().createWorkspace("QA", session.getWorkspace().getName());
+        Session sessionQa = repository.login("QA");
+        try {
+            VersionManager versionManagerQa = sessionQa.getWorkspace().getVersionManager();
+
+            // Change QA node first time, store version
+            versionManagerQa.checkout("/record");
+            sessionQa.getNode("/record").setProperty("111", "111");
+            sessionQa.save();
+            Version offendingVersion1 = versionManagerQa.checkin("/record");
+
+            // Change original node one time to make versions in this workspace and other workspace be on
+            // divergent branches, causing merge() to fail
+            versionManager.checkout("/record");
+            session.getNode("/record").setProperty("333", "333");
+            session.save();
+            versionManager.checkin("/record");
+
+            // Try to merge with offendingVersion1
+            // This should create a new jcr:mergeFailed property
+            versionManager.merge("/record", sessionQa.getWorkspace().getName(), true);
+
+            // Change QA node second time, store version
+            versionManagerQa.checkout("/record");
+            sessionQa.getNode("/record").setProperty("222", "222");
+            sessionQa.save();
+            Version offendingVersion2 = versionManagerQa.checkin("/record");
+
+            // Try to merge with offendingVersion2
+            // This should add to existing jcr:mergeFailed property
+            NodeIterator nodeIterator = versionManager.merge("/record", sessionQa.getWorkspace().getName(), true);
+
+            assertTrue(nodeIterator.hasNext());
+            while (nodeIterator.hasNext()) {
+                Node record = nodeIterator.nextNode();
+                Version mergeFailedVersion1 = (Version)session.getNodeByIdentifier(record.getProperty("jcr:mergeFailed")
+                                                                                         .getValues()[0].getString());
+                assertEquals(offendingVersion1.getIdentifier(), mergeFailedVersion1.getIdentifier());
+                Version mergeFailedVersion2 = (Version)session.getNodeByIdentifier(record.getProperty("jcr:mergeFailed")
+                                                                                         .getValues()[1].getString());
+                assertEquals(offendingVersion2.getIdentifier(), mergeFailedVersion2.getIdentifier());
+                versionManager.cancelMerge("/record", mergeFailedVersion1);
+                versionManager.cancelMerge("/record", mergeFailedVersion2);
+                assertFalse(record.hasProperty("jcr:mergeFailed"));
+            }
+        } finally {
+            sessionQa.logout();
+        }
+    }
+
+    @Test
+    @FixFor( "MODE-2006" )
+    public void shouldMergeNodesWithSameNamesById() throws Exception {
+        // Create a parent and two children, make them versionable and check them in
+        Node parent = session.getRootNode().addNode("parent");
+        parent.addMixin("mix:versionable");
+        Node child1 = parent.addNode("child");
+        child1.addMixin("mix:versionable");
+        child1.setProperty("myproperty", "CHANGEME");
+        Node child2 = parent.addNode("child");
+        child2.addMixin("mix:versionable");
+        child2.setProperty("myproperty", "222");
+        session.save();
+        VersionManager versionManager = session.getWorkspace().getVersionManager();
+        versionManager.checkin(parent.getPath());
+        versionManager.checkin(child1.getPath());
+        versionManager.checkin(child2.getPath());
+
+        // Clone QA version of data
+        session.getWorkspace().createWorkspace("QA", session.getWorkspace().getName());
+        Session sessionQa = repository.login("QA");
+        VersionManager versionManagerQa = sessionQa.getWorkspace().getVersionManager();
+
+        try {
+            // QA: change child1's property
+            Node qaParent = sessionQa.getNode("/parent");
+            versionManagerQa.checkout(qaParent.getPath());
+            Node qaChild1 = sessionQa.getNodeByIdentifier(child1.getIdentifier());
+            versionManagerQa.checkout(qaChild1.getPath());
+            qaChild1.setProperty("myproperty", "111");
+
+            // QA: Add three new children with same name/path to parent
+            Node qaChild3 = qaParent.addNode("child");
+            qaChild3.addMixin("mix:versionable");
+            qaChild3.setProperty("myproperty", "333");
+
+            Node qaChild4 = qaParent.addNode("child");
+            qaChild4.addMixin("mix:versionable");
+            qaChild4.setProperty("myproperty", "444");
+
+            Node qaChild5 = qaParent.addNode("child");
+            qaChild5.addMixin("mix:versionable");
+            qaChild5.setProperty("myproperty", "555");
+
+            // QA: drop child2
+            Node qaChild2 = sessionQa.getNodeByIdentifier(child2.getIdentifier());
+            qaChild2.remove();
+
+            sessionQa.save();
+            Version qaChild1Version = versionManagerQa.checkin(qaChild1.getPath());
+            Version qaChild3Version = versionManagerQa.checkin(qaChild3.getPath());
+            Version qaChild4Version = versionManagerQa.checkin(qaChild4.getPath());
+            Version qaChild5Version = versionManagerQa.checkin(qaChild5.getPath());
+            Version qaParentVersion = versionManagerQa.checkin(qaParent.getPath());
+
+            // Merge
+            NodeIterator nodeIterator = versionManager.merge("/parent", sessionQa.getWorkspace().getName(), true);
+
+            parent = session.getNodeByIdentifier(parent.getIdentifier());
+            child1 = session.getNodeByIdentifier(qaChild1.getIdentifier());
+            try {
+                session.getNodeByIdentifier(child2.getIdentifier()); // this one got removed
+                fail("Deleted child should not be retrieved");
+            } catch (ItemNotFoundException e) {
+                //continue
+            }
+            Node child3 = session.getNodeByIdentifier(qaChild3.getIdentifier());
+            Node child4 = session.getNodeByIdentifier(qaChild4.getIdentifier());
+            Node child5 = session.getNodeByIdentifier(qaChild5.getIdentifier());
+
+            // Run some checks using default workspace's versionManager and session
+            assertFalse(nodeIterator.hasNext());
+
+            assertEquals(qaParentVersion.getIdentifier(), versionManager.getBaseVersion(qaParent.getPath()).getIdentifier());
+            assertEquals(qaChild1Version.getIdentifier(), versionManager.getBaseVersion(child1.getPath()).getIdentifier());
+            assertEquals(qaChild3Version.getIdentifier(), versionManager.getBaseVersion(child3.getPath()).getIdentifier());
+            assertEquals(qaChild4Version.getIdentifier(), versionManager.getBaseVersion(child4.getPath()).getIdentifier());
+            assertEquals(qaChild5Version.getIdentifier(), versionManager.getBaseVersion(child5.getPath()).getIdentifier());
+
+            // Check that parent no longer has child2
+            for (NodeIterator childIterator = parent.getNodes(); childIterator.hasNext();) {
+                Node child = childIterator.nextNode();
+                assertFalse(child.getIdentifier().equals(child2.getIdentifier()));
+            }
+            assertEquals(1, child1.getIndex());
+            assertEquals(2, child3.getIndex());
+            assertEquals(3, child4.getIndex());
+            assertEquals(4, child5.getIndex());
+
+            assertEquals("111", child1.getProperty("myproperty").getString());
+            assertEquals("333", child3.getProperty("myproperty").getString());
+            assertEquals("444", child4.getProperty("myproperty").getString());
+            assertEquals("555", child5.getProperty("myproperty").getString());
+        } finally {
+            sessionQa.logout();
+        }
+    }
+
+    @Test
+    @FixFor( "MODE-2034" )
+    public void shouldRestoreNodeWithVersionedChildrenUsingCheckpoints() throws Exception {
+        // Create a parent and two children, make them versionable and check them in
+        Node parent = session.getRootNode().addNode("parent");
+        parent.addMixin("mix:versionable");
+        Node child1 = parent.addNode("child1");
+        child1.addMixin("mix:versionable");
+        child1.setProperty("myproperty", "v1_1");
+        Node child2 = parent.addNode("child2");
+        child2.addMixin("mix:versionable");
+        child2.setProperty("myproperty", "v2_1");
+        session.save();
+
+        Version v1 = versionManager.checkpoint(parent.getPath());
+        assertEquals("1.0", v1.getName());
+
+        child1.setProperty("myproperty", "v1_2");
+        child2.setProperty("myproperty", "v2_2");
+        session.save();
+        Version v2 = versionManager.checkpoint(parent.getPath());
+
+        assertEquals("1.1", v2.getName());
+
+        versionManager.restore(parent.getPath(), "1.0", true);
+        parent = session.getNode("/parent");
+        assertEquals("v1_2", parent.getNode("child1").getProperty("myproperty").getString());
+        assertEquals("v2_2", parent.getNode("child2").getProperty("myproperty").getString());
+    }
+
+    @Test
+    @FixFor( "MODE-2034" )
+    public void shouldRestoreNodeWithoutVersionedChildrenUsingCheckpoints() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node node = session.getRootNode().addNode("revert", "jj:page");
+        node.addNode("child1", "jj:content");
+        node.addNode("child2", "jj:content");
+        session.save();
+        //create two versions
+        versionManager.checkpoint(node.getPath());
+        versionManager.checkpoint(node.getPath());
+        versionManager.restore(node.getPath(), "1.0", true);
+    }
+
+    @Test
+    @FixFor( "MODE-2055" )
+    public void shouldNotReturnTheVersionHistoryNode() throws Exception {
+        Node node = session.getRootNode().addNode("outerFolder");
+        node.setProperty("jcr:mimeType", "text/plain");
+        node.addMixin("mix:versionable");
+        session.save();
+        versionManager.checkpoint("/outerFolder");
+
+        node.remove();
+        session.save();
+
+        try {
+            session.getNodeByIdentifier(node.getIdentifier());
+            fail("Removed versionable node should not be retrieved ");
+        } catch (ItemNotFoundException e) {
+            //expected
+        }
+    }
+
+    private void assertPropertyIsAbsent( Node node,
+                                         String propertyName ) throws Exception {
+        try {
+            node.getProperty(propertyName);
+            fail("Property: " + propertyName + " was expected to be missing on node:" + node);
+        } catch (PathNotFoundException e) {
+            // expected
+        }
+    }
+
     private void registerNodeTypes( Session session,
                                     String resourcePathToCnd ) throws Exception {
         NodeTypeManager nodeTypes = (NodeTypeManager)session.getWorkspace().getNodeTypeManager();

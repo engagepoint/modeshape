@@ -23,12 +23,14 @@
  */
 package org.modeshape.jcr;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
+import javax.jcr.AccessDeniedException;
 import javax.jcr.Item;
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
@@ -37,6 +39,7 @@ import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
 import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
+import javax.jcr.ValueFormatException;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.JcrRepository.RunningState;
@@ -57,10 +60,13 @@ final class SequencingRunner implements Runnable {
     private static final boolean TRACE = LOGGER.isTraceEnabled();
     private static final boolean DEBUG = LOGGER.isDebugEnabled();
 
-    private final JcrRepository repository;
+    private static final String DERIVED_NODE_TYPE_NAME = "mode:derived";
+    private static final String DERIVED_FROM_PROPERTY_NAME = "mode:derivedFrom";
+
+    private final RunningState repository;
     private final SequencingWorkItem work;
 
-    protected SequencingRunner( JcrRepository repository,
+    protected SequencingRunner( RunningState repository,
                                 SequencingWorkItem work ) {
         this.repository = repository;
         this.work = work;
@@ -70,26 +76,25 @@ final class SequencingRunner implements Runnable {
     public void run() {
         JcrSession inputSession = null;
         JcrSession outputSession = null;
-        final RunningState state = repository.runningState();
-        final RepositoryStatistics stats = state.statistics();
+        final RepositoryStatistics stats = repository.statistics();
         Sequencer sequencer = null;
         String sequencerName = null;
         try {
             // Create the required session(s) ...
-            inputSession = state.loginInternalSession(work.getInputWorkspaceName());
+            inputSession = repository.loginInternalSession(work.getInputWorkspaceName());
             if (work.getOutputWorkspaceName() != null && !work.getOutputWorkspaceName().equals(work.getInputWorkspaceName())) {
-                outputSession = state.loginInternalSession(work.getOutputWorkspaceName());
+                outputSession = repository.loginInternalSession(work.getOutputWorkspaceName());
             } else {
                 outputSession = inputSession;
             }
 
             // Get the sequencer ...
-            sequencer = state.sequencers().getSequencer(work.getSequencerId());
+            sequencer = repository.sequencers().getSequencer(work.getSequencerId());
             if (sequencer == null) {
                 if (DEBUG) {
                     LOGGER.debug("Unable to find sequencer with ID '{0}' in repository '{1}'; skipping input '{3}:{2}' and output '{5}:{4}'",
                                  work.getSequencerId(),
-                                 repository.getName(),
+                                 repository.name(),
                                  work.getInputPath(),
                                  work.getInputWorkspaceName(),
                                  work.getOutputPath(),
@@ -103,7 +108,7 @@ final class SequencingRunner implements Runnable {
             if (TRACE || DEBUG) {
                 logMsg = StringUtil.createString("sequencer '{0}' in repository '{1}' with input '{3}:{2}' to produce '{5}:{4}'",
                                                  sequencerName,
-                                                 repository.getName(),
+                                                 repository.name(),
                                                  work.getInputPath(),
                                                  work.getInputWorkspaceName(),
                                                  work.getOutputPath(),
@@ -129,40 +134,7 @@ final class SequencingRunner implements Runnable {
             if (sequencer.hasAcceptedMimeTypes()) {
                 // Get the MIME type, first by looking at the changed property's parent node
                 // (or grand-parent node if parent is 'jcr:content') ...
-                Node parent = changedProperty.getParent();
-                String mimeType = null;
-                if (parent.hasProperty(JcrConstants.JCR_MIME_TYPE)) {
-                    // The parent node has a 'jcr:mimeType' node ...
-                    Property property = parent.getProperty(JcrConstants.JCR_MIME_TYPE);
-                    if (!property.isMultiple()) {
-                        // The standard 'jcr:mimeType' property is single valued, but we're technically not checking if
-                        // the property has that particular property definition (only by name) ...
-                        mimeType = property.getString();
-                    }
-                } else if (parent.getName().equals(JcrConstants.JCR_CONTENT)) {
-                    // There is no 'jcr:mimeType' property, and since the sequenced property is on the 'jcr:content' node,
-                    // get the parent (probably 'nt:file') node and look for the 'jcr:mimeType' property there ...
-                    try {
-                        parent = parent.getParent();
-                        if (parent.hasProperty(JcrConstants.JCR_MIME_TYPE)) {
-                            Property property = parent.getProperty(JcrConstants.JCR_MIME_TYPE);
-                            if (!property.isMultiple()) {
-                                // The standard 'jcr:mimeType' property is single valued, but we're technically not checking if
-                                // the property has that particular property definition (only by name) ...
-                                mimeType = property.getString();
-                            }
-                        }
-                    } catch (ItemNotFoundException e) {
-                        // must be the root ...
-                    }
-                }
-                if (mimeType == null && !changedProperty.isMultiple() && changedProperty.getType() == PropertyType.BINARY) {
-                    // Still don't know the MIME type of the property, so if it's a BINARY property we can check it ...
-                    javax.jcr.Binary binary = changedProperty.getBinary();
-                    if (binary instanceof org.modeshape.jcr.api.Binary) {
-                        mimeType = ((org.modeshape.jcr.api.Binary)binary).getMimeType(parent.getName());
-                    }
-                }
+                String mimeType = getInputMimeType(changedProperty);
 
                 // See if the sequencer accepts the MIME type ...
                 if (mimeType != null && !sequencer.isAccepted(mimeType)) {
@@ -267,7 +239,7 @@ final class SequencingRunner implements Runnable {
                 logger.error(t,
                              RepositoryI18n.errorWhileSequencingNodeIntoWorkspace,
                              sequencerName,
-                             state.name(),
+                             repository.name(),
                              work.getInputPath(),
                              work.getInputWorkspaceName(),
                              work.getOutputPath(),
@@ -276,7 +248,7 @@ final class SequencingRunner implements Runnable {
                 logger.error(t,
                              RepositoryI18n.errorWhileSequencingNode,
                              sequencerName,
-                             state.name(),
+                             repository.name(),
                              work.getInputPath(),
                              work.getInputWorkspaceName(),
                              work.getOutputPath());
@@ -289,6 +261,56 @@ final class SequencingRunner implements Runnable {
         }
     }
 
+    /**
+     * @param changedProperty the property being sequenced
+     * @return the MIME type, or null if the MIME type could not be found
+     * @throws ItemNotFoundException
+     * @throws AccessDeniedException
+     * @throws RepositoryException
+     * @throws PathNotFoundException
+     * @throws ValueFormatException
+     * @throws IOException
+     */
+    static String getInputMimeType( Property changedProperty )
+        throws ItemNotFoundException, AccessDeniedException, RepositoryException, PathNotFoundException, ValueFormatException,
+        IOException {
+        Node parent = changedProperty.getParent();
+        String mimeType = null;
+        if (parent.hasProperty(JcrConstants.JCR_MIME_TYPE)) {
+            // The parent node has a 'jcr:mimeType' node ...
+            Property property = parent.getProperty(JcrConstants.JCR_MIME_TYPE);
+            if (!property.isMultiple()) {
+                // The standard 'jcr:mimeType' property is single valued, but we're technically not checking if
+                // the property has that particular property definition (only by name) ...
+                mimeType = property.getString();
+            }
+        } else if (parent.getName().equals(JcrConstants.JCR_CONTENT)) {
+            // There is no 'jcr:mimeType' property, and since the sequenced property is on the 'jcr:content' node,
+            // get the parent (probably 'nt:file') node and look for the 'jcr:mimeType' property there ...
+            try {
+                parent = parent.getParent();
+                if (parent.hasProperty(JcrConstants.JCR_MIME_TYPE)) {
+                    Property property = parent.getProperty(JcrConstants.JCR_MIME_TYPE);
+                    if (!property.isMultiple()) {
+                        // The standard 'jcr:mimeType' property is single valued, but we're technically not checking if
+                        // the property has that particular property definition (only by name) ...
+                        mimeType = property.getString();
+                    }
+                }
+            } catch (ItemNotFoundException e) {
+                // must be the root ...
+            }
+        }
+        if (mimeType == null && !changedProperty.isMultiple() && changedProperty.getType() == PropertyType.BINARY) {
+            // Still don't know the MIME type of the property, so if it's a BINARY property we can check it ...
+            javax.jcr.Binary binary = changedProperty.getBinary();
+            if (binary instanceof org.modeshape.jcr.api.Binary) {
+                mimeType = ((org.modeshape.jcr.api.Binary)binary).getMimeType(parent.getName());
+            }
+        }
+        return mimeType;
+    }
+
     private void setCreatedByIfNecessary( JcrSession outputSession,
                                           List<AbstractJcrNode> outputNodes ) throws RepositoryException {
         // if the mix:created mixin is on any of the new nodes, we need to set the createdBy here, otherwise it will be
@@ -299,6 +321,7 @@ final class SequencingRunner implements Runnable {
                                  outputSession.getValueFactory().createValue(work.getUserId()),
                                  true,
                                  true,
+                                 false,
                                  false);
             }
         }
@@ -391,9 +414,6 @@ final class SequencingRunner implements Runnable {
         return selectedNodeName;
     }
 
-    protected static final String DERIVED_NODE_TYPE_NAME = "mode:derived";
-    protected static final String DERIVED_FROM_PROPERTY_NAME = "mode:derivedFrom";
-
     /**
      * Remove any existing nodes that were generated by previous sequencing operations of the node at the selected path.
      * 
@@ -403,10 +423,10 @@ final class SequencingRunner implements Runnable {
      * @param logMsg the log message, or null if trace/debug logging is not being used (this is passed in for efficiency reasons)
      * @throws RepositoryException if there is a problem accessing the repository content
      */
-    private final void removeExistingOutputNodes( Node parentOfOutput,
-                                                  String outputNodeName,
-                                                  String selectedPath,
-                                                  String logMsg ) throws RepositoryException {
+    private void removeExistingOutputNodes( Node parentOfOutput,
+                                            String outputNodeName,
+                                            String selectedPath,
+                                            String logMsg ) throws RepositoryException {
         // Determine if there is an existing output node ...
         if (TRACE) {
             LOGGER.trace("Looking under '{0}' for existing output to be removed for {1}", parentOfOutput.getPath(), logMsg);
@@ -415,9 +435,9 @@ final class SequencingRunner implements Runnable {
         while (outputIter.hasNext()) {
             Node outputNode = outputIter.nextNode();
             // See if this is indeed the output, which should have the 'mode:derived' mixin ...
-            if (outputNode.isNodeType("mode:derived") && outputNode.hasProperty("mode:derivedFrom")) {
+            if (outputNode.isNodeType(DERIVED_NODE_TYPE_NAME) && outputNode.hasProperty(DERIVED_FROM_PROPERTY_NAME)) {
                 // See if it was an output for the same input node ...
-                String derivedFrom = outputNode.getProperty("mode:derivedFrom").getPath();
+                String derivedFrom = outputNode.getProperty(DERIVED_FROM_PROPERTY_NAME).getPath();
                 if (selectedPath.equals(derivedFrom)) {
                     // Delete it ...
                     if (TRACE) {

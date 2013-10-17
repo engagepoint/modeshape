@@ -38,7 +38,7 @@ public class OracleDdlLexicon extends StandardDdlLexicon {
     // MIXINS
     public static final String TYPE_BACKSLASH_TERMINATOR = PREFIX + ":backslashTerminator";
     
-    public static final String TYPE_CREATE_CLUSTER_STATEMENT 			=  PREFIX + ":createIndexStatement";
+    public static final String TYPE_CREATE_CLUSTER_STATEMENT 			=  PREFIX + ":createClusterStatement";
     public static final String TYPE_CREATE_CONTEXT_STATEMENT 			= PREFIX + ":createContextStatement";
     public static final String TYPE_CREATE_CONTROLFILE_STATEMENT 		= PREFIX + ":createControlfileStatement";
     public static final String TYPE_CREATE_DATABASE_STATEMENT 		= PREFIX + ":createDatabaseStatement";
@@ -46,8 +46,12 @@ public class OracleDdlLexicon extends StandardDdlLexicon {
     public static final String TYPE_CREATE_DIRECTORY_STATEMENT 		= PREFIX + ":createDirectoryStatement";
     public static final String TYPE_CREATE_DISKGROUP_STATEMENT 		= PREFIX + ":createDiskgroupStatement";
     public static final String TYPE_CREATE_FUNCTION_STATEMENT 		= PREFIX + ":createFunctionStatement";
-    public static final String TYPE_CREATE_INDEX_STATEMENT 			= PREFIX + ":createIndexStatement";
+
+    public static final String TYPE_CREATE_CLUSTER_INDEX_STATEMENT  = PREFIX + ":createClusterIndexStatement";
+    public static final String TYPE_CREATE_TABLE_INDEX_STATEMENT    = PREFIX + ":createTableIndexStatement";
+    public static final String TYPE_CREATE_BITMAP_JOIN_INDEX_STATEMENT   = PREFIX + ":createBitmapIndexStatement";
     public static final String TYPE_CREATE_INDEXTYPE_STATEMENT 		= PREFIX + ":createIndexTypeStatement";
+
     public static final String TYPE_CREATE_JAVA_STATEMENT 			= PREFIX + ":createJavaStatement";
     public static final String TYPE_CREATE_LIBRARY_STATEMENT 			= PREFIX + ":createLibraryStatement";
     public static final String TYPE_CREATE_MATERIALIZED_VIEW_STATEMENT 	      = PREFIX + ":createMaterializedViewStatement";
@@ -98,13 +102,11 @@ public class OracleDdlLexicon extends StandardDdlLexicon {
     public static final String TYPE_ALTER_CLUSTER_STATEMENT 		= PREFIX + ":alterIndexStatement";
     public static final String TYPE_ALTER_DATABASE_STATEMENT		= PREFIX + ":alterDatabaseStatement";
     public static final String TYPE_ALTER_DIMENSION_STATEMENT 	= PREFIX + ":alterDimensionStatement";
-    public static final String TYPE_ALTER_DIRECTORY_STATEMENT 	= PREFIX + ":alterDirectoryStatement";
     public static final String TYPE_ALTER_DISKGROUP_STATEMENT 	= PREFIX + ":alterDiskgroupStatement";
     public static final String TYPE_ALTER_FUNCTION_STATEMENT 		= PREFIX + ":alterFunctionStatement";
     public static final String TYPE_ALTER_INDEX_STATEMENT 		= PREFIX + ":alterIndexStatement";
     public static final String TYPE_ALTER_INDEXTYPE_STATEMENT 	= PREFIX + ":alterIndextypeStatement";
     public static final String TYPE_ALTER_JAVA_STATEMENT 			= PREFIX + ":alterJavaStatement";
-    public static final String TYPE_ALTER_LIBRARY_STATEMENT 		= PREFIX + ":alterLibraryStatement";
     public static final String TYPE_ALTER_MATERIALIZED_STATEMENT 	= PREFIX + ":alterMaterializedStatement";
     public static final String TYPE_ALTER_OPERATOR_STATEMENT 		= PREFIX + ":alterOperatorStatement";
     public static final String TYPE_ALTER_OUTLINE_STATEMENT 		= PREFIX + ":alterOutlineStatement";
@@ -149,18 +151,23 @@ public class OracleDdlLexicon extends StandardDdlLexicon {
     public static final String TYPE_RENAME_COLUMN 					= PREFIX + ":renameColumn";
     public static final String TYPE_RENAME_CONSTRAINT 				= PREFIX + ":renameConstraint";
     public static final String TYPE_FUNCTION_PARAMETER                = PREFIX + ":functionParameter";
+    public static final String TYPE_INDEX_ORDERABLE = PREFIX + ":indexOrderable";
 
     // PROPERTY NAMES
     public static final String TARGET_OBJECT_TYPE = PREFIX + ":targetObjectType";
-    public static final String TARGET_OBJECT_NAME = PREFIX + ":targetObjectName";
     public static final String COMMENT            = PREFIX + ":comment";
     public static final String UNIQUE_INDEX       = PREFIX + ":unique";
     public static final String BITMAP_INDEX       = PREFIX + ":bitmap";
     public static final String TABLE_NAME         = PREFIX + ":tableName";
-    public static final String DEFAULT            = PREFIX + ":default";
-    public static final String DEFAULT_EXPRESSION = PREFIX + ":defaultExpression";
     public static final String IN_OUT_NO_COPY     = PREFIX + ":inOutNoCopy";
     public static final String AUTHID_VALUE       = PREFIX + ":authIdValue";
-    
+    public static final String INDEX_TYPE         = PREFIX + ":indexType";
+    public static final String UNUSABLE_INDEX     = PREFIX + ":unusable";
+    public static final String CLUSTER_NAME       = PREFIX + ":clustereName";
+    public static final String TABLE_ALIAS        = PREFIX + ":tableAlias";
+    public static final String OTHER_INDEX_REFS   = PREFIX + ":otherRefs";
+    public static final String INDEX_ATTRIBUTES   = PREFIX + ":indexAttributes";
+    public static final String INDEX_ORDER        = PREFIX + ":order";
+    public static final String WHERE_CLAUSE       = PREFIX + ":whereClause";
 
 }

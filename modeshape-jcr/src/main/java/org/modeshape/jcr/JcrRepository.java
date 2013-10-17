@@ -23,6 +23,7 @@
  */
 package org.modeshape.jcr;
 
+import static org.modeshape.jcr.RepositoryConfiguration.QueryRebuild.FAIL_IF_MISSING;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.lang.ref.WeakReference;
@@ -64,6 +65,7 @@ import javax.jcr.Session;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.naming.NoInitialContextException;
+import javax.naming.OperationNotSupportedException;
 import javax.security.auth.login.LoginContext;
 import javax.transaction.Status;
 import javax.transaction.Synchronization;
@@ -83,6 +85,7 @@ import org.infinispan.schematic.internal.document.Paths;
 import org.modeshape.common.annotation.Immutable;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
+import org.modeshape.common.i18n.I18n;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.CheckArg;
 import org.modeshape.common.util.NamedThreadFactory;
@@ -90,13 +93,13 @@ import org.modeshape.jcr.ModeShapeEngine.State;
 import org.modeshape.jcr.RepositoryConfiguration.AnonymousSecurity;
 import org.modeshape.jcr.RepositoryConfiguration.BinaryStorage;
 import org.modeshape.jcr.RepositoryConfiguration.Component;
+import org.modeshape.jcr.RepositoryConfiguration.DocumentOptimization;
 import org.modeshape.jcr.RepositoryConfiguration.FieldName;
 import org.modeshape.jcr.RepositoryConfiguration.GarbageCollection;
 import org.modeshape.jcr.RepositoryConfiguration.JaasSecurity;
 import org.modeshape.jcr.RepositoryConfiguration.QuerySystem;
 import org.modeshape.jcr.RepositoryConfiguration.Security;
 import org.modeshape.jcr.RepositoryConfiguration.TransactionMode;
-import org.modeshape.jcr.Sequencers.SequencingWorkItem;
 import org.modeshape.jcr.api.AnonymousCredentials;
 import org.modeshape.jcr.api.Repository;
 import org.modeshape.jcr.api.RepositoryManager;
@@ -141,10 +144,10 @@ import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.NamespaceRegistry;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.ValueFactories;
-import org.modeshape.jcr.value.binary.AbstractBinaryStore;
 import org.modeshape.jcr.value.binary.BinaryStore;
 import org.modeshape.jcr.value.binary.BinaryUsageChangeSetListener;
 import org.modeshape.jcr.value.binary.infinispan.InfinispanBinaryStore;
+import org.modeshape.jmx.RepositoryStatisticsBean;
 
 /**
  * 
@@ -203,6 +206,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     private final Lock stateLock = new ReentrantLock();
     private final AtomicBoolean allowAutoStartDuringLogin = new AtomicBoolean(AUTO_START_REPO_UPON_LOGIN);
     private Connectors connectors;
+    private Problems configurationProblems = null;
 
     /**
      * Create a Repository instance given the {@link RepositoryConfiguration configuration}.
@@ -217,6 +221,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
         // Validate the configuration to make sure there are no errors ...
         Problems results = configuration.validate();
+        setConfigurationProblems(results);
         if (results.hasErrors()) {
             String msg = JcrI18n.errorsInRepositoryConfiguration.text(this.repositoryName,
                                                                       results.errorCount(),
@@ -231,6 +236,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         // Set up the descriptors ...
         this.descriptors = new HashMap<String, Object>();
         initializeDescriptors();
+    }
+
+    void setConfigurationProblems(Problems configurationProblems) {
+        this.configurationProblems = configurationProblems;
     }
 
     RepositoryConfiguration repositoryConfiguration() {
@@ -260,6 +269,12 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     	return this.connectors;
     }
 
+    @Override
+    public int getActiveSessionsCount() {
+        RunningState state = runningState.get();
+        return state == null ? 0 : state.activeSessionCount();
+    }
+
     /**
      * Get the component that can be used to obtain statistics for this repository.
      * <p>
@@ -274,6 +289,37 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      */
     public RepositoryStatistics getRepositoryStatistics() {
         return statistics();
+    }
+
+    /**
+     * Starts this repository instance (if not already started) and returns all the possible startup problems & warnings which did not
+     * prevent the repository from starting up.
+     * <p>
+     * The are 2 general categories of issues that can be logged as problems:
+     * <ul>
+     *     <li>
+     *         configuration warnings - any warnings raised by the structure of the repository configuration file
+     *     </li>
+     *     <li>
+     *         startup warnings/error - any warnings/errors raised by various repository components which didn't prevent them from
+     *         starting up, but could mean they are only partly intialized.
+     *     </li>
+     * </ul>
+     * </p>
+     * 
+     * @return a {@link Problems} instance which may contains errors and warnings raised by various components; may be empty if 
+     * nothing unusual happened during start but never {@code null}
+     *
+     * @throws FileNotFoundException if the Infinispan configuration file is specified but could not be found
+     * @throws IOException if there is a problem with the specified Infinispan configuration file
+     * @throws Exception if there is a problem with underlying resource setup
+     */
+    public Problems getStartupProblems() throws Exception {
+        doStart();  
+        SimpleProblems result = new SimpleProblems();
+        result.addAll(this.configurationProblems);
+        result.addAll(runningState().problems());
+        return result;
     }
 
     /**
@@ -333,7 +379,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
             // Always update the configuration ...
             RunningState oldState = this.runningState.get();
-            this.config.set(new RepositoryConfiguration(copy.unwrap(), copy.getString(FieldName.NAME), oldConfiguration.environment()));
+            this.config.set(new RepositoryConfiguration(copy.unwrap(), copy.getString(FieldName.NAME),
+                                                        oldConfiguration.environment()));
             if (oldState != null) {
                 assert state.get() == State.RUNNING;
                 // Repository is running, so create a new running state ...
@@ -656,7 +703,6 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
             // Need to make sure that the user has access to this session
             session.checkPermission(workspaceName, null, ModeShapePermissions.READ);
-
             running.addSession(session, false);
             return session;
         } catch (AccessDeniedException ace) {
@@ -790,7 +836,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         descriptors.put(Repository.OPTION_SIMPLE_VERSIONING_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_ACTIVITIES_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_BASELINES_SUPPORTED, valueFor(factories, false));
-        descriptors.put(Repository.OPTION_ACCESS_CONTROL_SUPPORTED, valueFor(factories, false));
+        descriptors.put(Repository.OPTION_ACCESS_CONTROL_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_JOURNALED_OBSERVATION_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_RETENTION_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_LIFECYCLE_SUPPORTED, valueFor(factories, false));
@@ -903,10 +949,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         private final WeakHashMap<JcrSession, Object> activeSessions = new WeakHashMap<JcrSession, Object>();
         private final WeakHashMap<JcrSession, Object> internalSessions = new WeakHashMap<JcrSession, Object>();
         private final RepositoryStatistics statistics;
-        private final AbstractBinaryStore binaryStore;
+        private final RepositoryStatisticsBean mbean;
+        private final BinaryStore binaryStore;
         private final ScheduledExecutorService statsRollupService;
         private final Sequencers sequencers;
-        private final ExecutorService sequencingQueue;
         private final QueryParsers queryParsers;
         private final RepositoryQueryManager repositoryQueryManager;
         private final ExecutorService indexingExecutor;
@@ -921,7 +967,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         private final NodeTypesImporter nodeTypesImporter;
         private final Connectors connectors;
         private final RepositoryConfiguration.IndexRebuildOptions indexRebuildOptions;
-        private final List<ScheduledFuture<?>> gcProcesses = new ArrayList<ScheduledFuture<?>>();
+        private final List<ScheduledFuture<?>> backgroundProcesses = new ArrayList<ScheduledFuture<?>>();
+        private final Problems problems;
 
         private Transaction existingUserTransaction;
         private RepositoryCache cache;
@@ -937,8 +984,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             this.systemContentInitializer = new SystemContentInitializer();
             if (other == null) {
                 logger.debug("Starting '{0}' repository with configuration: \n{1}", repositoryName(), this.config);
+                this.problems = new SimpleProblems();
             } else {
                 logger.debug("Updating '{0}' repository with configuration: \n{1}", repositoryName(), this.config);
+                this.problems = other.problems;                
             }
             ExecutionContext tempContext = new ExecutionContext();
 
@@ -946,14 +995,18 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             if (other != null && !change.monitoringChanged) {
                 this.statistics = other.statistics;
                 this.statsRollupService = other.statsRollupService;
+                this.mbean = other.mbean;
             } else {
                 this.statistics = other != null ? other.statistics : new RepositoryStatistics(tempContext);
                 if (this.config.getMonitoring().enabled()) {
                     // Start the Cron service, with a minimum of a single thread ...
                     this.statsRollupService = tempContext.getScheduledThreadPool("modeshape-stats");
                     this.statistics.start(this.statsRollupService);
+                    this.mbean = new RepositoryStatisticsBean(statistics, getName());
+                    this.mbean.start();
                 } else {
                     this.statsRollupService = null;
+                    this.mbean = null;
                 }
             }
 
@@ -971,11 +1024,11 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 if (other != null) {
                     if (change.storageChanged) {
                         // Can't change where we're storing the content while we're running, so take effect upon next startup
-                        logger.warn(JcrI18n.storageRelatedConfigurationChangesWillTakeEffectAfterShutdown, getName());
+                        warn(JcrI18n.storageRelatedConfigurationChangesWillTakeEffectAfterShutdown, getName());
                     }
                     if (change.binaryStorageChanged) {
                         // Can't change where we're storing the content while we're running, so take effect upon next startup
-                        logger.warn(JcrI18n.storageRelatedConfigurationChangesWillTakeEffectAfterShutdown, getName());
+                        warn(JcrI18n.storageRelatedConfigurationChangesWillTakeEffectAfterShutdown, getName());
                     }
                     // reuse the existing storage-related components ...
                     this.cache = other.cache;
@@ -1001,7 +1054,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                             this.cache.createWorkspace(workspaceName);
                         }
                     }
-                    this.mimeTypeDetector = new MimeTypeDetectors(other.config.environment());
+                    this.mimeTypeDetector = new MimeTypeDetectors(other.config.environment(), this.problems);
                     this.binaryStore = other.binaryStore;
                     this.internalWorkerContext = other.internalWorkerContext;
                     this.nodeTypes = other.nodeTypes.with(this, true, true);
@@ -1015,15 +1068,15 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                     // find the Schematic database and Infinispan Cache ...
                     CacheContainer container = config.getContentCacheContainer();
                     String cacheName = config.getCacheName();
-                    List<Component> connectorComponents = config.getFederation().getConnectors();
+                    List<Component> connectorComponents = config.getFederation().getConnectors(this.problems);
                     Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjectionsByWorkspace = config.getFederation()
                                                                                                                                    .getProjectionsByWorkspace();
                     this.connectors = new Connectors(this, connectorComponents, preconfiguredProjectionsByWorkspace);
                     logger.debug("Loading cache '{0}' from cache container {1}", cacheName, container);
                     SchematicDb database = Schematic.get(container, cacheName);
-                    this.documentStore = connectors.hasConnectors() ? new FederatedDocumentStore(connectors, database) : new LocalDocumentStore(
-                                                                                                                                                database);
-                    // this.documentStore = new LocalDocumentStore(database);
+                    this.documentStore = connectors.hasConnectors() ?
+                                         new FederatedDocumentStore(connectors, database) :
+                                         new LocalDocumentStore(database);
                     this.txnMgr = this.documentStore.transactionManager();
                     MonitorFactory monitorFactory = new RepositoryMonitorFactory(this);
                     this.transactions = createTransactions(config.getTransactionMode(), monitorFactory, this.txnMgr);
@@ -1038,21 +1091,27 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
                     // Now create the registry implementation and the execution context that uses it ...
                     this.persistentRegistry = new SystemNamespaceRegistry(this);
-                    this.mimeTypeDetector = new MimeTypeDetectors(this.config.environment());
+                    this.mimeTypeDetector = new MimeTypeDetectors(this.config.environment(), this.problems);
                     this.context = tempContext.with(persistentRegistry);
                     this.persistentRegistry.setContext(this.context);
                     this.internalWorkerContext = this.context.with(new InternalSecurityContext(INTERNAL_WORKER_USERNAME));
 
                     // Create the event bus
                     this.changeDispatchingQueue = this.context().getCachedTreadPool("modeshape-event-dispatcher");
-                    this.changeBus = createBus(config.getClustering(), this.changeDispatchingQueue, systemWorkspaceName(), false);
+                    this.changeBus = createBus(config.getClustering(),
+                                               this.changeDispatchingQueue,
+                                               systemWorkspaceName(),
+                                               context.getProcessId());
                     this.changeBus.start();
 
                     // Set up the repository cache ...
-                    final SessionEnvironment sessionEnv = new RepositorySessionEnvironment(this.transactions);
+                    QuerySystem query = config.getQuery();
+                    boolean indexingClustered = query.queriesEnabled() && query.indexingClustered();
+
+                    final SessionEnvironment sessionEnv = new RepositorySessionEnvironment(this.transactions, indexingClustered);
                     CacheContainer workspaceCacheContainer = this.config.getWorkspaceContentCacheContainer();
                     this.cache = new RepositoryCache(context, documentStore, config, systemContentInitializer, sessionEnv,
-                                                     changeBus, workspaceCacheContainer);
+                                                     changeBus, workspaceCacheContainer, Upgrades.STANDARD_UPGRADES);
 
                     // Set up the node type manager ...
                     this.nodeTypes = new RepositoryNodeTypeManager(this, true, true);
@@ -1072,7 +1131,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                         try {
                             // Read in the built-in node types ...
                             CndImporter importer = new CndImporter(context, true);
-                            importer.importBuiltIns(new SimpleProblems());
+                            importer.importBuiltIns(this.problems);
                             this.nodeTypes.registerNodeTypes(importer.getNodeTypeDefinitions(), false, true, true);
                         } catch (RepositoryException re) {
                             throw new IllegalStateException("Could not load node type definition files", re);
@@ -1108,32 +1167,11 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 this.binaryStore.setTextExtractors(this.extractors);
 
                 if (other != null && !change.sequencingChanged) {
-                    this.sequencingQueue = other.sequencingQueue;
                     this.sequencers = other.sequencers.with(this);
                     if (!sequencers.isEmpty()) this.cache.register(this.sequencers);
                     this.cache.unregister(other.sequencers);
                 } else {
-                    // There are changes to the sequencers ...
-                    Sequencers.WorkQueue queue = null;
-                    List<Component> sequencerComponents = config.getSequencing().getSequencers();
-                    if (sequencerComponents.isEmpty()) {
-                        // There are no sequencers ...
-                        this.sequencingQueue = null;
-                        this.sequencers = new Sequencers(this, sequencerComponents, cache.getWorkspaceNames(), queue);
-                    } else {
-                        // Create an in-memory queue of sequencing work items ...
-                        String threadPoolName = config.getSequencing().getThreadPoolName();
-                        this.sequencingQueue = this.context.getThreadPool(threadPoolName);
-                        queue = new Sequencers.WorkQueue() {
-                            @SuppressWarnings( "synthetic-access" )
-                            @Override
-                            public void submit( final SequencingWorkItem work ) {
-                                sequencingQueue.execute(new SequencingRunner(JcrRepository.this, work));
-                            }
-                        };
-                        this.sequencers = new Sequencers(this, sequencerComponents, cache.getWorkspaceNames(), queue);
-                        this.cache.register(this.sequencers);
-                    }
+                    this.sequencers = new Sequencers(this, config, cache.getWorkspaceNames());
                 }
 
                 if (other != null && !change.indexingChanged) {
@@ -1152,8 +1190,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                     Properties backendProps = query.getIndexingBackendProperties();
                     Properties indexingProps = query.getIndexingProperties();
                     Properties indexStorageProps = query.getIndexStorageProperties();
-                    this.repositoryQueryManager = new RepositoryQueryManager(this, config.getQuery(), indexingExecutor,
-                                                                             backendProps, indexingProps, indexStorageProps);
+                    this.repositoryQueryManager = new RepositoryQueryManager(this, indexingExecutor, backendProps, indexingProps,
+                                                                             indexStorageProps);
                     this.indexRebuildOptions = query.getIndexRebuildOptions();
                 } else {
                     this.repositoryQueryManager = new RepositoryDisabledQueryManager(this, config.getQuery());
@@ -1243,8 +1281,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 this.nodeTypesImporter.importNodeTypes();
 
                 if (repositoryCache().isInitializingRepository()) {
-                    // import initial content for each of the workspaces (this has to be done after the running state has
-                    // "started"
+                    // import initial content for each of the workspaces; this has to be done after the running state has started
                     this.cache.runOneTimeSystemInitializationOperation(new Callable<Void>() {
                         @Override
                         public Void call() throws Exception {
@@ -1259,11 +1296,24 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 // connectors must be initialized after initial content because that can have an influence on projections
                 this.connectors.initialize();
 
-                // Now record in the content that we're finished initializing the repository. This will commit the startup
-                // transaction
+                // Now record in the content that we're finished initializing the repository.
+                // This will commit the startup transaction.
                 repositoryCache().completeInitialization();
+
+                // Now complete the upgrade of the repository, if required. This will be done transactionally.
+                repositoryCache().completeUpgrade(new Upgrades.Context() {
+                    @Override
+                    public RunningState getRepository() {
+                        return RunningState.this;
+                    }
+
+                    @Override
+                    public Problems getProblems() {
+                        return RunningState.this.problems();
+                    }
+                });
             } catch (Throwable t) {
-                this.cache.rollbackRepositoryInfo();
+                repositoryCache().rollbackRepositoryInfo();
                 resumeExistingUserTransaction();
                 throw t instanceof Exception ? (Exception)t : new RuntimeException(t);
             }
@@ -1296,27 +1346,56 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                             logger.debug(JcrI18n.noReindex.text(getName()));
                             break;
                         }
+                        case FAIL_IF_MISSING: {
+                            if (this.repositoryQueryManager.indexesEmpty()) {
+                                throw new RepositoryException(JcrI18n.noIndexesExist.text(getName(), FAIL_IF_MISSING.name()));
+                            }
+                            logger.debug("Index rebuild mode is '{0}' and there are some indexes present. Nothing will be reindexed.",
+                                         FAIL_IF_MISSING.name());
+                            break;
+                        }
                     }
                 }
 
-                // Register the background processes. Do this last since we want the repository running before these are started
-                // ...
+                // Register the background processes.
+                // Do this last since we want the repository running before these are started ...
                 GarbageCollection gcConfig = config.getGarbageCollection();
                 String threadPoolName = gcConfig.getThreadPoolName();
-                long binaryGcInitialTime = determineInitialDelay(gcConfig.getInitialTimeExpression());
-                long binaryGcInterval = gcConfig.getIntervalInHours();
+                long binaryGcInitialTimeInMillis = determineInitialDelay(gcConfig.getInitialTimeExpression());
+                long binaryGcIntervalInHours = gcConfig.getIntervalInHours();
                 int lockSweepIntervalInMinutes = gcConfig.getLockSweepIntervalInMinutes();
-                assert binaryGcInitialTime >= 0;
+                assert binaryGcInitialTimeInMillis >= 0;
+                long binaryGcIntervalInMillis = TimeUnit.MILLISECONDS.convert(binaryGcIntervalInHours, TimeUnit.HOURS);
                 ScheduledExecutorService garbageCollectionService = this.context.getScheduledThreadPool(threadPoolName);
-                gcProcesses.add(garbageCollectionService.scheduleAtFixedRate(new LockGarbageCollectionTask(JcrRepository.this),
-                                                                             lockSweepIntervalInMinutes,
-                                                                             lockSweepIntervalInMinutes,
-                                                                             TimeUnit.MINUTES));
-                gcProcesses.add(garbageCollectionService.scheduleAtFixedRate(new BinaryValueGarbageCollectionTask(
-                                                                                                                  JcrRepository.this),
-                                                                             binaryGcInitialTime,
-                                                                             binaryGcInterval,
-                                                                             TimeUnit.HOURS));
+                backgroundProcesses.add(garbageCollectionService.scheduleAtFixedRate(new LockGarbageCollectionTask(
+                                                                                                                   JcrRepository.this),
+                                                                                     lockSweepIntervalInMinutes,
+                                                                                     lockSweepIntervalInMinutes,
+                                                                                     TimeUnit.MINUTES));
+                backgroundProcesses.add(garbageCollectionService.scheduleAtFixedRate(new BinaryValueGarbageCollectionTask(
+                                                                                                                          JcrRepository.this),
+                                                                                     binaryGcInitialTimeInMillis,
+                                                                                     binaryGcIntervalInMillis,
+                                                                                     TimeUnit.MILLISECONDS));
+
+                DocumentOptimization optConfig = config.getDocumentOptimization();
+                if (optConfig.isEnabled()) {
+                    warn(JcrI18n.enablingDocumentOptimization, name());
+                    threadPoolName = optConfig.getThreadPoolName();
+                    long optInitialTimeInMillis = determineInitialDelay(optConfig.getInitialTimeExpression());
+                    long optIntervalInHours = optConfig.getIntervalInHours();
+                    int targetCount = optConfig.getChildCountTarget();
+                    int tolerance = optConfig.getChildCountTolerance();
+                    assert optInitialTimeInMillis >= 0;
+                    long optIntervalInMillis = TimeUnit.MILLISECONDS.convert(optIntervalInHours, TimeUnit.HOURS);
+                    ScheduledExecutorService optService = this.context.getScheduledThreadPool(threadPoolName);
+                    OptimizationTask optTask = new OptimizationTask(JcrRepository.this, targetCount, tolerance);
+                    backgroundProcesses.add(optService.scheduleAtFixedRate(optTask,
+                                                                           optInitialTimeInMillis,
+                                                                           optIntervalInMillis,
+                                                                           TimeUnit.MILLISECONDS));
+                }
+
             } finally {
                 resumeExistingUserTransaction();
             }
@@ -1324,10 +1403,6 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
         protected final Sequencers sequencers() {
             return sequencers;
-        }
-
-        protected ExecutorService sequencingQueue() {
-            return sequencingQueue;
         }
 
         protected final boolean useXaSessions() {
@@ -1424,6 +1499,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             return changeBus;
         }
 
+        final Connectors connectors() {
+            return connectors;
+        }
+
         protected final String repositoryKey() {
             return cache.getKey();
         }
@@ -1434,6 +1513,25 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
         protected final BackupService backupService() {
             return backupService;
+        }
+
+        protected final void warn(I18n message, Object...params) {
+            logger.warn(message, params);
+            problems.addWarning(message, params);
+        }
+
+        protected final void error(I18n message, Object...params) {
+            logger.error(message, params);
+            problems.addError(message, params);
+        }
+
+        protected final void error(Throwable t, I18n message, Object...params) {
+            logger.error(t, message, params);
+            problems.addError(t, message, params);
+        }
+
+        protected final Problems problems() {
+            return this.problems;
         }
 
         final InitialContentImporter initialContentImporter() {
@@ -1455,26 +1553,26 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                         authenticators = authenticators.with(jaasProvider);
                     } catch (java.lang.SecurityException e) {
                         if (MISSING_JAAS_POLICIES.add(policyName)) {
-                            logger.warn(JcrI18n.loginConfigNotFound,
-                                        policyName,
-                                        RepositoryConfiguration.FieldName.SECURITY + "/"
-                                        + RepositoryConfiguration.FieldName.JAAS_POLICY_NAME,
-                                        repositoryName());
+                            warn(JcrI18n.loginConfigNotFound,
+                                 policyName,
+                                 RepositoryConfiguration.FieldName.SECURITY + "/"
+                                 + RepositoryConfiguration.FieldName.JAAS_POLICY_NAME,
+                                 repositoryName());
                         }
                     } catch (javax.security.auth.login.LoginException e) {
                         if (MISSING_JAAS_POLICIES.add(policyName)) {
-                            logger.warn(JcrI18n.loginConfigNotFound,
-                                        policyName,
-                                        RepositoryConfiguration.FieldName.SECURITY + "/"
-                                        + RepositoryConfiguration.FieldName.JAAS_POLICY_NAME,
-                                        repositoryName());
+                            warn(JcrI18n.loginConfigNotFound,
+                                 policyName,
+                                 RepositoryConfiguration.FieldName.SECURITY + "/"
+                                 + RepositoryConfiguration.FieldName.JAAS_POLICY_NAME,
+                                 repositoryName());
                         }
                     }
                 }
             }
 
             // Set up any custom AuthenticationProvider classes ...
-            for (Component component : securityConfig.getCustomProviders()) {
+            for (Component component : securityConfig.getCustomProviders(problems())) {
                 try {
                     AuthenticationProvider provider = component.createInstance(getClass().getClassLoader());
                     authenticators = authenticators.with(provider);
@@ -1514,8 +1612,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         }
 
         protected void shutdown() {
-            //if  reindexing was asynchronous and is still going on, we need to terminate it before we stop any of caches
-            //or we do anything that affects the nodes
+            // if reindexing was asynchronous and is still going on, we need to terminate it before we stop any of caches
+            // or we do anything that affects the nodes
             if (repositoryQueryManager != null) {
                 repositoryQueryManager.stopReindexing();
             }
@@ -1524,17 +1622,15 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             this.connectors.shutdown();
 
             // Remove the scheduled operations ...
-            for (ScheduledFuture<?> future : gcProcesses) {
+            for (ScheduledFuture<?> future : backgroundProcesses) {
                 future.cancel(true);
             }
 
             // Unregister from JNDI ...
             unbindFromJndi();
 
-            if (this.sequencingQueue != null) {
-                // Shutdown the sequencers ...
-                sequencers().shutdown();
-            }
+            // Shutdown the sequencers ...
+            sequencers().shutdown();
 
             // Now wait until all the internal sessions are gone ...
             if (!internalSessions.isEmpty()) {
@@ -1581,6 +1677,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 statistics.stop();
             }
 
+            if (mbean != null) {
+                mbean.stop();
+            }
+
             this.context().terminateAllPools(30, TimeUnit.SECONDS);
 
             // Shutdown the environment's resources.
@@ -1595,8 +1695,15 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 } catch (NoInitialContextException e) {
                     // No JNDI here ...
                     logger.debug("No JNDI found, so not registering '{0}' repository", getName());
+                } catch (OperationNotSupportedException e) {
+                    warn(JcrI18n.jndiReadOnly, config.getName(), jndiName);
                 } catch (NamingException e) {
                     logger.error(e, JcrI18n.unableToBindToJndi, config.getName(), jndiName, e.getMessage());
+                } catch (Exception e) {
+                    logger.debug(e,
+                                 "Error while registering the '{0}' repository from the '{1}' name in JNDI",
+                                 config.getName(),
+                                 jndiName);
                 }
             }
         }
@@ -1609,8 +1716,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 } catch (NoInitialContextException e) {
                     // No JNDI here ...
                     logger.debug("No JNDI found, so not registering '{0}' repository", getName());
-                } catch (NamingException e) {
-                    // Maybe it wasn't registered ??
+                } catch (OperationNotSupportedException e) {
+                    warn(JcrI18n.jndiReadOnly, config.getName(), jndiName);
+                }
+                catch (Exception e) {
                     logger.debug(e,
                                  "Error while unregistering the '{0}' repository from the '{1}' name in JNDI",
                                  config.getName(),
@@ -1631,7 +1740,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             }
         }
 
-        int activeSessinCount() {
+        int activeSessionCount() {
             Lock lock = this.activeSessionLock.writeLock();
             try {
                 lock.lock();
@@ -1743,10 +1852,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         protected ChangeBus createBus( RepositoryConfiguration.Clustering clusteringConfiguration,
                                        ExecutorService executor,
                                        String systemWorkspaceName,
-                                       boolean separateThreadForSystemWorkspace ) {
-            RepositoryChangeBus standaloneBus = new RepositoryChangeBus(executor, systemWorkspaceName,
-                                                                        separateThreadForSystemWorkspace);
-            return clusteringConfiguration.isEnabled() ? new ClusteredRepositoryChangeBus(clusteringConfiguration, standaloneBus) : standaloneBus;
+                                       String processId ) {
+            RepositoryChangeBus standaloneBus = new RepositoryChangeBus(executor, systemWorkspaceName);
+            return clusteringConfiguration.isEnabled() ? new ClusteredRepositoryChangeBus(clusteringConfiguration, standaloneBus,
+                                                                                          processId) : standaloneBus;
         }
 
         void suspendExistingUserTransaction() throws SystemException {
@@ -1765,10 +1874,13 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     protected static class RepositorySessionEnvironment implements SessionEnvironment {
         private final Transactions transactions;
         private final TransactionalWorkspaceCaches transactionalWorkspaceCacheFactory;
+        private final boolean indexingClustered;
 
-        protected RepositorySessionEnvironment( Transactions transactions ) {
+        protected RepositorySessionEnvironment( Transactions transactions,
+                                                boolean indexingClustered ) {
             this.transactions = transactions;
             this.transactionalWorkspaceCacheFactory = new TransactionalWorkspaceCaches(transactions);
+            this.indexingClustered = indexingClustered;
         }
 
         @Override
@@ -1779,6 +1891,11 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         @Override
         public TransactionalWorkspaceCaches getTransactionalWorkspaceCacheFactory() {
             return transactionalWorkspaceCacheFactory;
+        }
+
+        @Override
+        public boolean indexingClustered() {
+            return indexingClustered;
         }
     }
 
@@ -1854,8 +1971,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                                        org.modeshape.jcr.value.Path path,
                                        Name primaryType,
                                        Set<Name> mixinTypes,
-                                       Collection<Property> properties ) {
-                    indexes.addToIndex(workspace, key, path, primaryType, mixinTypes, properties, schemata, txnCtx);
+                                       Iterator<Property> propertiesIterator ) {
+                    indexes.addToIndex(workspace, key, path, primaryType, mixinTypes, propertiesIterator, schemata, txnCtx);
                 }
 
                 @Override
@@ -1893,7 +2010,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                                        org.modeshape.jcr.value.Path path,
                                        Name primaryType,
                                        Set<Name> mixinTypes,
-                                       Collection<Property> properties ) {
+                                       Iterator<Property> propertiesIterator ) {
                 }
 
                 @Override
@@ -1940,6 +2057,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         public void logout() {
             // do nothing
         }
+
     }
 
     /**
@@ -1976,10 +2094,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      * reference to hold onto the JcrRepository instance and we'll also check that the repository is running before we actually do
      * any work.
      */
-    protected static abstract class GarbageCollectionTask implements Runnable {
+    protected static abstract class BackgroundRepositoryTask implements Runnable {
         private WeakReference<JcrRepository> repositoryRef;
 
-        protected GarbageCollectionTask( JcrRepository repository ) {
+        protected BackgroundRepositoryTask( JcrRepository repository ) {
             assert repository != null;
             this.repositoryRef = new WeakReference<JcrRepository>(repository);
         }
@@ -2000,7 +2118,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         protected abstract void doRun( JcrRepository repository );
     }
 
-    protected static class BinaryValueGarbageCollectionTask extends GarbageCollectionTask {
+    protected static class BinaryValueGarbageCollectionTask extends BackgroundRepositoryTask {
         protected BinaryValueGarbageCollectionTask( JcrRepository repository ) {
             super(repository);
         }
@@ -2011,7 +2129,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         }
     }
 
-    protected static class LockGarbageCollectionTask extends GarbageCollectionTask {
+    protected static class LockGarbageCollectionTask extends BackgroundRepositoryTask {
         protected LockGarbageCollectionTask( JcrRepository repository ) {
             super(repository);
         }
@@ -2019,6 +2137,24 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         @Override
         protected void doRun( JcrRepository repository ) {
             repository.runningState().cleanUpLocks();
+        }
+    }
+
+    protected static class OptimizationTask extends BackgroundRepositoryTask {
+        private final int targetCount;
+        private final int tolerance;
+
+        protected OptimizationTask( JcrRepository repository,
+                                    int targetCount,
+                                    int tolerance ) {
+            super(repository);
+            this.targetCount = targetCount;
+            this.tolerance = tolerance;
+        }
+
+        @Override
+        protected void doRun( JcrRepository repository ) {
+            repository.runningState().repositoryCache().optimizeChildren(targetCount, tolerance);
         }
     }
 }

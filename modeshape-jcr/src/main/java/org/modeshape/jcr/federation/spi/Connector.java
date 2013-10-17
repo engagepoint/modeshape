@@ -25,6 +25,7 @@
 package org.modeshape.jcr.federation.spi;
 
 import java.io.IOException;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import javax.jcr.NamespaceRegistry;
@@ -35,6 +36,7 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.text.TextDecoder;
 import org.modeshape.common.util.CheckArg;
+import org.modeshape.jcr.Environment;
 import org.modeshape.jcr.ExecutionContext;
 import org.modeshape.jcr.JcrI18n;
 import org.modeshape.jcr.JcrLexicon;
@@ -42,11 +44,14 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.cache.DocumentAlreadyExistsException;
 import org.modeshape.jcr.cache.DocumentNotFoundException;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
+import org.modeshape.jcr.federation.ConnectorChangeSetFactory;
 import org.modeshape.jcr.federation.FederatedDocumentReader;
 import org.modeshape.jcr.federation.FederatedDocumentWriter;
 import org.modeshape.jcr.mimetype.MimeTypeDetector;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.NameFactory;
+import org.modeshape.jcr.value.Path;
+import org.modeshape.jcr.value.PathFactory;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.PropertyFactory;
 import org.modeshape.jcr.value.ValueFactories;
@@ -66,8 +71,17 @@ public abstract class Connector {
 
     /**
      * The logger instance, set via reflection
+     * 
+     * @see #simpleLogger
      */
     private Logger logger;
+
+    /**
+     * The simpler API logger instance, set via reflection
+     * 
+     * @see #logger
+     */
+    private org.modeshape.jcr.api.Logger simpleLogger;
 
     /**
      * The name of this connector, set via reflection immediately after instantiation.
@@ -141,6 +155,23 @@ public abstract class Connector {
     private TransactionManager transactionManager;
 
     /**
+     * The {@link ConnectorChangeSetFactory} instance which allows a connector to create {@link ConnectorChangeSet}s.
+     * <p>
+     * The field is assigned via reflection before ModeShape calls {@link #initialize(NamespaceRegistry, NodeTypeManager)}.
+     * </p>
+     */
+    private ConnectorChangeSetFactory connectorChangedSetFactory;
+
+    /**
+     * The {@link Environment} instance in which the repository operates. This should be used by connectors which need
+     * to perform class-path related operations.
+     * <p>
+     * The field is assigned via reflection before ModeShape calls {@link #initialize(NamespaceRegistry, NodeTypeManager)}.
+     * </p>
+     */
+    private Environment environment;
+
+    /**
      * Ever connector is expected to have a no-argument constructor, although the class should never initialize any of the data at
      * this time. Instead, all initialization should be performed in the {@link #initialize} method.
      */
@@ -166,13 +197,38 @@ public abstract class Connector {
     }
 
     /**
-     * Get the logger for this connector instance. This is available for use in or after the
+     * Get the I18n-compatible logger for this connector instance. This is available for use in or after the
      * {@link #initialize(NamespaceRegistry, NodeTypeManager)} method.
+     * <p>
+     * This logger is a bit more complicated than the {@link #log() simple logger} because it requires use of ModeShape's
+     * internationalization and localization framework. All of ModeShape's code uses this I18n framework, making it much easier to
+     * localize ModeShape to other languages. Using this logger would make it just as easy to localize the Connector
+     * implementation. But since it is more complicated, it may not be for every developer. Subclasses can use this logger or the
+     * simpler logger; you can even mix and match (though we'd recommend that you just pick one and only use it).
+     * <p>
      * 
-     * @return the logger; never null
+     * @return the logger that requires using ModeShape I18n framework; never null
+     * @see #log()
      */
     public final Logger getLogger() {
         return logger;
+    }
+
+    /**
+     * Get the simpler, String-based logger for this connector instance. This is available for use in or after the
+     * {@link #initialize(NamespaceRegistry, NodeTypeManager)} method.
+     * <p>
+     * This logger is much simpler than the {@link #getLogger() I18n-compatible logger}, especially since all of the log messages
+     * take simple strings. However, this simple logger is not easily internationalized. Subclasses can use this logger or the
+     * more formal, I18n-compatible logger; you can even mix and match (though we'd recommend that you just pick one and only use
+     * it).
+     * <p>
+     * 
+     * @return the simple logger that requires String messages; never null
+     * @see #getLogger()
+     */
+    public final org.modeshape.jcr.api.Logger log() {
+        return simpleLogger;
     }
 
     /**
@@ -253,6 +309,15 @@ public abstract class Connector {
     }
 
     /**
+     * Returns the repository environment that was set during connector initialization
+     *
+     * @return a {@code non-null} {@link Environment} instace.
+     */
+    protected Environment getEnvironment() {
+        return environment;
+    }
+
+    /**
      * Initialize the connector. This is called automatically by ModeShape once for each Connector instance, and should not be
      * called by the connector. By the time this method is called, ModeShape will hav already set the {@link #context},
      * {@link #logger}, {@link #name}, and {@link #repositoryName} plus any fields that match configuration properties for the
@@ -311,12 +376,22 @@ public abstract class Connector {
     public abstract Document getDocumentById( String id );
 
     /**
-     * Returns the id of an external node located at the given path.
+     * Returns the id of an external node located at the given external path within the connector's exposed tree of content.
      * 
-     * @param path a {@code non-null} string representing an exeternal path.
+     * @param externalPath a {@code non-null} string representing an external path, or "/" for the top-level node exposed by the
+     *        connector
      * @return either the id of the document or {@code null}
      */
-    public abstract String getDocumentId( String path );
+    public abstract String getDocumentId( String externalPath );
+
+    /**
+     * Return the path(s) of the external node with the given identifier. The resulting paths are from the point of view of the
+     * connector. For example, the "root" node exposed by the connector wil have a path of "/".
+     * 
+     * @param id a {@code non-null} string
+     * @return the connector-specific path(s) of the node, or an empty document if there is no such document; never null
+     */
+    public abstract Collection<String> getDocumentPathsById( String id );
 
     /**
      * Indicates if the connector instance has been configured in read-only mode.
@@ -453,6 +528,16 @@ public abstract class Connector {
     }
 
     /**
+     * Obtain a new {@link DocumentWriter} that can be used to update a document.
+     * 
+     * @param document the document that should be updated; may not be null
+     * @return the document writer; never null
+     */
+    protected DocumentWriter writeDocument( Document document ) {
+        return new FederatedDocumentWriter(translator, document);
+    }
+
+    /**
      * Obtain a new {@link PageWriter} that can be used to construct a page of children, typically within the
      * {@link Pageable#getChildren(PageKey)} method.
      * 
@@ -486,6 +571,41 @@ public abstract class Connector {
 
     protected final PropertyFactory propertyFactory() {
         return context.getPropertyFactory();
+    }
+
+    protected final PathFactory pathFactory() {
+        return factories().getPathFactory();
+    }
+
+    /**
+     * Helper method that creates a {@link Path} object from a string. This is equivalent to calling "
+     * <code>pathFactory().create(path)</code>", and is simply provided for convenience.
+     * 
+     * @param path the string from which the path is to be created
+     * @return the value, or null if the supplied string is null
+     * @throws ValueFormatException if the conversion from a string could not be performed
+     * @see PathFactory#create(String)
+     * @see #pathFrom(Path, String)
+     */
+    protected final Path pathFrom( String path ) {
+        return factories().getPathFactory().create(path);
+    }
+
+    /**
+     * Helper method that creates a {@link Path} object from a parent path and a child path string. This is equivalent to calling
+     * " <code>pathFactory().create(parentPath,childPath)</code>", and is simply provided for convenience.
+     * 
+     * @param parentPath the parent path
+     * @param childPath the child path as a string
+     * @return the value, or null if the supplied string is null
+     * @throws ValueFormatException if the conversion from a string could not be performed
+     * @see PathFactory#create(String)
+     * @see #pathFrom(String)
+     */
+    protected final Path pathFrom( Path parentPath,
+                                   String childPath ) {
+        Path parent = pathFactory().create(parentPath);
+        return pathFactory().create(parent, childPath);
     }
 
     /**
@@ -544,6 +664,13 @@ public abstract class Connector {
                                    String localName,
                                    TextDecoder decoder ) {
         return factories().getNameFactory().create(namespaceUri, localName, decoder);
+    }
+
+    /**
+     * @return a fresh {@link ConnectorChangeSet} for use in recording changes
+     */
+    protected ConnectorChangeSet newConnectorChangedSet() {
+        return connectorChangedSetFactory.newChangeSet();
     }
 
     public final class ExtraProperties {

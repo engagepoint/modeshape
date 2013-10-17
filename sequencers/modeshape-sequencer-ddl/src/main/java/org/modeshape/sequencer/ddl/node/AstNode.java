@@ -56,8 +56,7 @@ public final class AstNode implements Iterable<AstNode>, Cloneable {
      * @param name the name of the node; may not be null
      */
     AstNode( String name ) {
-        CheckArg.isNotNull(name, "name");
-        this.name = name;
+        this(null, name);
     }
 
     /**

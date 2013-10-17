@@ -52,6 +52,8 @@ public final class JcrI18n {
     public static I18n indexRebuildingOfWorkspaceComplete;
     public static I18n unableToInitializeSystemWorkspace;
     public static I18n repositoryWasNeverInitializedAfterMinutes;
+    public static I18n repositoryWasNeverUpgradedAfterMinutes;
+    public static I18n failureDuringUpgradeOperation;
 
     public static I18n cannotConvertValue;
     public static I18n loginFailed;
@@ -67,6 +69,10 @@ public final class JcrI18n {
     public static I18n pathNotFound;
     public static I18n pathNotFoundRelativeTo;
     public static I18n pathCannotHaveSameNameSiblingIndex;
+    public static I18n cannotCopySubgraphIntoRoot;
+    public static I18n cannotCloneSubgraphIntoRoot;
+    public static I18n cannotCopyOrCloneReferenceOutsideGraph;
+    public static I18n cannotCopyOrCloneCorruptReference;
     public static I18n permissionDenied;
     public static I18n repositoryMustBeConfigured;
     public static I18n sourceInUse;
@@ -171,6 +177,7 @@ public final class JcrI18n {
     public static I18n cannotRemoveNodeFromCloneDueToChangesInSession;
     public static I18n constraintViolatedOnReference;
     public static I18n unableToBindToJndi;
+    public static I18n jndiReadOnly;
     public static I18n invalidOptionProvided;
     public static I18n noOptionValueProvided;
     public static I18n valueMayNotContainNull;
@@ -192,6 +199,14 @@ public final class JcrI18n {
     public static I18n unableToShareNodeWithinSameParent;
     public static I18n shareAlreadyExistsWithinParent;
     public static I18n unableToMoveNodeDueToCycle;
+    public static I18n unableToMoveSourceContainExternalNodes;
+    public static I18n unableToMoveTargetContainExternalNodes;
+    public static I18n unableToMoveSourceTargetMismatch;
+    public static I18n unableToMoveProjection;
+    public static I18n unableToCopySourceTargetMismatch;
+    public static I18n unableToCopySourceNotExternal;
+    public static I18n unableToCloneSameWsContainsExternalNode;
+    public static I18n unableToCloneExternalNodesRequireRoot;
 
     public static I18n typeNotFound;
     public static I18n supertypeNotFound;
@@ -234,6 +249,7 @@ public final class JcrI18n {
     public static I18n errorObtainingWorkspaceNames;
     public static I18n errorObtainingDefaultWorkspaceName;
     public static I18n errorUpdatingWorkspaceNames;
+    public static I18n errorUpdatingRepositoryMetadata;
     public static I18n workspaceNameIsInvalid;
     public static I18n errorVerifyingWorkspaceName;
 
@@ -258,6 +274,7 @@ public final class JcrI18n {
     public static I18n noSuchNodeType;
     public static I18n nodeTypeAlreadyExists;
     public static I18n invalidPrimaryTypeName;
+    public static I18n invalidMixinSupertype;
     public static I18n invalidSupertypeName;
     public static I18n supertypesConflict;
     public static I18n ambiguousPrimaryItemName;
@@ -475,8 +492,31 @@ public final class JcrI18n {
     public static I18n reindexMissingNoIndexesExist;
     public static I18n noReindex;
     public static I18n reindexAll;
+    public static I18n noIndexesExist;
 
     public static I18n errorCreatingDatabaseTable;
+
+    public static I18n cannotLocateConnectionFactory;
+    public static I18n cannotLocateQueue;
+    public static I18n unexpectedJMSException;
+    public static I18n incorrectJMSMessageType;
+    public static I18n unknownIndexName;
+    public static I18n cannotReadJMSMessage;
+    public static I18n errorWhileShuttingDownListener;
+    public static I18n errorWhileStartingUpListener;
+
+    public static I18n enablingDocumentOptimization;
+    public static I18n beginChildrenOptimization;
+    public static I18n completeChildrenOptimization;
+    public static I18n errorDuringChildrenOptimization;
+
+    public static I18n mBeanAlreadyRegistered;
+    public static I18n cannotRegisterMBean;
+    public static I18n cannotUnRegisterMBean;
+
+    public static I18n upgrade3_6_0Running;
+    public static I18n upgrade3_6_0CannotUpdateNodeTypes;
+    public static I18n upgrade3_6_0CannotUpdateLocks;
 
     static {
         try {

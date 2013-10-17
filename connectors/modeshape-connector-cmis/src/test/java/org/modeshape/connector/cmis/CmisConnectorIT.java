@@ -23,6 +23,7 @@
  */
 package org.modeshape.connector.cmis;
 
+import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
@@ -44,12 +45,14 @@ import org.apache.chemistry.opencmis.client.util.FileUtils;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.commons.compress.utils.IOUtils;
+import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
+import org.modeshape.jcr.api.Workspace;
 
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
@@ -65,11 +68,41 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
      * This OpenCMIS InMemory server instance should be started by maven cargo plugin at pre integration stage.
      */
     private static final String CMIS_URL = "http://localhost:8090/";
+    private static Logger logger = Logger.getLogger(CmisConnectorIT.class);
 
     @BeforeClass
     public static void beforeAll() throws Exception {
         RepositoryConfiguration config = RepositoryConfiguration.read("config/repository-1.json");
         startRepository(config);
+
+        // waiting when CMIS repository will be ready
+        boolean isReady = false;
+
+        // max time for waiting in milliseconds
+        long maxTime = 30000L;
+
+        // actially waiting time in milliseconds
+        long waitingTime = 0L;
+
+        // time quant in milliseconds
+        long timeQuant = 500L;
+
+        logger.info("Waiting for CMIS repository...");
+        do {
+            try {
+                testDirectChemistryConnect();
+                isReady = true;
+            } catch (Exception e) {
+                Thread.sleep(timeQuant);
+                waitingTime += timeQuant;
+            }
+        } while (!isReady && waitingTime < maxTime);
+
+        // checking status
+        if (!isReady) {
+            throw new IllegalStateException("CMIS repository did not respond withing " + maxTime + " milliseconds");
+        }
+        logger.info("CMIS repository has been started successfuly");
     }
 
     @AfterClass
@@ -77,8 +110,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         MultiUseAbstractTest.afterAll();
     }
 
-    @Test 
-    public void testDirectChemistryConnect() {
+    public static void testDirectChemistryConnect() {
         // default factory implementation
         SessionFactory factory = SessionFactoryImpl.newInstance();
         Map<String, String> parameter = new HashMap<String, String>();
@@ -213,7 +245,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue(date != null);
     }
 
-    // @Test 
+     //@Test
     public void shouldAccessModificationDatePropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         Calendar date = node.getProperty("jcr:lastModified").getDate();
@@ -278,7 +310,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         PropertyIterator it = file.getProperties();
         while (it.hasNext()) {
             Object val = it.nextProperty();
-            // System.out.println("property=>" + val);
+            printMessage("property=>" + val);
         }
         file.setProperty("StringProp", "modeshape");
         getSession().save();
@@ -695,4 +727,18 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 
         System.out.println("length: " + node.getProperty("jcr:data").getBinary().getSize());
     }
+    
+    @Test
+    public void shouldBeAbleToMoveExternalNodes() throws Exception {
+        assertNotNull(session.getNode("/cmis/My_Folder-0-0/My_Document-1-0"));
+        ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0/My_Document-1-0", "/cmis/My_Folder-0-0/My_Document-1-X");
+        Node file = session.getNode("/cmis/My_Folder-0-0/My_Document-1-X");
+        assertNotNull(file);
+        assertNotNull(session.getNode("/cmis/My_Folder-0-0"));
+        ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0", "/cmis/My_Folder-0-X");
+        Node folder = session.getNode("/cmis/My_Folder-0-X");
+        assertNotNull(folder);
+        assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
+    }
+    
 }

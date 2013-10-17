@@ -343,11 +343,6 @@ class JcrContentHandler extends DefaultHandler {
         }
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @see org.xml.sax.ContentHandler#characters(char[], int, int)
-     */
     @Override
     public void characters( char[] ch,
                             int start,
@@ -356,11 +351,6 @@ class JcrContentHandler extends DefaultHandler {
         delegate.characters(ch, start, length);
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @see org.xml.sax.helpers.DefaultHandler#endDocument()
-     */
     @Override
     public void endDocument() throws SAXException {
         postProcessNodes();
@@ -375,11 +365,6 @@ class JcrContentHandler extends DefaultHandler {
         super.endDocument();
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @see org.xml.sax.ContentHandler#endElement(java.lang.String, java.lang.String, java.lang.String)
-     */
     @Override
     public void endElement( String uri,
                             String localName,
@@ -388,11 +373,6 @@ class JcrContentHandler extends DefaultHandler {
         delegate.endElement(uri, localName, name);
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @see org.xml.sax.ContentHandler#startElement(java.lang.String, java.lang.String, java.lang.String, org.xml.sax.Attributes)
-     */
     @Override
     public void startElement( String uri,
                               String localName,
@@ -428,11 +408,6 @@ class JcrContentHandler extends DefaultHandler {
         return new String(decoded, "UTF-8");
     }
 
-    /**
-     * {@inheritDoc}
-     * 
-     * @see org.xml.sax.ContentHandler#startPrefixMapping(java.lang.String, java.lang.String)
-     */
     @Override
     public void startPrefixMapping( String prefix,
                                     String uri ) throws SAXException {
@@ -463,13 +438,8 @@ class JcrContentHandler extends DefaultHandler {
 
     class EnclosingSAXException extends SAXException {
 
-        /**
-         */
         private static final long serialVersionUID = -1044992767566435542L;
 
-        /**
-         * @param e
-         */
         EnclosingSAXException( Exception e ) {
             super(e);
 
@@ -514,11 +484,6 @@ class JcrContentHandler extends DefaultHandler {
             }
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see java.lang.Object#toString()
-         */
         @Override
         public String toString() {
             NodeHandler parent = parentHandler();
@@ -610,11 +575,6 @@ class JcrContentHandler extends DefaultHandler {
             return ignoreAllChildren;
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#name()
-         */
         @Override
         protected String name() {
             return stringFor(nodeName);
@@ -649,7 +609,7 @@ class JcrContentHandler extends DefaultHandler {
                     if (JcrLexicon.UUID.equals(name)) return;
 
                     // The node was already created, so set the property using the editor ...
-                    node.setProperty(name, (JcrValue)valueFor(value, propertyType), true, true, true);
+                    node.setProperty(name, (JcrValue)valueFor(value, propertyType), true, true, true, false);
                 } else {
                     // The node hasn't been created yet, so just enqueue the property value into the map ...
                     List<Value> values = properties.get(name);
@@ -666,7 +626,8 @@ class JcrContentHandler extends DefaultHandler {
                             // Strings and binaries can be empty -- other data types cannot
                             values.add(valueFor(value, propertyType));
                         } else if (value != null
-                                   && (propertyType == PropertyType.REFERENCE || propertyType == PropertyType.WEAKREFERENCE)) {
+                                   && (propertyType == PropertyType.REFERENCE || propertyType == PropertyType.WEAKREFERENCE
+                        || propertyType == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE)) {
                             try {
                                 boolean isSystemReference = name.getNamespaceUri().equals(JcrLexicon.Namespace.URI)
                                                             || name.getNamespaceUri()
@@ -718,9 +679,11 @@ class JcrContentHandler extends DefaultHandler {
                         switch (uuidBehavior) {
                             case ImportUUIDBehavior.IMPORT_UUID_COLLISION_REPLACE_EXISTING:
                                 parent = existingNode.getParent();
-                                // Destroy the existing node, but do so via the cache so that we don't record
-                                // the removal by UUID, since the new node has the same UUID and the import
-                                // may create references to the new node)
+                                // Attention: this *does not* remove the entry from the DB (ISPN). Therefore, it's always
+                                // accessible
+                                // to the workspace cache and thus to the current session !!!.
+                                // Therefore, *old properties, mixins etc* will be accessible on the new child created later on
+                                // until a session.save() is performed.
                                 existingNode.remove();
                                 break;
                             case ImportUUIDBehavior.IMPORT_UUID_CREATE_NEW:
@@ -733,9 +696,11 @@ class JcrContentHandler extends DefaultHandler {
                                                                                               parent.getPath());
                                     throw new ConstraintViolationException(text);
                                 }
-                                // Destroy the existing node, but do so via the cache so that we don't record
-                                // the removal by UUID, since the new node has the same UUID and the import
-                                // may create references to the new node)
+                                // Attention: this *does not* remove the entry from the DB (ISPN). Therefore, it's always
+                                // accessible
+                                // to the workspace cache and thus to the current session !!!.
+                                // Therefore, *old properties, mixins etc* will be accessible on the new child created later on
+                                // until a session.save() is performed.
                                 existingNode.remove();
                                 break;
                             case ImportUUIDBehavior.IMPORT_UUID_COLLISION_THROW:
@@ -799,10 +764,11 @@ class JcrContentHandler extends DefaultHandler {
                     }
 
                     // Otherwise, it's just a regular node...
-                    child = parent.addChildNode(nodeName, primaryTypeName, key, true);
+                    child = parent.addChildNode(nodeName, primaryTypeName, key, true, false);
                 } else {
                     child = existingNode;
                 }
+                assert child != null;
 
                 // Set the properties on the new node ...
 
@@ -810,7 +776,16 @@ class JcrContentHandler extends DefaultHandler {
                 List<Value> mixinTypeValueList = properties.get(JcrLexicon.MIXIN_TYPES);
                 if (mixinTypeValueList != null) {
                     for (Value value : mixinTypeValueList) {
-                        child.addMixin(value.getString());
+                        String mixinName = value.getString();
+                        // in the case when keys are being reused, the old node at that key is visible (with all its properties)
+                        // via the WS cache -> ISPN db. Therefore, there might be the case when even though the child was created
+                        // via addChild(), the old node with all the old properties and mixins is still visible at the key() and
+                        // so the "new child" reports the mixin as already present (even though it's not)
+                        if (child.isNodeType(mixinName) && !nodeAlreadyExists) {
+                            child.mutable().addMixin(child.sessionCache(), nameFor(mixinName));
+                        } else {
+                            child.addMixin(mixinName);
+                        }
                     }
                 }
 
@@ -833,12 +808,14 @@ class JcrContentHandler extends DefaultHandler {
 
                     if (values.size() == 1 && !this.multiValuedPropertyNames.contains(propertyName)) {
                         // Don't check references or the protected status ...
-                        prop = child.setProperty(propertyName, (JcrValue)values.get(0), true, true, true);
+                        prop = child.setProperty(propertyName, (JcrValue)values.get(0), true, true, true, false);
                     } else {
                         prop = child.setProperty(propertyName,
                                                  values.toArray(new JcrValue[values.size()]),
                                                  PropertyType.UNDEFINED,
                                                  true,
+                                                 true,
+                                                 false,
                                                  true);
                     }
 
@@ -873,31 +850,16 @@ class JcrContentHandler extends DefaultHandler {
             this.parentHandler = parentHandler;
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#node()
-         */
         @Override
         public AbstractJcrNode node() {
             return node;
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#parentHandler()
-         */
         @Override
         public NodeHandler parentHandler() {
             return parentHandler;
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#addPropertyValue(Name, String, boolean, int, TextDecoder)
-         */
         @Override
         public void addPropertyValue( Name propertyName,
                                       String value,
@@ -913,11 +875,6 @@ class JcrContentHandler extends DefaultHandler {
             super(root, null);
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#addPropertyValue(Name, String, boolean, int, TextDecoder)
-         */
         @Override
         public void addPropertyValue( Name propertyName,
                                       String value,
@@ -935,11 +892,6 @@ class JcrContentHandler extends DefaultHandler {
             this.parentHandler = parentHandler;
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.modeshape.jcr.JcrContentHandler.NodeHandler#parentHandler()
-         */
         @Override
         public NodeHandler parentHandler() {
             return parentHandler;
@@ -1005,12 +957,6 @@ class JcrContentHandler extends DefaultHandler {
             this.currentPropertyValue = new StringBuilder();
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.xml.sax.ContentHandler#startElement(java.lang.String, java.lang.String, java.lang.String,
-         *      org.xml.sax.Attributes)
-         */
         @Override
         public void startElement( String uri,
                                   String localName,
@@ -1027,7 +973,7 @@ class JcrContentHandler extends DefaultHandler {
                 current = nodeHandlerFactory.createFor(nameFor(nodeName), current, uuidBehavior);
             } else if ("property".equals(localName)) {
                 currentPropertyName = atts.getValue(SYSTEM_VIEW_NAME_DECODER.decode(svNameName));
-                currentPropertyType = PropertyType.valueFromName(atts.getValue(svTypeName));
+                currentPropertyType = org.modeshape.jcr.api.PropertyType.valueFromName(atts.getValue(svTypeName));
 
                 String svMultiple = atts.getValue(svMultipleName);
                 currentPropertyIsMultiValued = Boolean.TRUE.equals(Boolean.valueOf(svMultiple));
@@ -1051,11 +997,6 @@ class JcrContentHandler extends DefaultHandler {
             }
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.xml.sax.ContentHandler#characters(char[], int, int)
-         */
         @Override
         public void characters( char[] ch,
                                 int start,
@@ -1097,21 +1038,12 @@ class JcrContentHandler extends DefaultHandler {
         private NodeHandler current;
         private final NodeHandlerFactory nodeHandlerFactory;
 
-        /**
-         * @param currentNode
-         */
         DocumentViewContentHandler( AbstractJcrNode currentNode ) {
             super();
             this.current = new ExistingNodeHandler(currentNode, null);
             this.nodeHandlerFactory = new StandardNodeHandlerFactory();
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.xml.sax.ContentHandler#startElement(java.lang.String, java.lang.String, java.lang.String,
-         *      org.xml.sax.Attributes)
-         */
         @Override
         public void startElement( String uri,
                                   String localName,
@@ -1155,11 +1087,6 @@ class JcrContentHandler extends DefaultHandler {
             current = current.parentHandler();
         }
 
-        /**
-         * {@inheritDoc}
-         * 
-         * @see org.xml.sax.ContentHandler#characters(char[], int, int)
-         */
         @Override
         public void characters( char[] ch,
                                 int start,

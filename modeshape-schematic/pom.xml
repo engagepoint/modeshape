@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.2.0.18-SNAPSHOT</version>
+        <version>3.6-SNAPSHOT</version>
         <relativePath>../modeshape-parent/pom.xml</relativePath>
     </parent>
 
@@ -93,7 +93,7 @@
                 <configuration>
                     <instructions>
                         <Export-Package>
-                            ${project.groupId}.schematic.*;version=${project.version};-split-package:=error
+                            org.infinispan.schematic*;version=${project.version};-split-package:=error
                         </Export-Package>
                     </instructions>
                 </configuration>

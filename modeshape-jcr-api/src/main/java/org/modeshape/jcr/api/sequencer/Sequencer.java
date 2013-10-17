@@ -128,7 +128,11 @@ public abstract class Sequencer {
     public final String[] getPathExpressions() {
         String pathExpression = this.pathExpression;
         Object[] pathExpressions = this.pathExpressions;
-        if (pathExpression != null && pathExpressions == null || pathExpressions.length == 0) {
+        if (pathExpression == null && (pathExpressions == null || pathExpressions.length == 0)) {
+            // there's none ...
+            return new String[] {};
+        }
+        if (pathExpression != null && (pathExpressions == null || pathExpressions.length == 0)) {
             // There's just one ...
             return new String[] {pathExpression};
         }
@@ -312,7 +316,7 @@ public abstract class Sequencer {
     protected final void registerDefaultMimeTypes( String... mimeTypes ) {
         assert !initialized : "No default MIME types can be registered after the sequencer has been initialized";
         if (mimeTypes != null && mimeTypes.length != 0 && acceptedMimeTypes.length == 0) {
-            // There are no overridden mime types, so we can regiser the default MIME types ...
+            // There are no overridden mime types, so we can register the default MIME types ...
             if (acceptedMimeTypesSet == null) acceptedMimeTypesSet = new HashSet<String>();
             for (String mimeType : mimeTypes) {
                 if (mimeType == null) continue;

@@ -148,6 +148,12 @@ public class JcrValueFactory implements org.modeshape.jcr.api.ValueFactory {
     }
 
     @Override
+    public BinaryValue createBinary( InputStream value, String hint ) {
+        if (value == null) return null;
+        return valueFactories.getBinaryFactory().create(value, hint);
+    }
+
+    @Override
     public JcrValue createValue( Calendar value ) {
         if (value == null) return null;
         DateTime dateTime = valueFactories.getDateFactory().create(value);
@@ -201,13 +207,20 @@ public class JcrValueFactory implements org.modeshape.jcr.api.ValueFactory {
 
     @Override
     public String createName( String localName ) {
-        return valueFactories.getNameFactory().create(null, localName).getString();
+        return valueFactories.getNameFactory().create((String)null, localName).getString();
     }
 
     @Override
     public String createName( String namespaceUri,
                               String localName ) {
         return valueFactories.getNameFactory().create(namespaceUri, localName).getString();
+    }
+
+    @Override
+    public JcrValue createSimpleReference( Node node ) throws RepositoryException {
+        AbstractJcrNode abstractJcrNode = validateReferenceableNode(node);
+        Reference ref = valueFactories.getSimpleReferenceFactory().create(abstractJcrNode.key(), abstractJcrNode.isForeign());
+        return new JcrValue(valueFactories, org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE, ref);
     }
 
     protected org.modeshape.jcr.value.ValueFactory<?> valueFactoryFor( int jcrPropertyType ) {
@@ -221,8 +234,11 @@ public class JcrValueFactory implements org.modeshape.jcr.api.ValueFactory {
             case PropertyType.PATH:
                 return valueFactories.getPathFactory();
             case PropertyType.REFERENCE:
-            case PropertyType.WEAKREFERENCE:
                 return valueFactories.getReferenceFactory();
+            case PropertyType.WEAKREFERENCE:
+                return valueFactories.getWeakReferenceFactory();
+            case org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE:
+                return valueFactories.getSimpleReferenceFactory();
             case PropertyType.DOUBLE:
                 return valueFactories.getDoubleFactory();
             case PropertyType.LONG:

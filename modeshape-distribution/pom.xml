@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.2.0.18-SNAPSHOT</version>
+        <version>3.6-SNAPSHOT</version>
         <relativePath>../modeshape-parent/pom.xml</relativePath>
     </parent>
 
@@ -47,6 +47,11 @@
         <dependency>
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-connector-git</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.modeshape</groupId>
+            <artifactId>modeshape-connector-jdbc-metadata</artifactId>
         </dependency>
 
         <dependency>
@@ -123,42 +128,15 @@
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-jbossas-subsystem</artifactId>
         </dependency>
-    </dependencies>
 
-    <build>
-        <plugins>
-            <plugin>
-                <!-- Unpack the Hibernate Search 7.1 kit (until one built for 7.2 is available)
-                     //TODO author=Horia Chiorean date=2/28/13 description=MODE-1838 - When HSearch provides a 7.2 dist, we need to use that
-                -->
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <version>${version.dependency.plugin}</version>
-                <executions>
-                    <execution>
-                        <id>unpack-hsearch-71-kit</id>
-                        <phase>process-test-classes</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>org.hibernate</groupId>
-                                    <artifactId>hibernate-search-modules</artifactId>
-                                    <version>${hibernate.search.version}</version>
-                                    <classifier>jbossas-71-dist</classifier>
-                                    <type>zip</type>
-                                    <overWrite>false</overWrite>
-                                    <outputDirectory>${project.build.directory}/hsearch-71-kit</outputDirectory>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+        <dependency>
+            <groupId>org.hibernate</groupId>
+            <artifactId>hibernate-search-modules</artifactId>
+            <version>${hibernate.search.version}</version>
+            <classifier>jbossas-72-dist</classifier>
+            <type>zip</type>
+        </dependency>
+    </dependencies>
 
     <profiles>
         <profile>
@@ -425,7 +403,7 @@
                 <dependency>
                     <groupId>org.jboss.as</groupId>
                     <artifactId>jboss-as-controller</artifactId>
-                    <version>${jbossas-version}</version>
+                    <version>${jbossas.version}</version>
                     <scope>compile</scope>
                 </dependency>
             </dependencies>

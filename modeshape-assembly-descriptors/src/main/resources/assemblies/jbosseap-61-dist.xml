@@ -8,26 +8,13 @@
 	<baseDirectory>/</baseDirectory>
 
 	<fileSets>
-        <!--
-            //TODO author=Horia Chiorean date=2/28/13 description=MODE-1838 - This should change after HSearch provides an EAP kit
-            This must be done first, so that we're able to ovewrite files with the one from our kit.
-            //TODO author=Horia Chiorean date=4/10/13 description=MODE-1895 - need to overwrite the SOLR module
-        -->
-        <fileSet>
-            <directory>${project.build.directory}/hsearch-71-kit/modules</directory>
-            <outputDirectory>${jboss.eap.modules.location}</outputDirectory>
-            <excludes>
-                <exclude>**/hibernate/search/engine/**/module.xml</exclude>
-                <exclude>**/apache/solr/**/module.xml</exclude>
-            </excludes>
-        </fileSet>
-
 		<!-- The modules part of the kit -->
 		<fileSet>
 			<directory>../deploy/jbossas/kit/jboss-eap61</directory>
 			<outputDirectory>${jboss.eap.modules.location}</outputDirectory>
             <excludes>
                 <exclude>standalone/**</exclude>
+                <exclude>domain/**</exclude>
             </excludes>
             <filtered>true</filtered>
 		</fileSet>
@@ -38,6 +25,7 @@
 			<outputDirectory>/</outputDirectory>
             <includes>
                 <include>standalone/**</include>
+                <include>domain/**</include>
             </includes>
             <filtered>true</filtered>
 		</fileSet>
@@ -50,27 +38,54 @@
 			</includes>
 			<outputDirectory>docs/schema</outputDirectory>
 		</fileSet>
-
-	  <!-- Deployment for the ModeShape RESTful service WAR (as an exploded directory) -->
-		<fileSet>
-			<directory>../deploy/jbossas/modeshape-jbossas-web-rest-war/target/modeshape-jbossas-web-rest-war-${project.version}</directory>
-		    <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments/modeshape-rest.war</outputDirectory>
-		</fileSet>
-
-        <!-- Deployment for the ModeShape WebDAV service WAR (as an exploded directory) -->
-        <fileSet>
-            <directory>../deploy/jbossas/modeshape-jbossas-web-webdav-war/target/modeshape-jbossas-web-webdav-war-${project.version}</directory>
-            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments/modeshape-webdav.war</outputDirectory>
-        </fileSet>
-
-        <!-- Deployment for the ModeShape CMIS service WAR (as an exploded directory) -->
-        <fileSet>
-            <directory>../deploy/jbossas/modeshape-jbossas-cmis-war/target/modeshape-jbossas-cmis-war-${project.version}</directory>
-            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments/modeshape-cmis.war</outputDirectory>
-        </fileSet>
     </fileSets>
-	
-	<dependencySets>
+
+    <files>
+        <!-- Deployment for the ModeShape RESTful service WAR -->
+        <file>
+            <source>
+                ../deploy/jbossas/modeshape-jbossas-web-rest-war/target/modeshape-jbossas-web-rest-war-${project.version}.war
+            </source>
+            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments</outputDirectory>
+            <destName>modeshape-rest.war</destName>
+        </file>
+
+        <!-- Deployment for the ModeShape WebDAV service WAR -->
+        <file>
+            <source>
+                ../deploy/jbossas/modeshape-jbossas-web-webdav-war/target/modeshape-jbossas-web-webdav-war-${project.version}.war
+            </source>
+            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments</outputDirectory>
+            <destName>modeshape-webdav.war</destName>
+        </file>
+
+        <!-- Deployment for the ModeShape CMIS service WAR -->
+        <file>
+            <source>../deploy/jbossas/modeshape-jbossas-cmis-war/target/modeshape-jbossas-cmis-war-${project.version}.war
+            </source>
+            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments</outputDirectory>
+            <destName>modeshape-cmis.war</destName>
+        </file>
+
+        <!-- Deployment for the ModeShape Explorer -->
+        <file>
+            <source>../deploy/jbossas/modeshape-jbossas-explorer-war/target/modeshape-jbossas-explorer-war-${project.version}.war
+            </source>
+            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/main/deployments</outputDirectory>
+            <destName>modeshape-explorer.war</destName>
+        </file>
+    </files>
+
+    <dependencySets>
+        <!--Hibernate Search's EAP kit -->
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <outputDirectory>${jboss.eap.modules.location}</outputDirectory>
+            <includes>
+                <include>org.hibernate:hibernate-search-modules</include>
+            </includes>
+            <unpack>true</unpack>
+        </dependencySet>
 
 		<!-- Module for the standard JCR API -->
 		<dependencySet>
@@ -155,6 +170,15 @@
             </includes>
         </dependencySet>
 
+        <dependencySet>
+            <useProjectArtifact>false</useProjectArtifact>
+            <outputDirectory>${jboss.eap.modules.location}/org/modeshape/connector/jdbc/metadata/main</outputDirectory>
+            <includes>
+                <include>org.modeshape:modeshape-connector-jdbc-metadata:jar</include>
+                <include>c3p0:c3p0:jar</include>
+            </includes>
+        </dependencySet>
+
         <!--Sequencers-->
         <dependencySet>
             <useProjectArtifact>false</useProjectArtifact>
@@ -169,6 +193,8 @@
             <outputDirectory>${jboss.eap.modules.location}/org/modeshape/sequencer/image/main</outputDirectory>
             <includes>
                 <include>org.modeshape:modeshape-sequencer-images:jar</include>
+                <include>com.drewnoakes:metadata-extractor:jar</include>
+                <include>com.adobe.xmp:xmpcore:jar</include>
             </includes>
         </dependencySet>
 
@@ -291,20 +317,5 @@
 			</includes>
 			<unpack>false</unpack>
 		</dependencySet>
-
-        <!-- Module for Hibernate Search (Engine) -->
-        <!--
-            //TODO author=Horia Chiorean date=2/28/13 description=MODE-1838 - This should change after HSearch provides an EAP kit
-        -->
-        <dependencySet>
-            <useProjectArtifact>false</useProjectArtifact>
-            <outputDirectory>${jboss.eap.modules.location}/org/hibernate/search/engine/main</outputDirectory>
-            <unpack>false</unpack>
-            <useTransitiveFiltering>true</useTransitiveFiltering>
-            <includes>
-                <include>org.infinispan:infinispan-lucene-directory</include>
-            </includes>
-        </dependencySet>
-
     </dependencySets>
 </assembly>

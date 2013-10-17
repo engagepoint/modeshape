@@ -1,0 +1,128 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>org.modeshape</groupId>
+        <artifactId>modeshape-parent</artifactId>
+        <version>3.6-SNAPSHOT</version>
+        <relativePath>../../modeshape-parent</relativePath>
+    </parent>
+    <artifactId>modeshape-web-explorer</artifactId>
+    <packaging>war</packaging>
+    <name>ModeShape Repository Explorer</name>
+    <description>ModeShape repository explorer</description>
+    <url>http://www.modeshape.org</url>
+    <dependencies>
+        <!--  TESTING DEPENDENCIES -->
+        <dependency>
+            <groupId>javax.jcr</groupId>
+            <artifactId>jcr</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-log4j12</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>log4j</groupId>
+            <artifactId>log4j</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit-dep</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.googlecode.sardine</groupId>
+            <artifactId>sardine</artifactId>
+        </dependency>
+	<dependency>
+            <groupId>com.google.gwt</groupId>
+            <artifactId>gwt-servlet</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.gwt</groupId>
+            <artifactId>gwt-user</artifactId>
+            <scope>provided</scope>
+        </dependency>              
+        <dependency>
+            <groupId>smartgwt</groupId>
+            <artifactId>smartgwt</artifactId>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>com.smartgwt</groupId>
+            <artifactId>smartgwt-skins</artifactId>
+            <type>jar</type>
+        </dependency>
+    </dependencies>
+    <build>
+        <finalName>modeshape-explorer-${project.version}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+            </resource>
+        </resources>
+        <plugins>            
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>gwt-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>compile</goal>
+                            <goal>test</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <runTarget>org.modeshape.explorer.client.Explorer/Explorer.html</runTarget>
+                    <version>2.5.1</version>
+                </configuration>
+            </plugin>            
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>test-jar</id>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <archive>
+                        <manifestFile>${project.build.testOutputDirectory}/META-INF/MANIFEST.MF</manifestFile>
+                    </archive>
+                </configuration>
+            </plugin>           
+        </plugins>
+    </build>
+<profiles>
+        <profile>
+            <id>assembly</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <artifactId>maven-assembly-plugin</artifactId>
+                        <configuration>
+                            <descriptorRefs>
+                                <descriptorRef>module-with-dependencies</descriptorRef>
+                            </descriptorRefs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
+</project>

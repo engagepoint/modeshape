@@ -59,6 +59,8 @@ final class CreateTableParser extends StatementParser {
      * Sequence is any number of characters, word boundary, column name, word boundary, and any number of characters.
      */
     private static final String REGEX = ".*\\b(?i)%s(?-i)\\b.*";
+    
+    private List<UnresolvedTableReferenceNode> unresolvedTableReferences;
 
     /**
      * @param expression the expression being looked at (cannot be <code>null</code>)
@@ -72,6 +74,7 @@ final class CreateTableParser extends StatementParser {
 
     CreateTableParser( final TeiidDdlParser teiidDdlParser ) {
         super(teiidDdlParser);
+        unresolvedTableReferences = new ArrayList<UnresolvedTableReferenceNode>(10);
     }
 
     private String createConstraintName( final String constraintType,
@@ -318,20 +321,28 @@ final class CreateTableParser extends StatementParser {
      * 
      * @param tokens the tokens being processed (cannot be <code>null</code> or empty)
      * @param tableNode the table node used to lookup referenced column nodes (cannot be <code>null</code>)
+     * @param unresolvedReferencedTableNode the unresolved table references component; may be null
      * @return the collection of referenced column nodes (never <code>null</code> or empty)
      * @throws ParsingException if a node of a referenced column cannot be found
      */
     private List<AstNode> parseReferenceList( final DdlTokenStream tokens,
-                                              final AstNode tableNode ) throws ParsingException {
+                                              final AstNode tableNode,
+                                              final UnresolvedTableReferenceNode unresolvedReferencedTableNode) throws ParsingException {
         final List<String> columns = parseIdentifierList(tokens);
         final List<AstNode> references = new ArrayList<AstNode>(columns.size());
 
+        /* If tableNode == null bypass column node setting */
         for (final String columnName : columns) {
+        	if( unresolvedReferencedTableNode != null ) {
+        		unresolvedReferencedTableNode.addColumnReferenceName(columnName);
+        		continue;
+        	}
+        	
             final AstNode referencedColumnNode = getColumnNode(tableNode, columnName);
 
             // can't find referenced column
             if (referencedColumnNode == null) {
-                this.logger.debug("Create table statment node of column reference '{0}' was not found", columnName);
+                this.logger.debug("Create table statement node of column reference '{0}' was not found", columnName);
             } else {
                 references.add(referencedColumnNode);
             }
@@ -420,7 +431,7 @@ final class CreateTableParser extends StatementParser {
                 assert (nodeType != null);
 
                 // process column list and create references to their nodes
-                final List<AstNode> references = parseReferenceList(tokens, tableNode);
+                final List<AstNode> references = parseReferenceList(tokens, tableNode, null);
 
                 // set a constraint ID if needed
                 if (StringUtil.isBlank(constraintId)) {
@@ -439,18 +450,19 @@ final class CreateTableParser extends StatementParser {
                                                                     referencesTableName,
                                                                     TeiidDdlLexicon.CreateTable.TABLE_STATEMENT,
                                                                     TeiidDdlLexicon.CreateTable.VIEW_STATEMENT);
-
+                        
+                        UnresolvedTableReferenceNode unresolvedTableReferenceNode = null;
                         // can't find referenced table
                         if (referencesTableNode == null) {
-                            this.logger.debug("Create table statment foreign key reference table '{0}' was not found",
-                                              referencesTableName);
+                        	unresolvedTableReferenceNode = new UnresolvedTableReferenceNode(constraintNode, referencesTableName);
+                        	unresolvedTableReferences.add(unresolvedTableReferenceNode);
                         } else {
                             constraintNode.setProperty(TeiidDdlLexicon.Constraint.TABLE_REFERENCE, referencesTableNode);
                         }
 
                         // may have referenced columns so check for opening paren before parsing refs
                         if (tokens.matches(L_PAREN)) {
-                            final List<AstNode> constraintReferences = parseReferenceList(tokens, referencesTableNode);
+                            final List<AstNode> constraintReferences = parseReferenceList(tokens, referencesTableNode, unresolvedTableReferenceNode);
 
                             if (!constraintReferences.isEmpty()) {
                                 constraintNode.setProperty(TeiidDdlLexicon.Constraint.TABLE_REFERENCE_REFERENCES,
@@ -586,4 +598,78 @@ final class CreateTableParser extends StatementParser {
         return columnNode;
     }
 
+    /**
+     * Process the AstNode tree to look for table references from foreign keys that are not resolved
+     */
+	@Override
+	protected void postProcess(AstNode rootNode) {
+		for( UnresolvedTableReferenceNode node : unresolvedTableReferences ) {
+			final AstNode constraintNode = node.getContraintNode();
+	        final String referencesTableName = node.getTableReferenceName();
+
+	        final AstNode referencesTableNode = getNode(constraintNode.getParent().getParent(),
+	                                                    referencesTableName,
+	                                                    TeiidDdlLexicon.CreateTable.TABLE_STATEMENT,
+	                                                    TeiidDdlLexicon.CreateTable.VIEW_STATEMENT);
+	
+	        // can't find referenced table
+	        if (referencesTableNode == null) {
+	            this.logger.debug("Create table statment foreign key reference table '{0}' was not found",
+	                              referencesTableName);
+	        } else {
+	        	// Now set the TABLE_REFERENCE property
+	            constraintNode.setProperty(TeiidDdlLexicon.Constraint.TABLE_REFERENCE, referencesTableNode);
+	            final List<AstNode> references = new ArrayList<AstNode>(node.getColumnReferenceNames().size());
+	            
+	            // If any column names references exists, go find the real objects and set the TABLE_REFERENCE_REFERENCES property
+		        for( String columnName : node.getColumnReferenceNames()) {
+		            final AstNode referencedColumnNode = getColumnNode(referencesTableNode, columnName);
+		            
+		            // can't find referenced column
+		            if (referencedColumnNode == null) {
+		                this.logger.debug("Create table statement node of column reference '{0}' was not found", columnName);
+		            } else {
+		                references.add(referencedColumnNode);
+		            }
+	            }
+		        
+		        if (!references.isEmpty()) {
+                    constraintNode.setProperty(TeiidDdlLexicon.Constraint.TABLE_REFERENCE_REFERENCES,
+                    		references);
+                }
+	        }
+		}
+
+		
+		unresolvedTableReferences.clear();
+	}
+
+	class UnresolvedTableReferenceNode {
+		AstNode contraintNode;
+		String tableReferenceName;
+		Set<String> columnReferenceNames;
+		
+		public UnresolvedTableReferenceNode(AstNode node, String name) {
+			this.contraintNode = node;
+			this.tableReferenceName = name;
+			this.columnReferenceNames = new HashSet<String>();
+		}
+
+		public AstNode getContraintNode() {
+			return contraintNode;
+		}
+
+		public String getTableReferenceName() {
+			return tableReferenceName;
+		}
+		
+		public void addColumnReferenceName(String name) {
+			this.columnReferenceNames.add(name);
+		}
+		
+		public Set<String> getColumnReferenceNames() {
+			return this.columnReferenceNames;
+		}
+	}
+    
 }

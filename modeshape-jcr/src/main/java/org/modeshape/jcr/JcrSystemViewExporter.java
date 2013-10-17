@@ -66,11 +66,12 @@ class JcrSystemViewExporter extends AbstractJcrExporter {
      * The list of the special JCR properties that must be exported first for each node. These properties must be exported in list
      * order if they are present on the node as per section 6.4.1 rule 11.
      */
-    private static final List<Name> SPECIAL_PROPERTY_NAMES = Arrays.asList(new Name[] {JcrLexicon.PRIMARY_TYPE,
-        JcrLexicon.MIXIN_TYPES, JcrLexicon.UUID});
+    private static final List<Name> SPECIAL_PROPERTY_NAMES = Arrays.asList(JcrLexicon.PRIMARY_TYPE,
+                                                                           JcrLexicon.MIXIN_TYPES,
+                                                                           JcrLexicon.UUID);
 
     JcrSystemViewExporter( JcrSession session ) {
-        super(session, Arrays.asList(new String[] {"xml"}));
+        super(session, Arrays.asList("xml"));
     }
 
     /**
@@ -124,7 +125,7 @@ class JcrSystemViewExporter extends AbstractJcrExporter {
         atts.addAttribute(JcrSvLexicon.NAME.getNamespaceUri(),
                           JcrSvLexicon.NAME.getLocalName(),
                           getPrefixedName(JcrSvLexicon.NAME),
-                          PropertyType.nameFromValue(PropertyType.STRING),
+                          org.modeshape.jcr.api.PropertyType.nameFromValue(PropertyType.STRING),
                           nodeName);
 
         startElement(contentHandler, JcrSvLexicon.NODE, atts);
@@ -219,7 +220,7 @@ class JcrSystemViewExporter extends AbstractJcrExporter {
                               JcrSvLexicon.TYPE.getLocalName(),
                               getPrefixedName(JcrSvLexicon.TYPE),
                               PropertyType.nameFromValue(PropertyType.STRING),
-                              PropertyType.nameFromValue(prop.getType()));
+                              org.modeshape.jcr.api.PropertyType.nameFromValue(prop.getType()));
 
         // and it's sv:multiple attribute
         if (prop.isMultiple()) {
@@ -275,8 +276,12 @@ class JcrSystemViewExporter extends AbstractJcrExporter {
                 Binary binary = value.getBinary();
                 try {
                     InputStream stream = new Base64.InputStream(binary.getStream(), Base64.ENCODE);
-                    while (-1 != (len = stream.read(bytes))) {
-                        contentHandler.characters(new String(bytes, 0, len).toCharArray(), 0, len);
+                    try {
+                        while (-1 != (len = stream.read(bytes))) {
+                            contentHandler.characters(new String(bytes, 0, len).toCharArray(), 0, len);
+                        }
+                    } finally {
+                        stream.close();
                     }
                 } catch (IOException ioe) {
                     throw new RepositoryException(ioe);
@@ -370,7 +375,7 @@ class JcrSystemViewExporter extends AbstractJcrExporter {
                               JcrSvLexicon.TYPE.getLocalName(),
                               getPrefixedName(JcrSvLexicon.TYPE),
                               PropertyType.nameFromValue(PropertyType.STRING),
-                              PropertyType.nameFromValue(propertyType));
+                              org.modeshape.jcr.api.PropertyType.nameFromValue(propertyType));
 
         // output the sv:property element
         startElement(contentHandler, JcrSvLexicon.PROPERTY, propAtts);

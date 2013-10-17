@@ -4,7 +4,6 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -14,6 +13,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.jcr.Binary;
 import javax.jcr.Item;
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
@@ -324,7 +324,7 @@ public class ItemHandler extends AbstractHandler {
         if (properties.has(MIXIN_TYPES_PROPERTY)) {
             // Be sure to set this property first, before the other properties in case the other properties
             // are defined only on one of the mixin types ...
-            setPropertyOnNode(newNode, MIXIN_TYPES_PROPERTY, properties.get(MIXIN_TYPES_PROPERTY));
+            updateMixins(newNode, properties.get(MIXIN_TYPES_PROPERTY));
         }
 
         for (Iterator<?> iter = properties.keys(); iter.hasNext();) {
@@ -362,11 +362,11 @@ public class ItemHandler extends AbstractHandler {
         return jsonNode.has(PROPERTIES_HOLDER) ? jsonNode.getJSONObject(PROPERTIES_HOLDER) : new JSONObject();
     }
 
-    private Value decodeValue( String encodedValue,
-                               ValueFactory valueFactory ) throws RepositoryException {
+    private Value createBinaryValue( String base64EncodedValue,
+                                     ValueFactory valueFactory ) throws RepositoryException {
         InputStream stream = null;
         try {
-            byte[] binaryValue = Base64.decode(encodedValue);
+            byte[] binaryValue = Base64.decode(base64EncodedValue);
 
             stream = new ByteArrayInputStream(binaryValue);
             Binary binary = valueFactory.createBinary(stream);
@@ -379,8 +379,7 @@ public class ItemHandler extends AbstractHandler {
                     stream.close();
                 }
             } catch (IOException e) {
-                // Error accessing the value, so throw this ...
-                throw new RepositoryException(e);
+                logger.debug(e, "Error while closing binary stream");
             }
         }
     }
@@ -406,59 +405,68 @@ public class ItemHandler extends AbstractHandler {
             propName = newLength > 0 ? propName.substring(0, newLength) : "";
         }
 
-        Value[] values;
-        ValueFactory valueFactory = node.getSession().getValueFactory();
+        Value[] values = convertToJcrValues(node, value, encoded);
+        if (values.length == 0) {
+            // remove the property
+            node.setProperty(propName, (Value[])null);
+        } else if (values.length == 1) {
+            node.setProperty(propName, values[0]);
+        } else {
+            node.setProperty(propName, values);
+        }
+    }
+
+    private Set<String> updateMixins( Node node,
+                                      Object mixinsJsonValue ) throws JSONException, RepositoryException {
+        Value[] values = convertToJcrValues(node, mixinsJsonValue, false);
+
+        Set<String> jsonMixins = new HashSet<String>(values.length);
+        for (Value theValue : values) {
+            jsonMixins.add(theValue.getString());
+        }
+
+        Set<String> mixinsToRemove = new HashSet<String>();
+        for (NodeType nodeType : node.getMixinNodeTypes()) {
+            mixinsToRemove.add(nodeType.getName());
+        }
+
+        Set<String> mixinsToAdd = new HashSet<String>(jsonMixins);
+        mixinsToAdd.removeAll(mixinsToRemove);
+        mixinsToRemove.removeAll(jsonMixins);
+
+        for (String nodeType : mixinsToAdd) {
+            node.addMixin(nodeType);
+        }
+
+        // return the list of mixins to be removed, as that needs to be processed last due to type validation
+        return mixinsToRemove;
+    }
+
+    private Value[] convertToJcrValues( Node node,
+                                        Object value,
+                                        boolean encoded ) throws RepositoryException, JSONException {
+        if (value == JSONObject.NULL || (value instanceof JSONArray && ((JSONArray)value).length() == 0)) {
+            // for any null value of empty json array, return an empty array which will mean the property will be removed
+            return new Value[0];
+        }
+        org.modeshape.jcr.api.ValueFactory valueFactory = (org.modeshape.jcr.api.ValueFactory)node.getSession().getValueFactory();
         if (value instanceof JSONArray) {
             JSONArray jsonValues = (JSONArray)value;
-            values = new Value[jsonValues.length()];
+            Value[] values = new Value[jsonValues.length()];
 
-            for (int i = 0; i < values.length; i++) {
-                String strValue = jsonValues.getString(i);
+            for (int i = 0; i < jsonValues.length(); i++) {
                 if (encoded) {
-                    values[i] = decodeValue(strValue, valueFactory);
+                    values[i] = createBinaryValue(jsonValues.getString(i), valueFactory);
                 } else {
-                    values[i] = valueFactory.createValue(strValue);
+                    values[i] = RestHelper.jsonValueToJCRValue(jsonValues.get(i), valueFactory);
                 }
             }
-        } else {
-            String strValue = (String)value;
-            if (encoded) {
-                values = new Value[] {decodeValue(strValue, valueFactory)};
-            } else {
-                values = new Value[] {valueFactory.createValue(strValue)};
-            }
+            return values;
         }
-
-        if (propName.equals(ItemHandler.MIXIN_TYPES_PROPERTY)) {
-            Set<String> toBeMixins = new HashSet<String>();
-            for (Value theValue : values) {
-                toBeMixins.add(theValue.getString());
-            }
-            Set<String> asIsMixins = new HashSet<String>();
-
-            for (NodeType nodeType : node.getMixinNodeTypes()) {
-                asIsMixins.add(nodeType.getName());
-            }
-
-            Set<String> mixinsToAdd = new HashSet<String>(toBeMixins);
-            mixinsToAdd.removeAll(asIsMixins);
-            asIsMixins.removeAll(toBeMixins);
-
-            for (String nodeType : mixinsToAdd) {
-                node.addMixin(nodeType);
-            }
-
-            for (String nodeType : asIsMixins) {
-                node.removeMixin(nodeType);
-            }
-        } else {
-            if (values.length == 1) {
-                node.setProperty(propName, values[0]);
-
-            } else {
-                node.setProperty(propName, values);
-            }
+        if (encoded) {
+            return new Value[] {createBinaryValue(value.toString(), valueFactory)};
         }
+        return new Value[] {RestHelper.jsonValueToJCRValue(value, valueFactory)};
     }
 
     /**
@@ -622,10 +630,11 @@ public class ItemHandler extends AbstractHandler {
             }
         }
 
+        Set<String> mixinsToRemove = new HashSet<String>();
         if (properties.has(MIXIN_TYPES_PROPERTY)) {
-            // Next set the mixin types ...
-            Object mixinTypes = properties.get(MIXIN_TYPES_PROPERTY);
-            setPropertyOnNode(node, MIXIN_TYPES_PROPERTY, mixinTypes); // handles both string and array value forms
+            // Next add new mixins, but don't remove old ones yet, because that needs to happen only after all the children
+            // and properties have been processed
+            mixinsToRemove = updateMixins(node, properties.get(MIXIN_TYPES_PROPERTY));
         }
 
         // Now set all the other properties ...
@@ -639,42 +648,105 @@ public class ItemHandler extends AbstractHandler {
 
         // If the JSON object has a children holder, then we need to update the list of children and child nodes ...
         if (hasChildren(jsonNode)) {
-            Node parent = node;
-            JSONObject children = getChildren(jsonNode);
+            updateChildren(node, jsonNode, changes);
+        }
 
-            // Get the existing children ...
-            Map<String, Node> existingChildNames = new LinkedHashMap<String, Node>();
-            NodeIterator childIter = parent.getNodes();
-            while (childIter.hasNext()) {
-                Node child = childIter.nextNode();
-                existingChildNames.put(nameOf(child), child);
-            }
-
-            for (Iterator<?> iter = children.keys(); iter.hasNext();) {
-                String childName = (String)iter.next();
-                JSONObject child = children.getJSONObject(childName);
-                // Find the existing node ...
-                if (parent.hasNode(childName)) {
-                    // The node exists, so get it and update it ...
-                    Node childNode = parent.getNode(childName);
-                    updateNode(childNode, child, changes);
-                    existingChildNames.remove(nameOf(childNode));
-                } else {
-                    // Have to add the new child ...
-                    addNode(parent, childName, child);
-                }
-            }
-
-            // Remove the children in reverse order (starting with the last child to be removed) ...
-            LinkedList<Node> childNodes = new LinkedList<Node>(existingChildNames.values());
-            Collections.reverse(childNodes);
-            while (!childNodes.isEmpty()) {
-                Node child = childNodes.removeLast();
-                child.remove();
-            }
+        // after all the children and properties have been processed, remove mixins because that will trigger validation
+        for (String mixinToRemove : mixinsToRemove) {
+            node.removeMixin(mixinToRemove);
         }
 
         return node;
+    }
+
+    private void updateChildren( Node node,
+                                 JSONObject jsonNode,
+                                 VersionableChanges changes ) throws JSONException, RepositoryException {
+        JSONObject children = getChildren(jsonNode);
+        Session session = node.getSession();
+
+        // Get the existing children ...
+        Map<String, Node> existingChildNames = new LinkedHashMap<String, Node>();
+        List<String> existingChildrenToUpdate = new ArrayList<String>();
+        NodeIterator childIter = node.getNodes();
+        while (childIter.hasNext()) {
+            Node child = childIter.nextNode();
+            String childName = nameOf(child);
+            existingChildNames.put(childName, child);
+            existingChildrenToUpdate.add(childName);
+        }
+        //keep track of the old/new order of children to be able to perform reorderings
+        List<String> newChildrenToUpdate = new ArrayList<String>();
+
+        for (Iterator<?> iter = children.keys(); iter.hasNext();) {
+            String childName = (String)iter.next();
+            JSONObject child = children.getJSONObject(childName);
+            // Find the existing node ...
+            if (node.hasNode(childName)) {
+                // The node exists, so get it and update it ...
+                Node childNode = node.getNode(childName);
+                String childNodeName = nameOf(childNode);
+                newChildrenToUpdate.add(childNodeName);
+                updateNode(childNode, child, changes);
+                existingChildNames.remove(childNodeName);
+            } else {
+                //try to see if the child name is actually an identifier
+                try {
+                    Node childNode = session.getNodeByIdentifier(childName);
+                    String childNodeName = nameOf(childNode);
+                    if (childNode.getParent().getIdentifier().equals(node.getIdentifier())) {
+                        //this is an existing child of the current node, referenced via an identifier
+                        newChildrenToUpdate.add(childNodeName);
+                        updateNode(childNode, child, changes);
+                        existingChildNames.remove(childNodeName);
+                    } else {
+                        //this is a child belonging to another node
+                        if (childNode.isNodeType("mix:shareable")) {
+                            //if it's a shared node, we can't clone it because clone is not a session-scoped operation
+                            logger.warn("The node {0} with the id {1} is a shared node belonging to another parent. It cannot be changed via the update operation",
+                                        childNode.getPath(), childNode.getIdentifier());
+                        } else {
+                            //move the node into this parent
+                            session.move(childNode.getPath(), node.getPath() + "/" + childNodeName);
+                        }
+                    }
+                } catch (ItemNotFoundException e) {
+                    //the child name is not a valid identifier, so treat it as a new child
+                    addNode(node, childName, child);
+                }
+            }
+        }
+
+        // Remove the children in reverse order (starting with the last child to be removed) ...
+        LinkedList<Node> childNodes = new LinkedList<Node>(existingChildNames.values());
+        while (!childNodes.isEmpty()) {
+            Node child = childNodes.removeLast();
+            existingChildrenToUpdate.remove(child.getIdentifier());
+            child.remove();
+        }
+
+        // Do any necessary reorderings
+        if (newChildrenToUpdate.equals(existingChildrenToUpdate)) {
+            //no order changes exist
+            return;
+        }
+
+        for (int i = 0; i < newChildrenToUpdate.size() - 1; i++) {
+            String startNodeName = newChildrenToUpdate.get(i);
+            int startNodeOriginalPosition = existingChildrenToUpdate.indexOf(startNodeName);
+            assert startNodeOriginalPosition != -1;
+
+            for (int j = i + 1; j < newChildrenToUpdate.size(); j++) {
+                String nodeName = newChildrenToUpdate.get(j);
+                int nodeOriginalPosition = existingChildrenToUpdate.indexOf(nodeName);
+                assert nodeOriginalPosition != -1;
+
+                if (startNodeOriginalPosition > nodeOriginalPosition) {
+                    //the start node should be moved *before* this node
+                    node.orderBefore(startNodeName, nodeName);
+                }
+            }
+        }
     }
 
     private String nameOf( Node node ) throws RepositoryException {

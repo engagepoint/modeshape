@@ -27,6 +27,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -47,6 +48,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.modeshape.common.FixFor;
 import org.modeshape.common.util.IoUtil;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.web.jcr.rest.handler.AbstractHandler;
@@ -74,6 +76,8 @@ public class JcrResourcesTest {
      */
     protected static final String REPOSITORY_NAME = "repo";
     protected static final String TEST_NODE = "testNode";
+    protected static final String CHILDREN_KEY = "children";
+    protected static final String ID_KEY = "id";
 
     private static final String SERVER_CONTEXT = "/resources/v1";
     private static final String SERVER_URL = "http://localhost:8090";
@@ -248,6 +252,22 @@ public class JcrResourcesTest {
 
     protected String nodeWithoutPrimaryTypeResponse() {
         return "v1/post/node_without_primaryType_response.json";
+    }
+
+    @Test
+    @FixFor( "MODE-1950" )
+    public void shouldConvertValueTypesFromJSONPrimitives() throws Exception {
+        //note that
+        doPost(differentPropertyTypesRequest(), itemsUrl(TEST_NODE)).isCreated()
+                .isJSONObjectLikeFile(differentPropertyTypesResponse());
+    }
+
+    protected String differentPropertyTypesResponse() {
+        return "v1/post/node_different_property_types_response.json";
+    }
+
+    protected String differentPropertyTypesRequest() {
+        return "v1/post/node_different_property_types_request.json";
     }
 
     @Test
@@ -436,6 +456,30 @@ public class JcrResourcesTest {
     }
 
     @Test
+    @FixFor( "MODE-1950" )
+    public void shouldBeAbleToRemoveMixinByRemovingProperties() throws Exception {
+        doPost(publishArea(), itemsUrl(TEST_NODE)).isCreated();
+        doPut(publishAreaInvalidUpdate(), itemsUrl(TEST_NODE)).isBadRequest();
+        doPut(publishAreaValidUpdate(), itemsUrl(TEST_NODE)).isOk().isJSONObjectLikeFile(publishAreaResponse());
+    }
+
+    protected String publishAreaResponse() {
+        return "v1/put/publish_area_response.json";
+    }
+
+    protected String publishAreaValidUpdate() {
+        return "v1/put/publish_area_valid_update.json";
+    }
+
+    protected String publishAreaInvalidUpdate() {
+        return "v1/put/publish_area_invalid_update.json";
+    }
+
+    protected String publishArea() {
+        return "v1/put/publish_area.json";
+    }
+
+    @Test
     public void shouldRetrieveDataFromXPathQuery() throws Exception {
         doPost(queryNode(), itemsUrl(TEST_NODE)).isCreated();
         xpathQuery("//" + TEST_NODE, queryUrl()).isOk().isJSON().isJSONObjectLikeFile(singleNodeXPath());
@@ -516,8 +560,25 @@ public class JcrResourcesTest {
         return postStream(is, url, null);
     }
 
+    protected Response doPost( JSONObject request,
+                               String url ) throws Exception {
+        HttpURLConnection connection = newConnection("POST", MediaType.APPLICATION_JSON, url);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        OutputStreamWriter writer = new OutputStreamWriter(byteArrayOutputStream);
+        request.write(writer);
+        writer.flush();
+        writer.close();
+        connection.getOutputStream().write(byteArrayOutputStream.toByteArray());
+        return new Response(connection);
+    }
+
     protected InputStream fileStream( String file ) {
         return getClass().getClassLoader().getResourceAsStream(file);
+    }
+
+    protected JSONObject readJson(String file) throws Exception {
+        String fileContent = IoUtil.read(fileStream(file));
+        return new JSONObject(fileContent);
     }
 
     protected Response xpathQuery( String query,
@@ -530,10 +591,32 @@ public class JcrResourcesTest {
         return postStream(new ByteArrayInputStream(query.getBytes()), url, "application/jcr+sql2");
     }
 
+    protected Response jcrSQL2QueryPlan( String query,
+                                         String url ) throws Exception {
+        return postStream(new ByteArrayInputStream(query.getBytes()), url, "application/jcr+sql2");
+    }
+
+    protected Response jcrSQL2QueryPlanAsText( String query,
+                                               String url ) throws Exception {
+        return postStreamForTextResponse(new ByteArrayInputStream(query.getBytes()), url, "application/jcr+sql2");
+    }
+
     protected Response postStream( InputStream is,
                                    String url,
                                    String mediaType ) throws Exception {
         HttpURLConnection connection = newConnection("POST", mediaType, url);
+        if (is != null) {
+            OutputStream outputStream = connection.getOutputStream();
+            outputStream.write(IoUtil.readBytes(is));
+            outputStream.flush();
+        }
+        return new Response(connection);
+    }
+
+    protected Response postStreamForTextResponse( InputStream is,
+                                                  String url,
+                                                  String mediaType ) throws Exception {
+        HttpURLConnection connection = newTextConnection("POST", mediaType, url);
         if (is != null) {
             OutputStream outputStream = connection.getOutputStream();
             outputStream.write(IoUtil.readBytes(is));
@@ -603,6 +686,18 @@ public class JcrResourcesTest {
         return new Response(connection);
     }
 
+    protected Response doPut( JSONObject request,
+                              String url ) throws Exception {
+        HttpURLConnection connection = newConnection("PUT", MediaType.APPLICATION_JSON, url);
+        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+        OutputStreamWriter writer = new OutputStreamWriter(byteArrayOutputStream);
+        request.write(writer);
+        writer.flush();
+        writer.close();
+        connection.getOutputStream().write(byteArrayOutputStream.toByteArray());
+        return new Response(connection);
+    }
+
     protected Response doDelete( String url ) throws Exception {
         return new Response(newConnection("DELETE", null, url));
     }
@@ -639,6 +734,28 @@ public class JcrResourcesTest {
         return connection;
     }
 
+    private HttpURLConnection newTextConnection( String method,
+                                                 String contentType,
+                                                 String... pathSegments ) throws IOException {
+        if (connection != null) {
+            connection.disconnect();
+        }
+
+        String serviceUrl = getServerUrl() + getServerContext();
+        String url = RestHelper.urlFrom(serviceUrl, pathSegments);
+
+        URL postUrl = new URL(url);
+        connection = (HttpURLConnection)postUrl.openConnection();
+
+        connection.setDoOutput(true);
+        connection.setRequestMethod(method);
+        if (contentType != null) {
+            connection.setRequestProperty("Content-Type", contentType);
+        }
+        connection.setRequestProperty("Accept", MediaType.TEXT_PLAIN);
+        return connection;
+    }
+
     protected void assertJSON( Object expected,
                                Object actual ) throws JSONException {
         if (expected instanceof JSONObject) {
@@ -663,7 +780,9 @@ public class JcrResourcesTest {
             assert (actual instanceof JSONArray);
             JSONArray expectedArray = (JSONArray)expected;
             JSONArray actualArray = (JSONArray)actual;
-            Assert.assertEquals("Arrays don't match. \nExpected:" + expectedArray.toString() + "\nActual  :" + actualArray, expectedArray.length(), actualArray.length());
+            Assert.assertEquals("Arrays don't match. \nExpected:" + expectedArray.toString() + "\nActual  :" + actualArray,
+                                expectedArray.length(),
+                                actualArray.length());
             for (int i = 0; i < expectedArray.length(); i++) {
                 assertJSON(expectedArray.get(i), actualArray.get(i));
             }
@@ -818,6 +937,10 @@ public class JcrResourcesTest {
 
         protected JSONObject json() throws Exception {
             return new JSONObject(responseString());
+        }
+
+        protected JSONObject children() throws Exception {
+            return json().getJSONObject(CHILDREN_KEY);
         }
 
         protected String responseString() throws IOException {

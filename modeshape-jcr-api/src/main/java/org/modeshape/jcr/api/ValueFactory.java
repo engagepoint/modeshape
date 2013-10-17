@@ -23,8 +23,11 @@
  */
 package org.modeshape.jcr.api;
 
+import javax.jcr.Node;
+import javax.jcr.RepositoryException;
 import javax.jcr.Value;
 import javax.jcr.ValueFormatException;
+import java.io.InputStream;
 import java.util.Date;
 
 /**
@@ -52,6 +55,17 @@ public interface ValueFactory extends javax.jcr.ValueFactory {
      */
     public Binary createBinary( byte[] value );
 
+
+    /**
+     * Creates a JCR {@link org.modeshape.jcr.api.Binary} value from the given input stream
+     * with a hint to the factory (which is passed to the storage layer)
+     *
+     * @param value a non-null input stream
+     * @param hint a hint that the storage layer may use to make persistence decisions
+     * @return a Binary implementation instance
+     */
+    public Binary createBinary( InputStream value, String hint );
+
     /**
      * Creates a JCR compliant name string, from the given local name.
      *
@@ -70,4 +84,13 @@ public interface ValueFactory extends javax.jcr.ValueFactory {
      */
     public String createName( String namespaceUri,
                               String localName );
+    /**
+     * Returns a <code>Value</code> object of {@link PropertyType#SIMPLE_REFERENCE} that holds the identifier of the specified <code>Node</code>.
+     * This <code>Value</code> object can then be used to set a property that will be a reference to that <code>Node</code>.
+     *
+     * @param node a <code>Node</code>
+     * @return a <code>Value</code> of {@link PropertyType#SIMPLE_REFERENCE}
+     * @throws javax.jcr.RepositoryException if an error occurs.
+     */
+    public Value createSimpleReference( Node node ) throws RepositoryException;
 }

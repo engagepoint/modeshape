@@ -23,10 +23,6 @@
  */
 package org.modeshape.jcr;
 
-import static org.hamcrest.core.Is.is;
-import static org.hamcrest.core.IsNull.notNullValue;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.fail;
 import java.security.AccessControlContext;
 import java.security.AccessController;
 import java.security.PrivilegedExceptionAction;
@@ -44,11 +40,23 @@ import org.junit.After;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TestRule;
+import org.modeshape.common.FixFor;
+import org.modeshape.common.junit.SkipLongRunning;
+import org.modeshape.common.junit.SkipTestRule;
 import org.modeshape.jcr.RepositoryConfiguration.FieldName;
 import org.modeshape.jcr.security.JaasSecurityContext.UserPasswordCallbackHandler;
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.fail;
 
 public class AuthenticationAndAuthorizationTest {
+
+    @Rule
+    public TestRule skipTestRule = new SkipTestRule();
 
     private static final String REPO_NAME = "testRepo";
 
@@ -388,4 +396,15 @@ public class AuthenticationAndAuthorizationTest {
         });
     }
 
+    @Test
+    @FixFor( "MODE-1938" )
+    @SkipLongRunning
+    public void shouldNotLeakUninitializedWorkspaceCaches() throws Exception {
+        int runCount = 200;
+        for (int i = 0; i < runCount; i++) {
+            beforeEach();
+            shouldLogInAsAnonymousUserIfNoProviderAuthenticatesCredentials();
+            afterEach();
+        }
+    }
 }

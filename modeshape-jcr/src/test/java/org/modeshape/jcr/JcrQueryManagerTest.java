@@ -325,6 +325,7 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
         session.getWorkspace().getNodeTypeManager().registerNodeTypes(url, true);
     }
 
+    @Override
     protected Name name( String name ) {
         return session.nameFactory().create(name);
     }
@@ -557,6 +558,21 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
     // ----------------------------------------------------------------------------------------------------------------
     // JCR-SQL2 Queries
     // ----------------------------------------------------------------------------------------------------------------
+
+    @FixFor( "MODE-1901" )
+    @Test
+    public void shouldExplainQueryWithoutExecutingQuery() throws RepositoryException {
+        String sql = "SELECT * FROM [nt:file]";
+        org.modeshape.jcr.api.query.Query query = (org.modeshape.jcr.api.query.Query)session.getWorkspace()
+                                                                                            .getQueryManager()
+                                                                                            .createQuery(sql, Query.JCR_SQL2);
+        org.modeshape.jcr.api.query.QueryResult result = query.explain();
+        // print = true;
+        printMessage(result.getWarnings());
+        assertThat(result.getWarnings().size(), is(0));
+        assertResults(query, result, 0L);
+        assertThat(result.getPlan().trim().length() != 0, is(true));
+    }
 
     @FixFor( "MODE-1888" )
     @Test
@@ -1529,6 +1545,92 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
         assertResultsHaveColumns(result, new String[] {"car2.jcr:name"});
     }
 
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithJoinAndNoCriteria() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path], cars.[jcr:path] FROM [nt:unstructured] AS category JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category)";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 13L);
+        assertResultsHaveColumns(result, new String[] {"category.jcr:path", "cars.jcr:path"});
+    }
+
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithJoinAndDepthCriteria() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path], cars.[jcr:path] FROM [nt:unstructured] AS category JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category) WHERE DEPTH(category) = 2";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 13L);
+        assertResultsHaveColumns(result, new String[] {"category.jcr:path", "cars.jcr:path"});
+    }
+
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithLeftOuterJoinAndDepthCriteria() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path], cars.[jcr:path] FROM [nt:unstructured] AS category LEFT OUTER JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category) WHERE DEPTH(category) = 2";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 17L);
+        assertResultsHaveColumns(result, new String[] {"category.jcr:path", "cars.jcr:path"});
+    }
+
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithLeftOuterJoinWithFullTextSearch() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path], cars.[jcr:path] FROM [nt:unstructured] AS category LEFT OUTER JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category) WHERE contains(category.*, 'Utility') AND contains(cars.*, 'Toyota') ";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 1L);
+        assertResultsHaveColumns(result, new String[] {"category.jcr:path", "cars.jcr:path"});
+    }
+
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithJoinWithFullTextSearch() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path], cars.[jcr:path] FROM [nt:unstructured] AS category JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category) WHERE contains(category.*, 'Utility') AND contains(cars.*, 'Toyota') ";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 1L);
+        assertResultsHaveColumns(result, new String[] {"category.jcr:path", "cars.jcr:path"});
+    }
+
+    @FixFor( "MODE-2450" )
+    @Test
+    public void shouldBeAbleToCreateAndExecuteJcrSql2QueryWithUnionAndFullTextSearch() throws RepositoryException {
+        String sql = "SELECT category.[jcr:path] AS p FROM [nt:unstructured] AS category WHERE contains(category.*, 'Utility')"
+                     + "UNION "
+                     + "SELECT category.[jcr:path] AS p FROM [nt:unstructured] AS category JOIN [car:Car] AS cars ON ISCHILDNODE(cars,category) WHERE contains(cars.*, 'Toyota') ";
+        final Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        assertThat(query, is(notNullValue()));
+
+        final QueryResult result = query.execute();
+
+        assertThat(result, is(notNullValue()));
+        assertResults(query, result, 2L);
+        assertResultsHaveColumns(result, new String[] {"p"});
+    }
+
     @FixFor( "MODE-1679" )
     @Test
     public void shouldBeAbleToCreateAndExecuteJcrSql2QueryToFindReferenceableNodes() throws RepositoryException {
@@ -2168,7 +2270,7 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
 
     /**
      * Tests that the child nodes (but no grandchild nodes) are returned.
-     * 
+     *
      * @throws RepositoryException
      */
     @SuppressWarnings( "deprecation" )
@@ -3272,21 +3374,236 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
         JcrValue nodeCRef = session.getValueFactory().createValue(nodeC);
 
         Node relationship = nodeA.addNode("relationship", "test:relationship");
-        relationship.setProperty("test:target", new JcrValue[]{nodeBRef, nodeCRef});
+        relationship.setProperty("test:target", new JcrValue[] {nodeBRef, nodeCRef});
 
         session.save();
 
-        String queryString =  "SELECT DISTINCT target.* " +
-                            "   FROM [test:node] AS node " +
-                            "   JOIN [test:relationship] AS relationship ON ISCHILDNODE(relationship, node) " +
-                            "   JOIN [test:node] AS target ON relationship.[test:target] = target.[jcr:uuid] " +
-                            "   WHERE node.[test:name] = 'A'";
+        String queryString = "SELECT DISTINCT target.* " + "   FROM [test:node] AS node "
+                             + "   JOIN [test:relationship] AS relationship ON ISCHILDNODE(relationship, node) "
+                             + "   JOIN [test:node] AS target ON relationship.[test:target] = target.[jcr:uuid] "
+                             + "   WHERE node.[test:name] = 'A'";
         QueryManager queryManager = session.getWorkspace().getQueryManager();
         QueryResult queryResult = queryManager.createQuery(queryString, Query.JCR_SQL2).execute();
         if (print) {
             System.out.println("queryResult = " + queryResult);
         }
         assertEquals(2, queryResult.getNodes().getSize());
+    }
+
+    @Test
+    @FixFor( "MODE-1969" )
+    public void shouldRetrieveStrongReferrers() throws Exception {
+        Node nodeA = session.getRootNode().addNode("A");
+        nodeA.addMixin("mix:referenceable");
+        Node nodeB = session.getRootNode().addNode("B");
+        nodeB.addMixin("mix:referenceable");
+
+        Node referrerA = session.getRootNode().addNode("referrerA");
+        referrerA.setProperty("nodeARef", nodeA);
+        Node referrerB = session.getRootNode().addNode("referrerB");
+        referrerB.setProperty("nodeBRef", nodeB);
+        List<String> referrerIds = Arrays.asList(referrerA.getIdentifier(), referrerB.getIdentifier());
+        Collections.sort(referrerIds);
+
+        session.save();
+
+        String queryString = "SELECT * from [nt:unstructured] where REFERENCE() IN " + idList(nodeA, nodeB);
+        QueryManager queryManager = session.getWorkspace().getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+        QueryResult result = query.execute();
+
+        NodeIterator nodes = result.getNodes();
+        assertEquals(2, nodes.getSize());
+        List<String> resultIds = new ArrayList<String>();
+        while (nodes.hasNext()) {
+            resultIds.add(nodes.nextNode().getIdentifier());
+        }
+        Collections.sort(resultIds);
+
+        assertEquals(referrerIds, resultIds);
+    }
+
+    @Test
+    @FixFor( "MODE-1969" )
+    public void shouldRetrieveWeakReferrers() throws Exception {
+        Node nodeA = session.getRootNode().addNode("A");
+        nodeA.addMixin("mix:referenceable");
+        Node nodeB = session.getRootNode().addNode("B");
+        nodeB.addMixin("mix:referenceable");
+
+        Node referrerA = session.getRootNode().addNode("referrerA");
+        referrerA.setProperty("nodeAWRef", session.getValueFactory().createValue(nodeA, true));
+        Node referrerB = session.getRootNode().addNode("referrerB");
+        referrerB.setProperty("nodeBWRef", session.getValueFactory().createValue(nodeB, true));
+        List<String> referrerIds = Arrays.asList(referrerA.getIdentifier(), referrerB.getIdentifier());
+        Collections.sort(referrerIds);
+
+        session.save();
+
+        String queryString = "SELECT * from [nt:unstructured] where REFERENCE() IN " + idList(nodeA, nodeB);
+        QueryManager queryManager = session.getWorkspace().getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+        QueryResult result = query.execute();
+
+        NodeIterator nodes = result.getNodes();
+        assertEquals(2, nodes.getSize());
+        List<String> resultIds = new ArrayList<String>();
+        while (nodes.hasNext()) {
+            resultIds.add(nodes.nextNode().getIdentifier());
+        }
+        Collections.sort(resultIds);
+
+        assertEquals(referrerIds, resultIds);
+    }
+
+    @Test
+    @FixFor( "MODE-1969" )
+    public void shouldRetrieveSimpleReferrers() throws Exception {
+        Node nodeA = session.getRootNode().addNode("A");
+        nodeA.addMixin("mix:referenceable");
+        Node nodeB = session.getRootNode().addNode("B");
+        nodeB.addMixin("mix:referenceable");
+
+        Node referrerA = session.getRootNode().addNode("referrerA");
+        referrerA.setProperty("nodeASRef", session.getValueFactory().createSimpleReference(nodeA));
+        Node referrerB = session.getRootNode().addNode("referrerB");
+        referrerB.setProperty("nodeBSRef", session.getValueFactory().createSimpleReference(nodeB));
+        List<String> referrerIds = Arrays.asList(referrerA.getIdentifier(), referrerB.getIdentifier());
+        Collections.sort(referrerIds);
+
+        session.save();
+
+        String queryString = "SELECT * from [nt:unstructured] where REFERENCE() IN " + idList(nodeA, nodeB);
+        QueryManager queryManager = session.getWorkspace().getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+        QueryResult result = query.execute();
+
+        NodeIterator nodes = result.getNodes();
+        assertEquals(2, nodes.getSize());
+        List<String> resultIds = new ArrayList<String>();
+        while (nodes.hasNext()) {
+            resultIds.add(nodes.nextNode().getIdentifier());
+        }
+        Collections.sort(resultIds);
+
+        assertEquals(referrerIds, resultIds);
+    }
+
+    @Test
+    @FixFor( "MODE-1969" )
+    public void shouldRetrieveStrongWeakSimpleReferrers() throws Exception {
+        Node nodeA = session.getRootNode().addNode("A");
+        nodeA.addMixin("mix:referenceable");
+        Node nodeB = session.getRootNode().addNode("B");
+        nodeB.addMixin("mix:referenceable");
+
+        Node referrerA = session.getRootNode().addNode("referrerA");
+        referrerA.setProperty("nodeARef", nodeA);
+        Node referrerB = session.getRootNode().addNode("referrerB");
+        referrerB.setProperty("nodeBWRef", session.getValueFactory().createValue(nodeB, true));
+        Node referrerC = session.getRootNode().addNode("referrerC");
+        referrerC.setProperty("nodeCSRef", session.getValueFactory().createSimpleReference(nodeB));
+        List<String> referrerIds = Arrays.asList(referrerA.getIdentifier(), referrerB.getIdentifier(), referrerC.getIdentifier());
+        Collections.sort(referrerIds);
+
+        session.save();
+
+        String queryString = "SELECT * from [nt:unstructured] where REFERENCE() IN " + idList(nodeA, nodeB);
+        QueryManager queryManager = session.getWorkspace().getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+        QueryResult result = query.execute();
+
+        NodeIterator nodes = result.getNodes();
+        assertEquals(3, nodes.getSize());
+        List<String> resultIds = new ArrayList<String>();
+        while (nodes.hasNext()) {
+            resultIds.add(nodes.nextNode().getIdentifier());
+        }
+        Collections.sort(resultIds);
+
+        assertEquals(referrerIds, resultIds);
+    }
+
+    @Test
+    @FixFor( "MODE-2053" )
+    public void shouldRunLeftOuterJoin() throws Exception {
+        session.getRootNode().addNode("name_p1", "modetest:intermediate");
+        Node parent2 = session.getRootNode().addNode("name_p2", "modetest:intermediate");
+        parent2.addNode("name_c1", "modetest:child");
+        session.save();
+
+        String queryString = "SELECT parent.* FROM [modetest:intermediate] as parent LEFT OUTER JOIN [modetest:child] as child ON ISCHILDNODE(child, parent)"
+                             + " WHERE parent.[jcr:name] LIKE 'name%' OR child.[jcr:name] LIKE 'name%'";
+        assertNodesAreFound(queryString, Query.JCR_SQL2, "/name_p1", "/name_p2");
+    }
+
+    @FixFor( "MODE-2027" )
+    @Test
+    public void shouldSearchAllPropertiesUsingDotSelectorJCRSql2FullTextSearch() throws RepositoryException {
+        String sql = "SELECT cars.[jcr:path] FROM [car:Car] AS cars WHERE contains(., 'Toyota') ";
+        Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        NodeIterator nodes = query.execute().getNodes();
+        List<Node> actual = new ArrayList<Node>();
+        while (nodes.hasNext()) {
+            actual.add(nodes.nextNode());
+        }
+
+        sql = "SELECT cars.[jcr:path] FROM [car:Car] AS cars WHERE contains(cars.*, 'Toyota')";
+        query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
+        nodes = query.execute().getNodes();
+        List<Node> expected = new ArrayList<Node>();
+        while (nodes.hasNext()) {
+            expected.add(nodes.nextNode());
+        }
+
+        assertEquals(expected, actual);
+    }
+
+    @FixFor( "MODE-2062" )
+    public void fullTextShouldWorkWithBindVar() throws Exception {
+        Node n1 = session.getRootNode().addNode("n1");
+        n1.setProperty("n1-prop-1", "wow");
+        n1.setProperty("n1-prop-2", "any");
+
+        Node n2 = session.getRootNode().addNode("n2");
+        n2.setProperty("n2-prop-1", "test");
+
+        try {
+            session.save();
+
+            // test with literal
+            String queryString = "select * from [nt:unstructured] as a where contains(a.*, 'wow')";
+            assertNodesAreFound(queryString, Query.JCR_SQL2, "/n1");
+
+            // test with bind
+            String queryStringWithBind = "select * from [nt:unstructured] as a where contains(a.*, $text)";
+            QueryManager queryManager = session.getWorkspace().getQueryManager();
+            Query query = queryManager.createQuery(queryStringWithBind, Query.JCR_SQL2);
+            query.bindValue("text", session.getValueFactory().createValue("wow"));
+            QueryResult result = query.execute();
+
+            NodeIterator nit = result.getNodes();
+            assertTrue(nit.hasNext());
+            Node n11 = nit.nextNode();
+            assertEquals("n1", n11.getName());
+            assertTrue(!nit.hasNext());
+        } finally {
+            n1.remove();
+            n2.remove();
+            session.save();
+        }
+    }
+
+    private String idList(Node...nodes) throws RepositoryException {
+        StringBuilder builder = new StringBuilder("(");
+        for (int i = 0; i < nodes.length - 1; i++) {
+            builder.append("'").append(nodes[i].getIdentifier()).append("'").append(",");
+        }
+        if (nodes.length > 0) {
+            builder.append("'").append(nodes[nodes.length - 1].getIdentifier()).append("'");
+        }
+        builder.append(")");
+        return builder.toString();
     }
 
     private void assertNodesAreFound( String queryString,

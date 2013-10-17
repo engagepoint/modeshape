@@ -26,13 +26,23 @@ package org.modeshape.sequencer.ddl;
 import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.junit.matchers.JUnitMatchers.hasItems;
+import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_ALTER_TABLE_STATEMENT;
+import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_CREATE_SCHEMA_STATEMENT;
+import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_DROP_SCHEMA_STATEMENT;
+import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_PROBLEM;
+import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_UNKNOWN_STATEMENT;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
-
-import static org.modeshape.sequencer.ddl.StandardDdlLexicon.*;
+import org.modeshape.common.text.ParsingException;
+import org.modeshape.sequencer.ddl.DdlParsers.ParsingResult;
+import org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlParser;
+import org.modeshape.sequencer.ddl.dialect.postgres.PostgresDdlParser;
+import org.modeshape.sequencer.ddl.dialect.teiid.TeiidDdlParser;
 import org.modeshape.sequencer.ddl.node.AstNode;
 import org.modeshape.sequencer.ddl.node.AstNodeFactory;
-import java.util.List;
 
 /**
  *
@@ -41,21 +51,14 @@ public class DdlParsersTest extends DdlParserTestHelper {
     private DdlParsers parsers;
     public static final String DDL_TEST_FILE_PATH = "ddl/";
 
-    private AstNodeFactory nodeFactory;
-
-    private AstNode rootNode;
-
     @Before
     public void beforeEach() {
         parsers = new DdlParsers();
-        // ddlTest = this.getClass().getClassLoader().getResource("createTablesTest.ddl");
-        nodeFactory = new AstNodeFactory();
-        rootNode = nodeFactory.node("root_node");
     }
 
     @Test
     public void shouldParseUntypedDdlFileWithTypeInFilename() {
-        printTest("shouldParseTypedDdlFile()");
+        printTest("shouldParseUntypedDdlFileWithTypeInFilename()");
         String content = "-- SAMPLE DDL FILE\n"
                          + "CREATE TABLE myTableName (PART_COLOR VARCHAR(255) NOT NULL, PART_ID INTEGER DEFAULT (100))\n"
                          + "DROP TABLE list_customers CASCADE";
@@ -67,7 +70,7 @@ public class DdlParsersTest extends DdlParserTestHelper {
 
     @Test
     public void shouldParseTypedDdlFileWith() {
-        printTest("shouldParseTypedDdlFile()");
+        printTest("shouldParseTypedDdlFileWith()");
         String content = "-- SAMPLE SQL92 DDL FILE\n"
                          + "CREATE TABLE myTableName (PART_COLOR VARCHAR(255) NOT NULL, PART_ID INTEGER DEFAULT (100))\n"
                          + "DROP TABLE list_customers CASCADE";
@@ -139,6 +142,8 @@ public class DdlParsersTest extends DdlParserTestHelper {
 
         // printNodeChildren(rootNode);
         setPrintToConsole(true);
+
+        final AstNodeFactory nodeFactory = new AstNodeFactory();
         List<AstNode> problems = nodeFactory.getChildrenForType(rootNode, TYPE_PROBLEM);
         for (AstNode problem : problems) {
             printTest(problem.toString());
@@ -156,6 +161,96 @@ public class DdlParsersTest extends DdlParserTestHelper {
         assertThat(dropSchemaNodes.size(), is(1));
         List<AstNode> unknownNodes = nodeFactory.getChildrenForType(rootNode, TYPE_UNKNOWN_STATEMENT);
         assertThat(unknownNodes.size(), is(1));
-
     }
+
+    @Test
+    public void shouldParseFileUsingTeiidParser() {
+        printTest("shouldParseTeiidFile()");
+
+        final String content = getFileContent(DDL_TEST_FILE_PATH + "dialect/teiid/mySqlBqt.ddl");
+        this.rootNode = this.parsers.parseUsing(content, TeiidDdlParser.ID);
+
+        assertThat(TeiidDdlParser.ID, is((String)this.rootNode.getProperty(StandardDdlLexicon.PARSER_ID)));
+    }
+
+    @Test( expected = ParsingException.class )
+    public void shouldErrorWhenInvalidParserId() {
+        printTest("shouldParseTeiidFile()");
+
+        final String content = getFileContent(DDL_TEST_FILE_PATH + "dialect/teiid/mySqlBqt.ddl");
+        this.parsers.parseUsing(content, "BOGUS");
+    }
+
+    @Test
+    public void shouldParseHugeOracleFile() {
+        printTest("shouldParseHugeOracleFile()");
+
+        final String content = getFileContent(DDL_TEST_FILE_PATH + "dialect/oracle/huge.ddl");
+        this.rootNode = this.parsers.parse(content, null);
+
+        assertThat("ORACLE", is((String)this.rootNode.getProperty(StandardDdlLexicon.PARSER_ID)));
+    }
+
+    @Test
+    public void shouldReturnBuiltInParsers() {
+        printTest("shouldReturnBuiltInParsers()");
+
+        assertThat(this.parsers.getParsers(),
+                   hasItems(DdlParsers.BUILTIN_PARSERS.toArray(new DdlParser[DdlParsers.BUILTIN_PARSERS.size()])));
+    }
+
+    @Test
+    public void shouldReturnParsersConstructedWith() {
+        printTest("shouldReturnParsersConstructedWith()");
+
+        final List<DdlParser> myParsers = new ArrayList<DdlParser>();
+        myParsers.add(new TeiidDdlParser());
+
+        final DdlParsers ddlParsers = new DdlParsers(myParsers);
+        assertThat(ddlParsers.getParsers(), hasItems(myParsers.toArray(new DdlParser[myParsers.size()])));
+    }
+
+    @Test
+    public void shouldReturnResultsInOrder() {
+        printTest("shouldReturnResultsInOrder()");
+
+        { // oracle
+            final String ddl = getFileContent(DDL_TEST_FILE_PATH + "dialect/oracle/oracle_test_statements_3.ddl");
+            final List<ParsingResult> results = this.parsers.parseUsingAll(ddl);
+
+            assertThat(results.size(), is(DdlParsers.BUILTIN_PARSERS.size()));
+            assertThat(results.get(0).getParserId(), is(OracleDdlParser.ID)); // first element should be Oracle result
+        }
+
+        { // teiid
+            final String ddl = getFileContent(DDL_TEST_FILE_PATH + "dialect/teiid/mySqlBqt.ddl");
+            final List<ParsingResult> results = this.parsers.parseUsingAll(ddl);
+
+            assertThat(results.size(), is(DdlParsers.BUILTIN_PARSERS.size()));
+            assertThat(results.get(0).getParserId(), is(TeiidDdlParser.ID)); // first element should be Teiid result
+        }
+    }
+
+    @Test
+    public void shouldReturnCorrectNumberOfResults() {
+        printTest("shouldReturnCorrectNumberOfResults()");
+
+        final List<DdlParser> myParsers = new ArrayList<DdlParser>(2);
+        myParsers.add(new PostgresDdlParser());
+        myParsers.add(new OracleDdlParser());
+        final DdlParsers ddlParsers = new DdlParsers(myParsers);
+
+        final String ddl = getFileContent(DDL_TEST_FILE_PATH + "dialect/oracle/oracle_test_statements_3.ddl");
+        final List<ParsingResult> results = ddlParsers.parseUsing(ddl, myParsers.get(0).getId(), myParsers.get(1).getId(), (String[])null);
+        assertThat(results.size(), is(myParsers.size()));
+    }
+
+    @Test(expected = ParsingException.class)
+    public void shouldNotAllowInvalidParserId() {
+        printTest("shouldNotAllowInvalidParserId()");
+
+        final String ddl = getFileContent(DDL_TEST_FILE_PATH + "dialect/oracle/oracle_test_statements_3.ddl");
+        this.parsers.parseUsing(ddl, this.parsers.getParsers().iterator().next().getId(), "bogusId", (String[])null);
+    }
+
 }

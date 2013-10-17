@@ -41,6 +41,7 @@ import javax.jcr.nodetype.PropertyDefinition;
 import org.modeshape.common.annotation.ThreadSafe;
 import org.modeshape.common.util.CheckArg;
 import org.modeshape.jcr.RepositoryNodeTypeManager.NodeTypes;
+import org.modeshape.jcr.api.Namespaced;
 import org.modeshape.jcr.cache.NodeKey;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.basic.BasicName;
@@ -49,7 +50,7 @@ import org.modeshape.jcr.value.basic.BasicName;
  * ModeShape implementation of JCR {@link NodeType}s.
  */
 @ThreadSafe
-class JcrNodeType implements NodeType {
+class JcrNodeType implements NodeType, Namespaced {
 
     public static final String RESIDUAL_ITEM_NAME = "*";
     public static final Name RESIDUAL_NAME = new BasicName("", RESIDUAL_ITEM_NAME);
@@ -556,6 +557,16 @@ class JcrNodeType implements NodeType {
             if (this.thisAndAllSupertypesNames.contains(nodeTypeName)) return true;
         }
         return false;
+    }
+
+    @Override
+    public String getLocalName() {
+        return name.getLocalName();
+    }
+
+    @Override
+    public String getNamespaceURI() {
+        return name.getNamespaceUri();
     }
 
     @Override

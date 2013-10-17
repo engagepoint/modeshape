@@ -24,12 +24,22 @@
 
 package org.modeshape.web.jcr.rest;
 
+import static org.hamcrest.core.Is.is;
+import static org.hamcrest.core.IsNull.notNullValue;
 import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
 import javax.ws.rs.core.MediaType;
+import org.codehaus.jettison.json.JSONObject;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
@@ -96,6 +106,16 @@ public class ModeShapeRestServiceTest extends JcrResourcesTest {
     @Override
     protected String nodeWithoutPrimaryTypeResponse() {
         return "v2/post/node_without_primaryType_response.json";
+    }
+
+    @Override
+    protected String differentPropertyTypesRequest() {
+        return "v2/post/node_different_property_types_request.json";
+    }
+
+    @Override
+    protected String differentPropertyTypesResponse() {
+        return "v2/post/node_different_property_types_response.json";
     }
 
     @Override
@@ -211,6 +231,26 @@ public class ModeShapeRestServiceTest extends JcrResourcesTest {
     @Override
     protected String propertiesEdit() {
         return "v2/put/properties_edit.json";
+    }
+
+    @Override
+    protected String publishArea() {
+        return "v2/put/publish_area.json";
+    }
+
+    @Override
+    protected String publishAreaInvalidUpdate() {
+        return "v2/put/publish_area_invalid_update.json";
+    }
+
+    @Override
+    protected String publishAreaResponse() {
+        return "v2/put/publish_area_response.json";
+    }
+
+    @Override
+    protected String publishAreaValidUpdate() {
+        return "v2/put/publish_area_valid_update.json";
     }
 
     @Override
@@ -432,5 +472,155 @@ public class ModeShapeRestServiceTest extends JcrResourcesTest {
         doPost(nodeWithMixinAfterPropsRequest(), itemsUrl(TEST_NODE)).isCreated()
                                                                      .isJSONObjectLikeFile(nodeWithMixinAfterPropsResponse());
         doGet(itemsUrl(TEST_NODE)).isOk().isJSONObjectLikeFile(nodeWithMixinAfterPropsResponse());
+    }
+
+    @Test
+    @FixFor( "MODE-1901" )
+    public void shouldComputePlainTextPlanForJcrSql2Query() throws Exception {
+        // No need to create any data, since we are not executing the query ...
+        String query = "SELECT * FROM [nt:unstructured] WHERE ISCHILDNODE('/" + TEST_NODE + "')";
+        Response response = jcrSQL2QueryPlanAsText(query, queryPlanUrl()).isOk();
+        assertThat(response.getContentTypeHeader().startsWith("text/plain;charset=utf-8"), is(true));
+        String plan = response.responseString();
+        assertThat(plan, is(notNullValue()));
+        // System.out.println("**** PLAN: \n" + plan);
+    }
+
+    @Test
+    @FixFor( "MODE-1901" )
+    public void shouldComputeJsonPlanForJcrSql2Query() throws Exception {
+        // No need to create any data, since we are not executing the query ...
+        String query = "SELECT * FROM [nt:unstructured] WHERE ISCHILDNODE('/" + TEST_NODE + "')";
+        Response response = jcrSQL2QueryPlan(query, queryPlanUrl()).isOk();
+        assertThat(response.getContentTypeHeader().startsWith("application/json"), is(true));
+        String plan = response.responseString();
+        assertThat(plan, is(notNullValue()));
+        // System.out.println("**** PLAN: \n" + plan);
+    }
+
+    protected String queryPlanUrl( String... additionalPathSegments ) {
+        return RestHelper.urlFrom(REPOSITORY_NAME + "/default/" + RestHelper.QUERY_PLAN_METHOD_NAME, additionalPathSegments);
+    }
+
+    @Test
+    @FixFor( "MODE-2048")
+    public void shouldAllowChildrenUpdateViaID() throws Exception {
+        /**
+         * testNode
+         *   - child1 [prop="child1"]
+         *   - child2 [prop="child2"]
+         *   - child3 [prop="child3"]
+         */
+        JSONObject nodeWithHierarchyRequest = readJson("v2/post/node_multiple_children_request.json");
+
+        //replace in the original request node paths with IDs
+        JSONObject children = doPost(nodeWithHierarchyRequest, itemsUrl(TEST_NODE)).isCreated().children();
+        String child1Id = children.getJSONObject("child1").getString(ID_KEY);
+        String child2Id = children.getJSONObject("child2").getString(ID_KEY);
+        String child3Id = children.getJSONObject("child3").getString(ID_KEY);
+
+        children = nodeWithHierarchyRequest.getJSONObject(CHILDREN_KEY);
+        JSONObject child1 = children.getJSONObject("child1");
+        child1.put("update", true);
+        children.put(child1Id, child1);
+        children.remove("child1");
+
+        JSONObject child2 = children.getJSONObject("child2");
+        child2.put("update", true);
+        children.put(child2Id, child2);
+        children.remove("child2");
+
+        JSONObject child3 = children.getJSONObject("child3");
+        child3.put("update", true);
+        children.put(child3Id, child3);
+        children.remove("child3");
+
+        doPut(nodeWithHierarchyRequest, itemsUrl(TEST_NODE)).isOk();
+        assertTrue(doGet(itemsUrl(TEST_NODE, "child1")).json().has("update"));
+        assertTrue(doGet(itemsUrl(TEST_NODE, "child2")).json().has("update"));
+        assertTrue(doGet(itemsUrl(TEST_NODE, "child3")).json().has("update"));
+    }
+
+    @Test
+    @FixFor( "MODE-2048")
+    public void shouldPerformChildReordering() throws Exception {
+        /**
+         * testNode
+         *   - child1
+         *   - child2
+         *   - child3
+         */
+        doPost("v2/post/node_multiple_children_request.json", itemsUrl(TEST_NODE)).isCreated();
+
+        /**
+         * testNode
+         *   - child3
+         *   - child2
+         *   - child1
+         */
+        JSONObject children = doPut("v2/put/node_multiple_children_reorder1.json", itemsUrl(TEST_NODE)).isOk().children();
+
+        List<String> actualOrder = new ArrayList<String>();
+        for (Iterator<?> iterator = children.keys(); iterator.hasNext();) {
+            actualOrder.add(iterator.next().toString());
+        }
+        assertEquals("Invalid child order", Arrays.asList("child3", "child2", "child1"), actualOrder);
+
+        /**
+         * testNode
+         *   - child2
+         *   - child3
+         *   - child1
+         */
+        children = doPut("v2/put/node_multiple_children_reorder2.json", itemsUrl(TEST_NODE)).isOk().children();
+        actualOrder = new ArrayList<String>();
+        for (Iterator<?> iterator = children.keys(); iterator.hasNext();) {
+            actualOrder.add(iterator.next().toString());
+        }
+        assertEquals("Invalid child order", Arrays.asList("child2", "child3", "child1"), actualOrder);
+    }
+
+    @Test
+    @FixFor( "MODE-2048")
+    public void shouldMoveNode() throws Exception {
+        /**
+         * node1
+         *   - child1
+         *   - child2
+         *   - child3
+         */
+        JSONObject children = doPost("v2/post/node_multiple_children_request.json", itemsUrl("node1")).isCreated().children();
+        String child2Id = children.getJSONObject("child2").getString(ID_KEY);
+
+        /**
+         * node2
+         *   - childNode
+         */
+        JSONObject request = readJson("v2/post/node_hierarchy_request.json");
+        doPost(request, itemsUrl("node2")).isCreated();
+
+        JSONObject requestChildren = request.getJSONObject(CHILDREN_KEY);
+        request.remove("childNode");
+        requestChildren.put(child2Id, Collections.emptyMap());
+
+        //move node1/child2 to node2
+        doPut(request, itemsUrl("node2")).isOk();
+        assertTrue(doGet(itemsUrl("node2")).children().has("child2"));
+        assertFalse(doGet(itemsUrl("node1")).children().has("child2"));
+    }
+
+    @Test
+    @FixFor( "MODE-2056" )
+    public void shouldCloseActiveSessions() throws Exception {
+        //execute 3 requests
+        doPost("v2/post/node_multiple_children_request.json", itemsUrl(TEST_NODE)).isCreated();
+        doPut("v2/post/node_multiple_children_request.json", itemsUrl(TEST_NODE)).isOk();
+        doGet(itemsUrl(TEST_NODE));
+
+        JSONObject repositories = doGet("/").isOk().json();
+        JSONObject repository = repositories.getJSONArray("repositories").getJSONObject(0);
+        int activeSessionsCount = repository.getInt("activeSessionsCount");
+
+        assertEquals("There are active sessions in the repository", 0, activeSessionsCount);
     }
 }

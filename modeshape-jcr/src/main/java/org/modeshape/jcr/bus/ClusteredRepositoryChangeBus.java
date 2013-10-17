@@ -64,6 +64,11 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
     protected final ChangeBus delegate;
 
     /**
+     * The id of the process which started this bus
+     */
+    private final String processId;
+
+    /**
      * The listener for channel changes.
      */
     private final Listener listener = new Listener();
@@ -99,12 +104,21 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
      */
     private Channel channel;
 
+    /**
+     * Creates a new clustered repository bus
+     *
+     * @param clusteringConfiguration the bus configuration
+     * @param delegate the local bus to which changes will be delegated
+     * @param processId the id of the process which started this bus
+     */
     public ClusteredRepositoryChangeBus( RepositoryConfiguration.Clustering clusteringConfiguration,
-                                         ChangeBus delegate ) {
+                                         ChangeBus delegate,
+                                         String processId ) {
         CheckArg.isNotNull(clusteringConfiguration, "clusteringConfiguration");
         CheckArg.isNotNull(delegate, "delegate");
 
         this.clusteringConfiguration = clusteringConfiguration;
+        this.processId = processId;
         assert clusteringConfiguration.isEnabled();
         this.delegate = delegate;
     }
@@ -159,15 +173,6 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
         return delegate.hasObservers();
     }
 
-    /**
-     * Return whether this bus has been {@link #start() started} and not yet {@link #shutdown() shut down}.
-     *
-     * @return true if {@link #start()} has been called but {@link #shutdown()} has not, or false otherwise
-     */
-    public boolean isStarted() {
-        return channel != null;
-    }
-
     @Override
     public synchronized void shutdown() {
         if (channel != null) {
@@ -201,7 +206,6 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
             if (hasObservers()) {
                 delegate.notify(changeSet);
                 logReceivedOperation(changeSet);
-
             }
             return;
         }
@@ -236,7 +240,8 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
 
     protected final void logSendOperation( ChangeSet changeSet ) {
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Sending to cluster '{0}' {1} changes on workspace {2} made by {3} from process '{4}' at {5}",
+            LOGGER.trace("Process {0} sending to cluster '{1}' {2} changes on workspace {3} made by {4} from process '{5}' at {6}",
+                         processId,
                          clusteringConfiguration.getClusterName(),
                          changeSet.size(),
                          changeSet.getWorkspaceName(),
@@ -248,7 +253,8 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
 
     protected final void logReceivedOperation( ChangeSet changeSet ) {
         if (LOGGER.isTraceEnabled()) {
-            LOGGER.trace("Received on cluster '{0}' {1} changes on workspace {2} made by {3} from process '{4}' at {5}",
+            LOGGER.trace("Process {0} received on cluster '{1}' {2} changes on workspace {3} made by {4} from process '{5}' at {6}",
+                         processId,
                          clusteringConfiguration.getClusterName(),
                          changeSet.size(),
                          changeSet.getWorkspaceName(),
@@ -351,11 +357,11 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
     }
 
     /**
-     * ObjectInputStream extention that allows a different class loader to be used when resolving types.
+     * ObjectInputStream extension that allows a different class loader to be used when resolving types.
      */
     protected final class ObjectInputStreamWithClassLoader extends ObjectInputStream {
 
-        private final ClassLoader cl;
+        private ClassLoader cl;
 
         public ObjectInputStreamWithClassLoader(InputStream in, ClassLoader cl) throws IOException {
             super(in);
@@ -372,6 +378,12 @@ public final class ClusteredRepositoryChangeBus implements ChangeBus {
             } catch (ClassNotFoundException ex) {
                 return super.resolveClass(desc);
             }
+        }
+
+        @Override
+        public void close() throws IOException {
+            super.close();
+            this.cl = null;
         }
     }
 }

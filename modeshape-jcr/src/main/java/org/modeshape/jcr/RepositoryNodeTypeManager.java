@@ -274,10 +274,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
 
             // Remove the node types from persistent storage ...
             SessionCache system = repository.createSystemSession(context, false);
-            for (JcrNodeType nodeType : removedNodeTypes) {
-                system.destroy(nodeType.key());
-            }
-            system.save();
+            SystemContent systemContent = new SystemContent(system);
+            systemContent.unregisterNodeTypes(removedNodeTypes.toArray(new JcrNodeType[removedNodeTypes.size()]));
+            systemContent.save();
 
             // Now change the cache ...
             this.nodeTypesCache = newNodeTypes;
@@ -543,6 +542,15 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                     JcrNodeType requiredPrimaryType = nodeTypes.findTypeInMapOrList(primaryTypeName, typesPendingRegistration);
                     if (requiredPrimaryType == null) {
                         String msg = JcrI18n.invalidPrimaryTypeName.text(primaryTypeName, nodeType.getName());
+                        throw new RepositoryException(msg);
+                    }
+                }
+            }
+
+            if (nodeType.isMixin()) {
+                for (NodeType superType : nodeType.getSupertypes()) {
+                    if (!superType.isMixin()) {
+                        String msg = JcrI18n.invalidMixinSupertype.text(nodeType.getName(), superType.getName());
                         throw new RepositoryException(msg);
                     }
                 }
@@ -1184,9 +1192,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
 
         /**
          * Get the auto-created property definitions for the named node type. This method is used when
-         * {@link AbstractJcrNode#addChildNode(org.modeshape.jcr.value.Name, org.modeshape.jcr.value.Name, org.modeshape.jcr.cache.NodeKey, boolean)
-         * creating nodes}, which only needs the auto-created properties for the primary type. It's also used when
-         * {@link AbstractJcrNode#addMixin(String) adding a mixin}.
+         * {@link AbstractJcrNode#addChildNode(Name, Name, NodeKey, boolean, boolean) creating nodes}, which only needs the
+         * auto-created properties for the primary type. It's also used when {@link AbstractJcrNode#addMixin(String) adding a
+         * mixin}.
          * 
          * @param nodeType the node type name; may not be null
          * @return the collection of auto-created property definitions; never null but possibly empty
@@ -1197,9 +1205,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
 
         /**
          * Get the auto-created child node definitions for the named node type. This method is used when
-         * {@link AbstractJcrNode#addChildNode(org.modeshape.jcr.value.Name, org.modeshape.jcr.value.Name, org.modeshape.jcr.cache.NodeKey, boolean)
-         * creating nodes}, which only needs the auto-created properties for the primary type. It's also used when
-         * {@link AbstractJcrNode#addMixin(String) adding a mixin}.
+         * {@link AbstractJcrNode#addChildNode(Name, Name, NodeKey, boolean, boolean) creating nodes}, which only needs the
+         * auto-created properties for the primary type. It's also used when {@link AbstractJcrNode#addMixin(String) adding a
+         * mixin}.
          * 
          * @param nodeType the node type name; may not be null
          * @return the collection of auto-created child node definitions; never null but possibly empty
@@ -1439,6 +1447,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                     // Don't check constraints on reference properties
                     if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                     if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                    if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                     if (type == PropertyType.UNDEFINED || type == value.getType()) {
                         if (!checkTypeAndConstraints) return definition;
                         if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1456,6 +1465,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                 return definition;
                             }
                             if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                return definition;
+                            }
+                            if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                 return definition;
                             }
                             if (!checkTypeAndConstraints) return definition;
@@ -1479,6 +1491,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                             // Don't check constraints on reference properties
                             if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                             if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                            if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                             if (type == PropertyType.UNDEFINED || type == value.getType()) {
                                 if (!checkTypeAndConstraints) return definition;
                                 if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1495,6 +1508,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                     return definition;
                                 }
                                 if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                    return definition;
+                                }
+                                if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                     return definition;
                                 }
                                 if (!checkTypeAndConstraints) return definition;
@@ -1529,6 +1545,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                         // Don't check constraints on reference properties
                         if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                         if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                        if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                         if (type == PropertyType.UNDEFINED || type == value.getType()) {
                             if (!checkTypeAndConstraints) return definition;
                             if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1546,6 +1563,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                     return definition;
                                 }
                                 if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                    return definition;
+                                }
+                                if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                     return definition;
                                 }
                                 if (!checkTypeAndConstraints) return definition;
@@ -1568,6 +1588,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                 // Don't check constraints on reference properties
                                 if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                                 if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                                if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                                 if (type == PropertyType.UNDEFINED || type == value.getType()) {
                                     if (!checkTypeAndConstraints) return definition;
                                     if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1585,6 +1606,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                         return definition;
                                     }
                                     if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                        return definition;
+                                    }
+                                    if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                         return definition;
                                     }
                                     if (!checkTypeAndConstraints) return definition;
@@ -1616,6 +1640,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                         // Don't check constraints on reference properties
                         if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                         if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                        if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                         if (type == PropertyType.UNDEFINED || type == value.getType()) {
                             if (!checkTypeAndConstraints) return definition;
                             if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1633,6 +1658,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                 return definition;
                             }
                             if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                return definition;
+                            }
+                            if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                 return definition;
                             }
                             if (!checkTypeAndConstraints) return definition;
@@ -1664,6 +1692,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                             // Don't check constraints on reference properties
                             if (type == PropertyType.REFERENCE && type == value.getType()) return definition;
                             if (type == PropertyType.WEAKREFERENCE && type == value.getType()) return definition;
+                            if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && type == value.getType()) return definition;
                             if (type == PropertyType.UNDEFINED || type == value.getType()) {
                                 if (!checkTypeAndConstraints) return definition;
                                 if (definition.satisfiesConstraints(value, session)) return definition;
@@ -1681,6 +1710,9 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                     return definition;
                                 }
                                 if (type == PropertyType.WEAKREFERENCE && definition.canCastToType(value)) {
+                                    return definition;
+                                }
+                                if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(value)) {
                                     return definition;
                                 }
                                 if (!checkTypeAndConstraints) return definition;
@@ -1848,6 +1880,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                     if (typeMatches) {
                         if (type == PropertyType.REFERENCE) return definition;
                         if (type == PropertyType.WEAKREFERENCE) return definition;
+                        if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE) return definition;
                         if (!checkTypeAndConstraints) return definition;
                         if (definition.satisfiesConstraints(values, session)) return definition;
                     }
@@ -1866,6 +1899,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                             // Don't check constraints on reference properties
                             if (definition.getRequiredType() == PropertyType.REFERENCE && definition.canCastToType(values)) return definition;
                             if (definition.getRequiredType() == PropertyType.WEAKREFERENCE && definition.canCastToType(values)) return definition;
+                            if (definition.getRequiredType() == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(values)) return definition;
                             if (!checkTypeAndConstraints) return definition;
                             if (definition.canCastToTypeAndSatisfyConstraints(values, session)) return definition;
                         }
@@ -1900,6 +1934,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                         if (typeMatches) {
                             if (type == PropertyType.REFERENCE) return definition;
                             if (type == PropertyType.WEAKREFERENCE) return definition;
+                            if (type == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE) return definition;
                             if (!checkTypeAndConstraints) return definition;
                             if (definition.satisfiesConstraints(values, session)) return definition;
                         }
@@ -1916,8 +1951,8 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                 assert definition.getRequiredType() != PropertyType.UNDEFINED;
                                 // Don't check constraints on reference properties
                                 if (definition.getRequiredType() == PropertyType.REFERENCE && definition.canCastToType(values)) return definition;
-                                if (definition.getRequiredType() == PropertyType.WEAKREFERENCE
-                                    && definition.canCastToType(values)) return definition;
+                                if (definition.getRequiredType() == PropertyType.WEAKREFERENCE && definition.canCastToType(values)) return definition;
+                                if (definition.getRequiredType() == org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE && definition.canCastToType(values)) return definition;
                                 if (!checkTypeAndConstraints) return definition;
                                 if (definition.canCastToTypeAndSatisfyConstraints(values, session)) return definition;
                             }
@@ -2155,7 +2190,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
             if (primaryType != null) {
                 for (JcrNodeDefinition definition : primaryType.allChildNodeDefinitions(childName, requireSns)) {
                     // Skip protected definitions ...
-                    if (skipProtected && definition.isProtected()) return null;
+                    if (skipProtected && definition.isProtected()) continue;
                     // See if the definition allows a child with the supplied primary type ...
                     if (definition.allowsChildWithType(childType)) return definition;
                 }
@@ -2168,7 +2203,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                     if (mixinType == null) continue;
                     for (JcrNodeDefinition definition : mixinType.allChildNodeDefinitions(childName, requireSns)) {
                         // Skip protected definitions ...
-                        if (skipProtected && definition.isProtected()) return null;
+                        if (skipProtected && definition.isProtected()) continue;
                         // See if the definition allows a child with the supplied primary type ...
                         if (definition.allowsChildWithType(childType)) return definition;
                     }
@@ -2699,10 +2734,10 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                                             propertyDefinitionFromAncestor.getRequiredType())) {
                     throw new InvalidNodeTypeDefinitionException(
                                                                  JcrI18n.cannotRedefineProperty.text(propName,
-                                                                                                     PropertyType.nameFromValue(propertyDefinition.getRequiredType()),
+                                                                                                     org.modeshape.jcr.api.PropertyType.nameFromValue(propertyDefinition.getRequiredType()),
                                                                                                      propertyDefinitionFromAncestor.getDeclaringNodeType()
                                                                                                                                    .getName(),
-                                                                                                     PropertyType.nameFromValue(propertyDefinitionFromAncestor.getRequiredType())));
+                                                                                                     org.modeshape.jcr.api.PropertyType.nameFromValue(propertyDefinitionFromAncestor.getRequiredType())));
 
                 }
             }
@@ -2747,6 +2782,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener {
                 case PropertyType.NAME:
                 case PropertyType.REFERENCE:
                 case PropertyType.WEAKREFERENCE:
+                case org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE:
                     return false;
 
                     // Any type can be converted to these types

@@ -65,6 +65,10 @@ public class AddCacheBinaryStorage extends AbstractAddBinaryStorage {
         String metaCache = metaNode.isDefined() ? metaNode.asString() : defaultMetaCache;
         binaries.set(FieldName.DATA_CACHE_NAME, dataCache);
         binaries.set(FieldName.METADATA_CACHE_NAME, metaCache);
+        ModelNode chunkSize = ModelAttributes.CHUNK_SIZE.resolveModelAttribute(context, model);
+        if (chunkSize.isDefined()) {
+            binaries.set(FieldName.CHUNK_SIZE, chunkSize.asInt());
+        }
         if (ModelAttributes.CACHE_CONTAINER.isMarshallable(model, false)) {
             // There's a non-default value ...
             containerName = ModelAttributes.CACHE_CONTAINER.resolveModelAttribute(context, model).asString();
@@ -78,7 +82,8 @@ public class AddCacheBinaryStorage extends AbstractAddBinaryStorage {
                                                   BinaryStorageService service,
                                                   ServiceBuilder<BinaryStorage> builder,
                                                   List<ServiceController<?>> newControllers,
-                                                  ServiceTarget target ) {
+                                                  ServiceTarget target,
+                                                  String binariesStoreName ) {
         if (containerName != null) {
             builder.addDependency(ServiceName.JBOSS.append("infinispan", containerName),
                                   CacheContainer.class,
@@ -90,6 +95,6 @@ public class AddCacheBinaryStorage extends AbstractAddBinaryStorage {
     @Override
     protected void populateModel( ModelNode operation,
                                   ModelNode model ) throws OperationFailedException {
-        populate(operation, model, ModelKeys.CACHE_BINARY_STORAGE, ModelAttributes.CACHE_BINARY_STORAGE_ATTRIBUTES);
+        populate(operation, model, ModelAttributes.CACHE_BINARY_STORAGE_ATTRIBUTES);
     }
 }

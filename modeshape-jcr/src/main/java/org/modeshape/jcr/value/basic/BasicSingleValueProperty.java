@@ -68,7 +68,18 @@ public class BasicSingleValueProperty extends BasicProperty {
 
     @Override
     public boolean isReference() {
-        return getFirstValue() instanceof Reference;
+        Object firstValue = getFirstValue();
+        if (firstValue instanceof NodeKeyReference) {
+            //simple references are not recognized as legitimate references
+            return !((NodeKeyReference)firstValue).isSimple();
+        }
+        return firstValue instanceof Reference;
+    }
+
+    @Override
+    public boolean isSimpleReference() {
+        Object firstValue = getFirstValue();
+        return firstValue instanceof  Reference && ((Reference) firstValue).isSimple();
     }
 
     @Override

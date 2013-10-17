@@ -30,16 +30,23 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.Property;
 import javax.jcr.PropertyIterator;
+import javax.jcr.RepositoryException;
+import javax.jcr.Value;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
+import org.modeshape.jcr.cache.CachedNode;
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertArrayEquals;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
 
 public class JcrNodeTest extends MultiUseAbstractTest {
 
@@ -124,7 +131,7 @@ public class JcrNodeTest extends MultiUseAbstractTest {
 
         session.save();
 
-        //check all strong references
+        // check all strong references
         PropertyIterator propertyIterator = referenceableNode.getReferences();
         assertEquals(2, propertyIterator.getSize());
         Set<String> propertyNames = new HashSet<String>(2);
@@ -140,7 +147,7 @@ public class JcrNodeTest extends MultiUseAbstractTest {
         propertyIterator = referenceableNode.getReferences("unknown");
         assertEquals(0, propertyIterator.getSize());
 
-        //check all weak references
+        // check all weak references
         propertyIterator = referenceableNode.getWeakReferences();
         assertEquals(2, propertyIterator.getSize());
         propertyNames = new HashSet<String>(2);
@@ -158,7 +165,7 @@ public class JcrNodeTest extends MultiUseAbstractTest {
     }
 
     @Test
-    @FixFor("MODE-1489")
+    @FixFor( "MODE-1489" )
     public void shouldAllowMultipleOrderBeforeWithoutSave() throws Exception {
         int childCount = 2;
 
@@ -184,6 +191,28 @@ public class JcrNodeTest extends MultiUseAbstractTest {
         while (nodeIterator.hasNext()) {
             Node child = nodeIterator.nextNode();
             assertEquals("Child " + childIdx, child.getName());
+            childIdx--;
+        }
+    }
+
+    @Test
+    @FixFor( "MODE-2034" )
+    public void shouldReorderChildrenWithChanges() throws Exception {
+        Node parent = session.getRootNode().addNode("parent", "nt:unstructured");
+        Node child1 = parent.addNode("child1");
+        Node child2 = parent.addNode("child2");
+        session.save();
+
+        parent.orderBefore("child2", "child1");
+        child1.setProperty("prop", "value");
+        child2.setProperty("prop", "value");
+        session.save();
+
+        NodeIterator nodeIterator = parent.getNodes();
+        long childIdx = nodeIterator.getSize();
+        while (nodeIterator.hasNext()) {
+            Node child = nodeIterator.nextNode();
+            assertEquals("child" + childIdx, child.getName());
             childIdx--;
         }
     }
@@ -224,5 +253,160 @@ public class JcrNodeTest extends MultiUseAbstractTest {
 
         nodeA.remove();
         session.save();
+    }
+
+    @Test
+    public void shouldReturnEmptyIterator() throws RepositoryException {
+        Node jcrRootNode = session.getRootNode();
+        Node rootNode = jcrRootNode.addNode("mapSuperclassTest");
+        // session.save();
+        Node newNode = rootNode.addNode("newNode");
+        assertNotNull(newNode);
+        NodeIterator nodeIterator = rootNode.getNodes("myMap");
+        assertFalse(nodeIterator.hasNext());
+        session.save();
+        nodeIterator = rootNode.getNodes("myMap");
+        assertFalse(nodeIterator.hasNext());
+    }
+
+    @Test
+    @FixFor("MODE-1969")
+    public void shouldAllowSimpleReferences() throws Exception {
+        registerNodeTypes("cnd/simple-references.cnd");
+
+        JcrRootNode rootNode = session.getRootNode();
+        AbstractJcrNode a = rootNode.addNode("A");
+        a.addMixin("mix:referenceable");
+        AbstractJcrNode b = rootNode.addNode("B");
+        b.addMixin("mix:referenceable");
+        AbstractJcrNode c = rootNode.addNode("C");
+        c.addMixin("mix:referenceable");
+
+        org.modeshape.jcr.api.ValueFactory valueFactory = session.getValueFactory();
+        Node testNode = rootNode.addNode("test", "test:node");
+        testNode.setProperty("test:singleRef", valueFactory.createSimpleReference(a));
+        testNode.setProperty("test:multiRef", new Value[]{valueFactory.createSimpleReference(b),
+                valueFactory.createSimpleReference(c)});
+        session.save();
+
+        Property singleRef = testNode.getProperty("test:singleRef");
+        assertEquals(a.getIdentifier(), singleRef.getNode().getIdentifier());
+        assertNoBackReferences(a);
+
+        Property multiRef = testNode.getProperty("test:multiRef");
+        assertTrue(multiRef.isMultiple());
+        Value[] actualValues = multiRef.getValues();
+        assertEquals(2, actualValues.length);
+        assertArrayEquals(new String[] { b.getIdentifier(), c.getIdentifier() },
+                          new String[] { actualValues[0].getString(), actualValues[1].getString() });
+        assertNoBackReferences(b);
+        assertNoBackReferences(c);
+
+        a.remove();
+        b.remove();
+        c.remove();
+
+        session.save();
+
+        try {
+            testNode.getProperty("test:singleRef").getNode();
+            fail("Target node for simple reference property should not be found");
+        } catch (javax.jcr.ItemNotFoundException e) {
+            //expected
+        }
+    }
+
+    private void assertNoBackReferences( AbstractJcrNode node ) throws RepositoryException {
+        assertEquals(0, node.getReferences().getSize());
+        assertEquals(0, node.getWeakReferences().getSize());
+        assertFalse(node.referringNodes(CachedNode.ReferenceType.BOTH).hasNext());
+    }
+
+    @Test
+    @FixFor("MODE-1969")
+    public void shouldNotAllowSimpleReferencesWithoutMixReferenceableMixin() throws Exception {
+        registerNodeTypes("cnd/simple-references.cnd");
+
+        JcrRootNode rootNode = session.getRootNode();
+        AbstractJcrNode a = rootNode.addNode("A");
+        org.modeshape.jcr.api.ValueFactory valueFactory = session.getValueFactory();
+        Node testNode = rootNode.addNode("test", "test:node");
+        try {
+            testNode.setProperty("test:singleRef", valueFactory.createSimpleReference(a));
+            fail("Simple references should not be allowed if the target node doesn't have the mix:referenceable mixin");
+        } catch (RepositoryException e) {
+            //expected
+        }
+    }
+
+    @Test
+    @FixFor("MODE-2069")
+    public void shouldAllowSearchingForSNSViaRegex() throws Exception {
+        JcrRootNode rootNode = session.getRootNode();
+        rootNode.addNode("child");
+        rootNode.addNode("child");
+        session.save();
+
+        assertEquals(0, rootNode.getNodes("child[2]").getSize());
+        assertEquals(0, rootNode.getNodes("*[2]").getSize());
+        assertEquals(0, rootNode.getNodes("*[1]|*[2]").getSize());
+        assertEquals(0, rootNode.getNodes(new String[] { "*[2]" }).getSize());
+        assertEquals(0, rootNode.getNodes(new String[] { "*[1]", "*[2]" }).getSize());
+
+        assertEquals(2, rootNode.getNodes(new String[] { "child", "child" }).getSize());
+        assertEquals(2, rootNode.getNodes(new String[] { "*child"}).getSize());
+        assertEquals(2, rootNode.getNodes(new String[] { "child*"}).getSize());
+        assertEquals(2, rootNode.getNodes(new String[] { "child"}).getSize());
+    }
+
+    @Test
+    @FixFor("MODE-2069")
+    public void shouldEscapeSpecialCharactersWhenSearchingNodesViaRegex() throws Exception {
+        JcrRootNode rootNode = session.getRootNode();
+        rootNode.addNode("special\t\r\n()\\?!^${}.\"");
+        session.save();
+
+        assertEquals(1, rootNode.getNodes("*\t*").getSize());
+        assertEquals(1, rootNode.getNodes("*\r*").getSize());
+        assertEquals(1, rootNode.getNodes("*\n*").getSize());
+        assertEquals(1, rootNode.getNodes("*(*").getSize());
+        assertEquals(1, rootNode.getNodes("*)*").getSize());
+        assertEquals(1, rootNode.getNodes("*()*").getSize());
+        assertEquals(1, rootNode.getNodes("*\\*").getSize());
+        assertEquals(1, rootNode.getNodes("*?*").getSize());
+        assertEquals(1, rootNode.getNodes("*!*").getSize());
+        assertEquals(1, rootNode.getNodes("*^*").getSize());
+        assertEquals(1, rootNode.getNodes("*$*").getSize());
+        assertEquals(1, rootNode.getNodes("*{*").getSize());
+        assertEquals(1, rootNode.getNodes("*}*").getSize());
+        assertEquals(1, rootNode.getNodes("*{}*").getSize());
+        assertEquals(1, rootNode.getNodes("*.*").getSize());
+        assertEquals(1, rootNode.getNodes("*\"*").getSize());
+
+        assertEquals(0, rootNode.getNodes("*[*").getSize());
+        assertEquals(0, rootNode.getNodes("*]*").getSize());
+        assertEquals(0, rootNode.getNodes("*[]*").getSize());
+        assertEquals(1, rootNode.getNodes("*:*").getSize()); //jcr:system
+        assertEquals(0, rootNode.getNodes("*/*").getSize());
+    }
+
+    @Test
+    @FixFor("MODE-2069")
+    public void shouldOnlyTrimLeadingAndTrailingSpacesWhenSearchingViaRegex() throws Exception {
+        JcrRootNode rootNode = session.getRootNode();
+        rootNode.addNode(" A ");
+        rootNode.addNode("B ");
+        rootNode.addNode(" C");
+        rootNode.addNode("D E");
+        session.save();
+
+        assertEquals(1, rootNode.getNodes(" A ").getSize());
+        assertEquals(1, rootNode.getNodes("B ").getSize());
+        assertEquals(1, rootNode.getNodes(" C").getSize());
+        assertEquals(2, rootNode.getNodes(" A |B ").getSize());
+        assertEquals(3, rootNode.getNodes(" A | B | C ").getSize());
+        assertEquals(1, rootNode.getNodes("D E").getSize());
+        assertEquals(1, rootNode.getNodes(" D E ").getSize());
+        assertEquals(2, rootNode.getNodes(" A |D E").getSize());
     }
 }

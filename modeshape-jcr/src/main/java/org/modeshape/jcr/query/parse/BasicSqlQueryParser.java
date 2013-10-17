@@ -469,6 +469,11 @@ public class BasicSqlQueryParser implements QueryParser {
     }
 
     @Override
+    public int hashCode() {
+        return getLanguage().hashCode();
+    }
+
+    @Override
     public boolean equals( Object obj ) {
         if (obj == this) return true;
         if (obj instanceof QueryParser) {
@@ -679,11 +684,14 @@ public class BasicSqlQueryParser implements QueryParser {
             tokens.canConsume(')');
         } else if (tokens.canConsume("CONTAINS", "(")) {
             // Either 'selectorName.propertyName', or 'selectorName.*' or 'propertyName' ...
+            // MODE-2027 '.' will be treated as 'selectorName.*'
             String first = tokens.consume();
             SelectorName selectorName = null;
             String propertyName = null;
             Position position = tokens.previousPosition();
-            if (tokens.canConsume(".", "*")) {
+            if (first.equalsIgnoreCase(".")) {
+                selectorName = ((Selector)source).aliasOrName();
+            } else if (tokens.canConsume(".", "*")) {
                 selectorName = new SelectorName(removeBracketsAndQuotes(first, position));
             } else if (tokens.canConsume('.')) {
                 selectorName = new SelectorName(removeBracketsAndQuotes(first, position));

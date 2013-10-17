@@ -81,7 +81,7 @@ public class SequencersIntegrationTest {
 
     @Test
     public void shouldSequenceImage() throws Exception {
-        uploadFileAndAssertSequenced("/image_file.png", "/derived/image", "org.modeshape.sequencer.image.ImageMetadataSequencer");
+        uploadFileAndAssertSequenced("/image_file.jpg", "/derived/image", "org.modeshape.sequencer.image.ImageMetadataSequencer");
     }
 
     @Test
@@ -159,7 +159,9 @@ public class SequencersIntegrationTest {
 
     @Test
     public void shouldSequenceModelXMIFile() throws Exception {
-        uploadFileAndAssertSequenced("/MyBooksView.xmi", "/derived/teiid/models", "org.modeshape.sequencer.teiid.model.ModelSequencer");
+        uploadFileAndAssertSequenced("/MyBooksView.xmi",
+                                     "/derived/teiid/models",
+                                     "org.modeshape.sequencer.teiid.model.ModelSequencer");
     }
 
     private void uploadFileAndAssertSequenced( String fileName,

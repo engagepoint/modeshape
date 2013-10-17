@@ -2,6 +2,7 @@ package org.modeshape.web.jcr.rest.handler;
 
 import static org.modeshape.web.jcr.rest.RestHelper.BINARY_METHOD_NAME;
 import static org.modeshape.web.jcr.rest.RestHelper.ITEMS_METHOD_NAME;
+import static org.modeshape.web.jcr.rest.RestHelper.URL_ENCODER;
 import java.util.ArrayList;
 import java.util.List;
 import javax.jcr.Item;
@@ -14,6 +15,7 @@ import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.Value;
 import javax.servlet.http.HttpServletRequest;
+import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.Logger;
 import org.modeshape.web.jcr.RepositoryManager;
@@ -28,8 +30,6 @@ import org.modeshape.web.jcr.rest.model.RestProperty;
  */
 public abstract class AbstractHandler {
 
-    protected static final String BASE64_ENCODING_SUFFIX = "/base64/";
-
     /**
      * Name to be used when the repository name is empty string as {@code "//"} is not a valid path.
      */
@@ -40,10 +40,20 @@ public abstract class AbstractHandler {
      */
     public static final String NODE_ID_CUSTOM_PROPERTY = RestNode.ID_FIELD_NAME;
 
+    protected static final String BASE64_ENCODING_SUFFIX = "/base64/";
+
     /**
      * Name to be used when the workspace name is empty string as {@code "//"} is not a valid path.
      */
     protected static final String EMPTY_WORKSPACE_NAME = "<default>";
+
+    /**
+     * The holder of the active session. Since we're dealing with a service which operates on a request-response basis and
+     * after each request the active session is closed, we don't need multiple active sessions (e.g. for each WS and repository)
+     */
+    private static final ThreadLocal<Session> ACTIVE_SESSION = new ThreadLocal<Session>();
+
+    private static final Logger LOGGER = WebLogger.getLogger(AbstractHandler.class);
 
     protected final Logger logger = WebLogger.getLogger(getClass());
 
@@ -60,7 +70,28 @@ public abstract class AbstractHandler {
                                   String rawRepositoryName,
                                   String rawWorkspaceName ) throws RepositoryException {
         assert request != null;
-        return RepositoryManager.getSession(request, repositoryNameFor(rawRepositoryName), workspaceNameFor(rawWorkspaceName));
+        if (ACTIVE_SESSION.get() == null) {
+            Session session = RepositoryManager.getSession(request, repositoryNameFor(rawRepositoryName), workspaceNameFor(
+                    rawWorkspaceName));
+            ACTIVE_SESSION.set(session);
+        }
+        return ACTIVE_SESSION.get();
+    }
+
+    /**
+     * Cleans up any resources related to {@link AbstractHandler#ACTIVE_SESSION}
+     */
+    public static void cleanupActiveSession() {
+        Session session = AbstractHandler.ACTIVE_SESSION.get();
+        if (session != null) {
+            try {
+                AbstractHandler.ACTIVE_SESSION.remove();
+                session.logout();
+                LOGGER.debug("Logged out REST service session");
+            } catch (Exception e) {
+                LOGGER.warn(e, "Error while trying to logout REST service session");
+            }
+        }
     }
 
     private String workspaceNameFor( String rawWorkspaceName ) {
@@ -129,7 +160,8 @@ public abstract class AbstractHandler {
                     return restValueForBinary(absPropertyPath, baseUrl);
                 }
                 case PropertyType.REFERENCE:
-                case PropertyType.WEAKREFERENCE: {
+                case PropertyType.WEAKREFERENCE:
+                case org.modeshape.jcr.api.PropertyType.SIMPLE_REFERENCE: {
                     assert session != null;
                     return restValueForReference(value, baseUrl, session);
                 }
@@ -149,7 +181,7 @@ public abstract class AbstractHandler {
         String nodeId = value.getString();
         Node referredNode = session.getNodeByIdentifier(nodeId);
         if (referredNode != null) {
-            return RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, referredNode.getPath());
+            return RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, encodedPath(referredNode.getPath()));
         }
         logger.warn("Cannot resolve reference with id: {0}", nodeId);
         return nodeId;
@@ -161,7 +193,7 @@ public abstract class AbstractHandler {
             logger.warn("Cannot generate rest representation of a binary value, because the property is unknown");
             return null;
         }
-        return RestHelper.urlFrom(baseUrl, BINARY_METHOD_NAME, absPropertyPath);
+        return RestHelper.urlFrom(baseUrl, BINARY_METHOD_NAME, encodedPath(absPropertyPath));
     }
 
     protected Node getParentNode( Property property ) throws RepositoryException {
@@ -216,16 +248,39 @@ public abstract class AbstractHandler {
         return name;
     }
 
+    protected String encodedPath(String path) {
+        if (StringUtil.isBlank(path)) {
+            return "";
+        }
+        if (path.equalsIgnoreCase("/")) {
+            return "/";
+        }
+        String[] parts = path.split("/");
+        StringBuilder encodedPath = new StringBuilder();
+        for (int i = 0; i < parts.length; i++) {
+            String part = parts[i];
+            if (StringUtil.isBlank(part)) {
+                continue;
+            }
+            encodedPath.append(URL_ENCODER.encode(part));
+            if (i < parts.length - 1) {
+                encodedPath.append("/");
+            }
+        }
+        return encodedPath.toString();
+    }
+
     private RestNode createRestNode( Session session,
                                      Node node,
                                      String baseUrl,
                                      int depth ) throws RepositoryException {
-        String nodeUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, node.getPath());
+        String nodeUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, encodedPath(node.getPath()));
         boolean isRoot = node.getPath().equals("/");
         String parentUrl = isRoot ? RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, "..", "..") : RestHelper.urlFrom(baseUrl,
                                                                                                                     ITEMS_METHOD_NAME,
-                                                                                                                    node.getParent()
-                                                                                                                        .getPath());
+                                                                                                                    encodedPath(
+                                                                                                                            node.getParent()
+                                                                                                                                    .getPath()));
         RestNode restNode = new RestNode(node.getName(), node.getIdentifier(), nodeUrl, parentUrl);
 
         // add the properties
@@ -241,7 +296,7 @@ public abstract class AbstractHandler {
             if (depth != 0) {
                 restChild = createRestNode(session, childNode, baseUrl, depth - 1);
             } else {
-                String childUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, childNode.getPath());
+                String childUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, encodedPath(childNode.getPath()));
                 restChild = new RestNode(nodeName(childNode), childNode.getIdentifier(), childUrl, nodeUrl);
             }
             restNode.addChild(restChild);
@@ -253,8 +308,8 @@ public abstract class AbstractHandler {
                                              Property property,
                                              String baseUrl ) throws RepositoryException {
         List<String> values = restPropertyValues(property, baseUrl, session);
-        String url = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, property.getPath());
-        String parentUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, property.getParent().getPath());
+        String url = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, encodedPath(property.getPath()));
+        String parentUrl = RestHelper.urlFrom(baseUrl, ITEMS_METHOD_NAME, encodedPath(property.getParent().getPath()));
         boolean multiValued = property.isMultiple();
         return new RestProperty(property.getName(), url, parentUrl, values, multiValued);
     }

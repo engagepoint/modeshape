@@ -27,6 +27,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.security.AccessControlException;
+import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -42,7 +43,9 @@ import javax.jcr.nodetype.ConstraintViolationException;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
 import javax.jcr.retention.RetentionManager;
 import javax.jcr.security.AccessControlManager;
+import javax.jcr.version.Version;
 import javax.jcr.version.VersionException;
+import javax.jcr.version.VersionIterator;
 import org.infinispan.schematic.SchematicEntry;
 import org.modeshape.common.collection.LinkedListMultimap;
 import org.modeshape.common.collection.Multimap;
@@ -57,8 +60,11 @@ import org.modeshape.jcr.JcrRepository.RunningState;
 import org.modeshape.jcr.JcrSharedNodeCache.SharedSet;
 import org.modeshape.jcr.RepositoryNodeTypeManager.NodeTypes;
 import org.modeshape.jcr.api.Binary;
+import org.modeshape.jcr.api.ValueFactory;
 import org.modeshape.jcr.api.monitor.DurationMetric;
 import org.modeshape.jcr.api.monitor.ValueMetric;
+import org.modeshape.jcr.api.sequencer.Sequencer;
+import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.cache.CachedNode;
 import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.ChildReferences;
@@ -75,6 +81,7 @@ import org.modeshape.jcr.cache.SessionCacheWrapper;
 import org.modeshape.jcr.cache.WorkspaceNotFoundException;
 import org.modeshape.jcr.cache.WrappedException;
 import org.modeshape.jcr.cache.document.WorkspaceCache;
+import org.modeshape.jcr.security.AdvancedAuthorizationProvider;
 import org.modeshape.jcr.security.AuthorizationProvider;
 import org.modeshape.jcr.security.SecurityContext;
 import org.modeshape.jcr.value.DateTimeFactory;
@@ -121,6 +128,30 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
 
     private ExecutionContext context;
 
+    private final AccessControlManagerImpl acm;
+
+    private final AdvancedAuthorizationProvider.Context authorizerContext = new AdvancedAuthorizationProvider.Context() {
+        @Override
+        public ExecutionContext getExecutionContext() {
+            return context();
+        }
+
+        @Override
+        public String getRepositoryName() {
+            return repository().getName();
+        }
+
+        @Override
+        public Session getSession() {
+            return JcrSession.this;
+        }
+
+        @Override
+        public String getWorkspaceName() {
+            return workspaceName();
+        }
+    };
+
     protected JcrSession( JcrRepository repository,
                           String workspaceName,
                           ExecutionContext context,
@@ -136,9 +167,22 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         // Now create a specific reference factories that know about the root node key ...
         TextDecoder decoder = context.getDecoder();
         ValueFactories factories = context.getValueFactories();
-        ReferenceFactory rootKeyAwareStrongRefFactory = new NodeIdentifierReferenceFactory(rootKey, decoder, factories, false);
-        ReferenceFactory rootKeyAwareWeakRefFactory = new NodeIdentifierReferenceFactory(rootKey, decoder, factories, true);
-        context = context.with(rootKeyAwareStrongRefFactory).with(rootKeyAwareWeakRefFactory);
+        ReferenceFactory rootKeyAwareStrongRefFactory = NodeIdentifierReferenceFactory.newInstance(rootKey,
+                                                                                                   decoder,
+                                                                                                   factories,
+                                                                                                   false,
+                                                                                                   false);
+        ReferenceFactory rootKeyAwareWeakRefFactory = NodeIdentifierReferenceFactory.newInstance(rootKey,
+                                                                                                 decoder,
+                                                                                                 factories,
+                                                                                                 true,
+                                                                                                 false);
+        ReferenceFactory rootKeyAwareSimpleRefFactory = NodeIdentifierReferenceFactory.newInstance(rootKey,
+                                                                                                   decoder,
+                                                                                                   factories,
+                                                                                                   true,
+                                                                                                   true);
+        context = context.with(rootKeyAwareStrongRefFactory).with(rootKeyAwareWeakRefFactory).with(rootKeyAwareSimpleRefFactory);
 
         // Create an execution context for this session that uses a local namespace registry ...
         final NamespaceRegistry globalNamespaceRegistry = context.getNamespaceRegistry(); // thread-safe!
@@ -160,6 +204,8 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         // Increment the statistics ...
         this.nanosCreated = System.nanoTime();
         repository.statistics().increment(ValueMetric.SESSION_COUNT);
+
+        acm = new AccessControlManagerImpl(this);
     }
 
     protected JcrSession( JcrSession original,
@@ -180,6 +226,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         // Increment the statistics ...
         this.nanosCreated = System.nanoTime();
         repository.statistics().increment(ValueMetric.SESSION_COUNT);
+        acm = new AccessControlManagerImpl(this);
     }
 
     final JcrWorkspace workspace() {
@@ -233,6 +280,10 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
 
     final String sessionId() {
         return context.getId();
+    }
+
+    public final boolean isReadOnly() {
+        return cache().isReadOnly();
     }
 
     /**
@@ -376,6 +427,10 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
 
     protected final String readable( Path path ) {
         return stringFactory().create(path);
+    }
+
+    protected void releaseCachedNode( AbstractJcrNode node ) {
+        jcrNodes.remove(node.key(), node);
     }
 
     /**
@@ -539,7 +594,17 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 node = child;
             }
         }
-        checkPermission(path, actions);
+        // Find the absolute path, based upon the parent ...
+        Path absPath = path.isAbsolute() ? path : null;
+        if (absPath == null) {
+            try {
+                // We need to look up the absolute path ..
+                absPath = node.getPath(cache);
+                checkPermission(absPath, actions);
+            } catch (NodeNotFoundException e) {
+                throw new PathNotFoundException(JcrI18n.nodeNotFound.text(stringFactory().create(path), workspaceName()));
+            }
+        }
         return node;
     }
 
@@ -692,7 +757,13 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         try {
             String systemWorkspaceKey = this.repository().systemWorkspaceKey();
             key = key.withWorkspaceKey(systemWorkspaceKey);
-            return node(key, null);
+            AbstractJcrNode systemNode = node(key, null);
+            if (systemNode instanceof JcrVersionHistoryNode) {
+                //because the version history node has the same key as the original node, we don't want to expose it to clients
+                //this means that if we got this far, the original hasn't been found, so neither should the version history
+                throw first;
+            }
+            return systemNode;
         } catch (ItemNotFoundException e) {
             // Not found, so throw the original exception ...
             throw first;
@@ -727,10 +798,18 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
 
     @Override
     public AbstractJcrNode getNode( String absPath ) throws PathNotFoundException, RepositoryException {
+        return getNode(absPath, false);
+    }
+
+    protected AbstractJcrNode getNode( String absPath,
+                                       boolean accessControlScope ) throws PathNotFoundException, RepositoryException {
         checkLive();
         CheckArg.isNotEmpty(absPath, "absolutePath");
         Path path = absolutePathFor(absPath);
 
+        if (!accessControlScope) {
+            checkPermission(path, ModeShapePermissions.READ);
+        }
         // Return root node if path is "/" ...
         if (path.isRoot()) {
             return getRootNode();
@@ -739,6 +818,19 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         return node(path);
     }
 
+    /*    protected Node getAclNode( String absPath ) throws PathNotFoundException, RepositoryException {
+            checkLive();
+            CheckArg.isNotEmpty(absPath, "absolutePath");
+            Path path = absolutePathFor(absPath);
+
+            // Return root node if path is "/" ...
+            if (path.isRoot()) {
+                return getRootNode();
+            }
+
+            return node(path);
+        }
+    */
     @Override
     public AbstractJcrItem getItem( String absPath ) throws PathNotFoundException, RepositoryException {
         checkLive();
@@ -931,6 +1023,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             throw new VersionException(JcrI18n.nodeIsCheckedIn.text(destParentNode.getPath()));
         }
 
+        // Check whether external nodes are involved
+        validateMoveForExternalNodes(srcPath, destPath);
+
         // check whether the parent definition allows children which match the source
         final Name newChildName = destPath.getLastSegment().getName();
         destParentNode.validateChildNodeDefinition(newChildName, srcNode.getPrimaryTypeName(), true);
@@ -968,6 +1063,64 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             // Not expected ...
             String msg = JcrI18n.nodeNotFound.text(stringFactory().create(srcPath.getParent()), workspaceName());
             throw new PathNotFoundException(msg);
+        }
+    }
+
+    private void validateMoveForExternalNodes( Path srcPath,
+                                               Path destPath ) throws RepositoryException {
+        AbstractJcrNode srcNode = node(srcPath);
+        String rootSourceKey = getRootNode().key().getSourceKey();
+
+        Set<NodeKey> sourceNodeKeys = cache().getNodeKeysAtAndBelow(srcNode.key());
+        boolean sourceContainsExternalNodes = false;
+        String externalSourceKey = null;
+        for (NodeKey sourceNodeKey : sourceNodeKeys) {
+            if (!sourceNodeKey.getSourceKey().equalsIgnoreCase(rootSourceKey)) {
+                externalSourceKey = sourceNodeKey.getSourceKey();
+                sourceContainsExternalNodes = true;
+                break;
+            }
+        }
+
+        AbstractJcrNode destNode = null;
+        try {
+            destNode = node(destPath);
+        } catch (PathNotFoundException e) {
+            // the destPath does not point to an existing node, so we'll use the parent
+            destNode = node(destPath.getParent());
+        }
+        String externalTargetKey = null;
+        boolean targetIsExternal = false;
+        if (!destNode.key().getSourceKey().equalsIgnoreCase(rootSourceKey)) {
+            targetIsExternal = true;
+            externalTargetKey = destNode.key().getSourceKey();
+        }
+
+        Connectors connectors = repository().runningState().connectors();
+        if (sourceContainsExternalNodes && !targetIsExternal) {
+            String sourceName = connectors.getSourceNameAtKey(externalSourceKey);
+            throw new RepositoryException(JcrI18n.unableToMoveSourceContainExternalNodes.text(srcPath, sourceName));
+        } else if (!sourceContainsExternalNodes && targetIsExternal) {
+            String sourceName = connectors.getSourceNameAtKey(externalTargetKey);
+            throw new RepositoryException(JcrI18n.unableToMoveTargetContainExternalNodes.text(srcPath, sourceName));
+        } else if (targetIsExternal) {
+            // both source and target are external nodes, but belonging to different sources
+            assert externalTargetKey != null;
+            if (!externalTargetKey.equalsIgnoreCase(srcNode.key().getSourceKey())) {
+                String sourceNodeSourceName = connectors.getSourceNameAtKey(srcNode.key().getSourceKey());
+                String targetNodeSourceName = connectors.getSourceNameAtKey(externalTargetKey);
+                throw new RepositoryException(JcrI18n.unableToMoveSourceTargetMismatch.text(sourceNodeSourceName,
+                                                                                            targetNodeSourceName));
+            }
+
+            // both source and target belong to the same source, but one of them is a projection root
+            if (connectors.hasExternalProjection(srcPath.getLastSegment().getString(), srcNode.key().toString())) {
+                throw new RepositoryException(JcrI18n.unableToMoveProjection.text(srcPath));
+            }
+
+            if (connectors.hasExternalProjection(destPath.getLastSegment().getString(), destNode.key().toString())) {
+                throw new RepositoryException(JcrI18n.unableToMoveProjection.text(destPath));
+            }
         }
     }
 
@@ -1099,14 +1252,14 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     }
 
     @Override
-    public JcrValueFactory getValueFactory() throws UnsupportedRepositoryOperationException, RepositoryException {
+    public JcrValueFactory getValueFactory() throws RepositoryException {
         checkLive();
         return valueFactory();
     }
 
     /**
-     * Determine if the current user does not have permission for all of the named actions in the named workspace, otherwise
-     * returns silently.
+     * Determine if the current user does not have permission for all of the named actions in the named workspace in the given
+     * context, otherwise returns silently.
      * 
      * @param workspaceName the name of the workspace in which the path exists
      * @param path the path on which the actions are occurring
@@ -1117,15 +1270,38 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     private final boolean hasPermission( String workspaceName,
                                          Path path,
                                          String... actions ) {
-        final String repositoryName = this.repository.repositoryName();
+        assert path == null ? true : path.isAbsolute() : "The path (if provided) must be absolute";
         SecurityContext sec = context.getSecurityContext();
+        final boolean checkAcl = repository.repositoryCache().isAccessControlEnabled();
+
+        boolean hasPermission = true;
+
+        final String repositoryName = this.repository.repositoryName();
         if (sec instanceof AuthorizationProvider) {
             // Delegate to the security context ...
             AuthorizationProvider authorizer = (AuthorizationProvider)sec;
-            return authorizer.hasPermission(context, repositoryName, repositoryName, workspaceName, path, actions);
+            hasPermission = authorizer.hasPermission(context, repositoryName, repositoryName, workspaceName, path, actions);
+
+            if (checkAcl && hasPermission) {
+                hasPermission = acm.hasPermission(path, actions);
+            }
+
+            return hasPermission;
         }
+
+        if (sec instanceof AdvancedAuthorizationProvider) {
+            // Delegate to the security context ...
+            AdvancedAuthorizationProvider authorizer = (AdvancedAuthorizationProvider)sec;
+            hasPermission = authorizer.hasPermission(authorizerContext, path, actions);
+
+            if (checkAcl && hasPermission) {
+                hasPermission = acm.hasPermission(path, actions);
+            }
+
+            return hasPermission;
+        }
+
         // It is a role-based security context, so apply role-based authorization ...
-        boolean hasPermission = true;
         for (String action : actions) {
             if (ModeShapePermissions.READ.equals(action)) {
                 hasPermission &= hasRole(sec, ModeShapeRoles.READONLY, repositoryName, workspaceName)
@@ -1143,6 +1319,11 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                                  || hasRole(sec, ModeShapeRoles.READWRITE, repositoryName, workspaceName);
             }
         }
+
+        if (checkAcl && hasPermission) {
+            hasPermission = acm.hasPermission(path, actions);
+        }
+
         return hasPermission;
     }
 
@@ -1186,7 +1367,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
      * The {@code path} parameter is included for future use and is currently ignored
      * </p>
      * 
-     * @param path the path on which the actions are occurring
+     * @param path the absolute path on which the actions are occurring
      * @param actions a comma-delimited list of actions to check
      * @throws AccessDeniedException if the actions cannot be performed on the node at the specified path
      */
@@ -1203,7 +1384,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
      * </p>
      * 
      * @param workspaceName the name of the workspace in which the path exists
-     * @param path the path on which the actions are occurring
+     * @param path the absolute path on which the actions are occurring
      * @param actions a comma-delimited list of actions to check
      * @throws AccessDeniedException if the actions cannot be performed on the node at the specified path
      */
@@ -1211,6 +1392,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                           Path path,
                           String... actions ) throws AccessDeniedException {
         CheckArg.isNotEmpty(actions, "actions");
+
         if (hasPermission(workspaceName, path, actions)) return;
 
         String pathAsString = path != null ? path.getString(this.namespaces()) : "<unknown>";
@@ -1454,8 +1636,8 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     }
 
     @Override
-    public AccessControlManager getAccessControlManager() throws UnsupportedRepositoryOperationException, RepositoryException {
-        throw new UnsupportedRepositoryOperationException();
+    public AccessControlManager getAccessControlManager() {
+        return acm;
     }
 
     @Override
@@ -1593,8 +1775,64 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     }
 
     @Override
+    public boolean sequence( String sequencerName,
+                             Property inputProperty,
+                             Node outputNode ) throws RepositoryException {
+        CheckArg.isSame(inputProperty.getSession(), "inputProperty", this, "this session");
+        CheckArg.isSame(outputNode.getSession(), "outputNode", this, "this session");
+        Sequencer sequencer = repository().runningState().sequencers().getSequencer(sequencerName);
+        if (sequencer == null) return false;
+
+        final ValueFactory values = getValueFactory();
+        final DateTime now = dateFactory().create();
+        final Sequencer.Context context = new Sequencer.Context() {
+
+            @Override
+            public ValueFactory valueFactory() {
+                return values;
+            }
+
+            @Override
+            public Calendar getTimestamp() {
+                return now.toCalendar();
+            }
+        };
+        try {
+            if (sequencer.hasAcceptedMimeTypes()) {
+                // Get the MIME type, first by looking at the changed property's parent node
+                // (or grand-parent node if parent is 'jcr:content') ...
+                String mimeType = SequencingRunner.getInputMimeType(inputProperty);
+
+                // See if the sequencer accepts the MIME type ...
+                if (mimeType != null && !sequencer.isAccepted(mimeType)) {
+                    Logger.getLogger(getClass())
+                          .debug("Skipping sequencing because input's MIME type '{0}' is not accepted by the '{1}' sequencer",
+                                 mimeType,
+                                 sequencerName);
+                    return false;
+                }
+            }
+            return sequencer.execute(inputProperty, outputNode, context);
+        } catch (RepositoryException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RepositoryException(e);
+        }
+    }
+
+    @Override
     public String toString() {
         return cache.toString();
+    }
+
+    @Override
+    public String decode( final String localName ) {
+        return Path.JSR283_DECODER.decode(localName);
+    }
+
+    @Override
+    public String encode( final String localName ) {
+        return Path.JSR283_ENCODER.encode(localName);
     }
 
     /**
@@ -1729,6 +1967,52 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     node.setReference(cache,
                                       propertyFactory.create(JcrLexicon.PREDECESSORS, new Object[] {baseVersionRef}),
                                       systemContent.cache());
+                } else {
+                    // we're dealing with node which has a version history, check if there any versionable properties present
+                    boolean hasVersioningProperties = node.hasProperty(JcrLexicon.IS_CHECKED_OUT, cache)
+                                                      || node.hasProperty(JcrLexicon.VERSION_HISTORY, cache)
+                                                      || node.hasProperty(JcrLexicon.BASE_VERSION, cache)
+                                                      || node.hasProperty(JcrLexicon.PREDECESSORS, cache);
+
+                    if (!hasVersioningProperties) {
+                        // the node doesn't have any versionable properties, so this is a case of mix:versionable removed at some
+                        // point and then re-added. If it had any versioning properties, we might've been dealing with something
+                        // else
+                        // e.g. a restore
+
+                        // Re-link the versionable properties, based on the existing version history
+                        node.setProperty(cache, propertyFactory.create(JcrLexicon.IS_CHECKED_OUT, Boolean.TRUE));
+
+                        JcrVersionHistoryNode versionHistoryNode = versionManager().getVersionHistory(node(node.getKey(), null));
+                        Reference historyRef = referenceFactory.create(versionHistoryNode.key(), true);
+                        node.setReference(cache,
+                                          propertyFactory.create(JcrLexicon.VERSION_HISTORY, historyRef),
+                                          systemContent.cache());
+
+                        // set the base version to the last existing version
+                        JcrVersionNode baseVersion = null;
+                        for (VersionIterator versionIterator = versionHistoryNode.getAllVersions(); versionIterator.hasNext();) {
+                            JcrVersionNode version = (JcrVersionNode)versionIterator.nextVersion();
+                            if (baseVersion == null || version.isLinearSuccessorOf(baseVersion)) {
+                                baseVersion = version;
+                            }
+                        }
+                        assert baseVersion != null;
+                        Reference baseVersionRef = referenceFactory.create(baseVersion.key(), true);
+                        node.setReference(cache,
+                                          propertyFactory.create(JcrLexicon.BASE_VERSION, baseVersionRef),
+                                          systemContent.cache());
+
+                        // set the predecessors to the same list as the base version's predecessors
+                        Version[] baseVersionPredecessors = baseVersion.getPredecessors();
+                        Reference[] predecessors = new Reference[baseVersionPredecessors.length];
+                        for (int i = 0; i < baseVersionPredecessors.length; i++) {
+                            predecessors[i] = referenceFactory.create(((JcrVersionNode)baseVersionPredecessors[i]).key(), true);
+                        }
+                        node.setReference(cache,
+                                          propertyFactory.create(JcrLexicon.PREDECESSORS, predecessors),
+                                          systemContent.cache());
+                    }
                 }
             }
 
@@ -1782,7 +2066,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                                 jcrNode.setProperty(propName, defaultValues, defn.getRequiredType(), false);
                             } else {
                                 // don't skip constraint checks or protected checks
-                                jcrNode.setProperty(propName, defaultValues[0], false, false, false);
+                                jcrNode.setProperty(propName, defaultValues[0], false, false, false, false);
                             }
                         } else {
                             // There is no default for this mandatory property, so this is a constraint violation ...
@@ -1828,24 +2112,10 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             Collection<JcrNodeDefinition> mandatoryChildDefns = null;
             mandatoryChildDefns = nodeTypeCapabilities.getMandatoryChildNodeDefinitions(primaryType, mixinTypes);
             if (!mandatoryChildDefns.isEmpty()) {
-                // There is at least one auto-created child node definition on this node, so figure out if they are all
-                // covered by existing children ...
-                Set<NodeKey> allChildren = cache().getNodeKeysAtAndBelow(node.getKey());
-                allChildren.addAll(cache().getChangedNodeKeysAtOrBelow(node));
-                // remove the current node
-                allChildren.remove(node.getKey());
-                // remove all the keys of the nodes which are removed
-                allChildren.removeAll(node.getNodeChanges().removedChildren());
                 Set<Name> childrenNames = new HashSet<Name>();
 
                 for (NodeKey childKey : allChildren) {
-                    SessionCache tCache = cache();
-                    CachedNode tNode = tCache.getNode(childKey);
-                    if (tNode == null) {
-                        tCache = systemContent.cache();
-                        tNode = tCache.getNode(childKey);
-                    }
-                    childrenNames.add(tNode.getName(tCache));
+                    childrenNames.add(cache().getNode(childKey).getName(cache()));
                 }
 
                 for (JcrNodeDefinition defn : mandatoryChildDefns) {

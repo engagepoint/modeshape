@@ -27,12 +27,18 @@ import static org.hamcrest.core.Is.is;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
+import static org.junit.Assert.fail;
+import java.util.Iterator;
+import java.util.List;
 import javax.jcr.RepositoryException;
 import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeTemplate;
+import javax.jcr.nodetype.PropertyDefinitionTemplate;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.modeshape.common.FixFor;
 
 public class JcrNodeTypeManagerTest extends MultiUseAbstractTest {
 
@@ -136,5 +142,81 @@ public class JcrNodeTypeManagerTest extends MultiUseAbstractTest {
     public void shouldVerifyNtFileHasPrimaryItem() throws Exception {
         NodeType ntFile = nodeTypeMgr.getNodeType(NT_FILE_NODE_TYPE);
         assertThat(ntFile.getPrimaryItemName(), is("jcr:content"));
+    }
+
+    @SuppressWarnings( "unchecked" )
+    @Test
+    @FixFor( "MODE-1954" )
+    public void shouldRemovePropertyDefinitionViaTemplate() throws Exception {
+        session.getWorkspace().getNamespaceRegistry().registerNamespace("dmsmix", "http://myexample.com/dms");
+        NodeTypeTemplate fileContent = nodeTypeMgr.createNodeTypeTemplate();
+        fileContent.setName("dmsmix:filecontent");
+        nodeTypeMgr.registerNodeType(fileContent, true);
+
+        NodeType nodeType = nodeTypeMgr.getNodeType("dmsmix:filecontent");
+        NodeTypeTemplate nodeTypeTemplate = nodeTypeMgr.createNodeTypeTemplate(nodeType);
+        PropertyDefinitionTemplate tp = nodeTypeMgr.createPropertyDefinitionTemplate();
+        tp.setName("dmsmix:owner");
+        nodeTypeTemplate.getPropertyDefinitionTemplates().add(tp);
+        nodeTypeMgr.registerNodeType(nodeTypeTemplate, true);
+
+        nodeType = nodeTypeMgr.getNodeType("dmsmix:filecontent");
+        nodeTypeTemplate = nodeTypeMgr.createNodeTypeTemplate(nodeType);
+        List<PropertyDefinitionTemplate> pts = nodeTypeTemplate.getPropertyDefinitionTemplates();
+        Iterator<PropertyDefinitionTemplate> pit = pts.iterator();
+        while (pit.hasNext()) {
+            PropertyDefinitionTemplate pi = pit.next();
+            if (pi.getName().equals("dmsmix:owner")) {
+                pit.remove();
+            }
+        }
+        nodeTypeMgr.registerNodeType(nodeTypeTemplate, true);
+    }
+
+    @Test
+    @FixFor( "MODE-1963" )
+    public void shouldAllowReRegistrationOfMixinViaTemplate() throws Exception {
+        session.getWorkspace().getNamespaceRegistry().registerNamespace("dmsmix", "http://myexample.com/dms");
+        String mixinName = "dmsmix:test";
+        registerMixin(mixinName);
+        nodeTypeMgr.unregisterNodeType(mixinName);
+        registerMixin(mixinName);
+    }
+
+    @Test
+    @FixFor( "MODE-1965" )
+    public void shouldNotAllowRegistrationOfMixinThatInheritsNonMixin() throws Exception {
+        session.getWorkspace().getNamespaceRegistry().registerNamespace("test", "http://myexample.com/test");
+        String mixinName = "test:mixin";
+        try {
+            registerMixin(mixinName, "nt:unstructured");
+            fail("Should not allow registration of mixin that inherits non-mixin");
+        } catch (RepositoryException e) {
+            //expected
+        }
+    }
+
+    @Test
+    @FixFor( "MODE-1965" )
+    public void shouldNotAllowRegistrationOfMixinThatInheritsBothNonMixinAndMixin() throws Exception {
+        session.getWorkspace().getNamespaceRegistry().registerNamespace("test", "http://myexample.com/test");
+        registerMixin("test:mixinParent");
+        try {
+            registerMixin("test:mixinChild", "test:mixinParent", "nt:base");
+            fail("Should not allow registration of mixin that inherits non-mixin");
+        } catch (RepositoryException e) {
+            //expected
+        }
+    }
+
+    private void registerMixin( String name, String...declaredSuperTypes ) throws RepositoryException {
+        NodeTypeTemplate nodeTypeTemplate = nodeTypeMgr.createNodeTypeTemplate();
+        nodeTypeTemplate.setMixin(true);
+        nodeTypeTemplate.setName(name);
+        nodeTypeTemplate.setQueryable(true);
+        if (declaredSuperTypes.length > 0) {
+            nodeTypeTemplate.setDeclaredSuperTypeNames(declaredSuperTypes);
+        }
+        nodeTypeMgr.registerNodeType(nodeTypeTemplate, true);
     }
 }

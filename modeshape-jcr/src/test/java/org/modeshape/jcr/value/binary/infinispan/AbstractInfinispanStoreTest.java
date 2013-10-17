@@ -26,7 +26,6 @@ package org.modeshape.jcr.value.binary.infinispan;
 import org.infinispan.configuration.cache.Configuration;
 import org.infinispan.manager.DefaultCacheManager;
 import org.junit.AfterClass;
-import org.junit.Ignore;
 import org.modeshape.jcr.value.binary.AbstractBinaryStoreTest;
 import org.modeshape.jcr.value.binary.BinaryStore;
 
@@ -71,9 +70,4 @@ public abstract class AbstractInfinispanStoreTest extends AbstractBinaryStoreTes
         return binaryStore;
     }
 
-    @Override
-    @Ignore( "The infinispan binary stored do no support this operation" )
-    public void shouldReturnAllStoredKeys() throws Exception {
-
-    }
 }

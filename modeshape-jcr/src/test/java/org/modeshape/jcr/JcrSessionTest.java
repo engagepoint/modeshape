@@ -66,7 +66,7 @@ import javax.jcr.nodetype.NodeTypeTemplate;
 import javax.jcr.observation.EventIterator;
 import javax.jcr.observation.EventListener;
 import javax.jcr.query.Query;
-import javax.jcr.query.QueryResult;
+import javax.jcr.query.QueryManager;
 import org.junit.Test;
 import org.mockito.Mockito;
 import org.modeshape.common.FixFor;
@@ -80,6 +80,9 @@ import org.modeshape.jcr.value.Path;
 public class JcrSessionTest extends SingleUseAbstractTest {
 
     private static final String MULTI_LINE_VALUE = "Line\t1\nLine 2\rLine 3\r\nLine 4";
+    private static final String PUBLIC_DECODED_NAME = "a|b]c[d:e/f*g";
+    private static final String PUBLIC_ENCODED_NAME = "a" + '\uF07C' + 'b' + '\uF05D' + 'c' + '\uF05B' + 'd' + '\uF03A' + 'e'
+                                                      + '\uF02F' + 'f' + '\uF02A' + 'g';
 
     protected void initializeData() throws Exception {
         Node root = session.getRootNode();
@@ -95,6 +98,18 @@ public class JcrSessionTest extends SingleUseAbstractTest {
         c.setProperty("stringProperty", "value");
         c.setProperty("multiLineProperty", MULTI_LINE_VALUE);
         session.save();
+    }
+
+    @Test
+    @FixFor( "MODE-1956" )
+    public void shouldDecodeNameWithUnicodeSubstitutionCharacters() {
+        assertThat(session.decode(PUBLIC_ENCODED_NAME), is(PUBLIC_DECODED_NAME));
+    }
+
+    @Test
+    @FixFor( "MODE-1956" )
+    public void shouldEncodeNameWithIllegalCharacters() {
+        assertThat(session.encode(PUBLIC_DECODED_NAME), is(PUBLIC_ENCODED_NAME));
     }
 
     @Test
@@ -1095,19 +1110,6 @@ public class JcrSessionTest extends SingleUseAbstractTest {
         assertThat(listener.changes, is(0));
     }
 
-
-    @FixFor( "MODE-1870")
-    @Test
-    public void shouldAllowInfinispanIndexStorageUsingClasspathConfiguration() throws Exception {
-        startRepositoryWithConfiguration(resourceStream("config/index-storage-config-infinispan-classpath.json"));
-        session.getRootNode().addNode("node1");
-        session.save();
-
-        JcrQueryManager queryManager = session.getWorkspace().getQueryManager();
-        QueryResult result = queryManager.createQuery("select [jcr:path] from [nt:unstructured] as n where n.[jcr:path] = '/node1'", Query.JCR_SQL2).execute();
-        assertEquals(1, result.getNodes().getSize());
-    }
-
     @Test
     @FixFor( "MODE-1894" )
     public void shouldReplaceOldPropertyValuesInIndexesWhenUpdating() throws Exception {
@@ -1117,20 +1119,131 @@ public class JcrSessionTest extends SingleUseAbstractTest {
         a.setProperty("stringProperty1", "value");
         session.save();
 
-        QueryResult queryResult = tools.printQuery(session, "select * from [nt:unstructured] as node where node.stringProperty='value'");
-        assertEquals(2, queryResult.getNodes().getSize());
-
-        queryResult = tools.printQuery(session, "select * from [nt:unstructured] as node where node.stringProperty1='value'");
-        assertEquals(1, queryResult.getNodes().getSize());
+        queryAndExpectResults("select * from [nt:unstructured] as node where node.stringProperty='value'", 2);
+        queryAndExpectResults("select * from [nt:unstructured] as node where node.stringProperty1='value'", 1);
 
         a.setProperty("stringProperty", "value1");
         session.save();
 
-        queryResult = tools.printQuery(session, "select * from [nt:unstructured] as node where node.stringProperty='value'");
-        assertEquals(1, queryResult.getNodes().getSize());
+        queryAndExpectResults("select * from [nt:unstructured] as node where node.stringProperty='value'", 1);
+        queryAndExpectResults("select * from [nt:unstructured] as node where node.stringProperty1='value'", 1);
+    }
 
-        queryResult = tools.printQuery(session, "select * from [nt:unstructured] as node where node.stringProperty1='value'");
-        assertEquals(1, queryResult.getNodes().getSize());
+    @Test
+    @FixFor( "MODE-1940" )
+    public void shouldIndexRenamedNodes() throws Exception {
+        initializeData();
+
+        // create a/d
+        session.getNode("/a").addNode("d");
+        session.save();
+        // rename /a/b to /a/d
+        session.getWorkspace().move("/a/b", "/a/d");
+
+        queryForAbsentLocalName("b");
+        queryForExistingLocaLName("d", "/a/d");
+        queryForExistingLocaLName("c", "/a/d/c");
+    }
+
+    @Test
+    @FixFor( "MODE-1940" )
+    public void shouldIndexMovedNodes() throws Exception {
+        initializeData();
+
+        // create /w/q
+        session.getNode("/").addNode("w").addNode("q");
+        session.save();
+        // move /a to /w/q
+        session.getWorkspace().move("/a", "/w/x");
+
+        queryForAbsentLocalName("a");
+        queryForExistingLocaLName("x", "/w/x");
+        queryForExistingLocaLName("b", "/w/x/b");
+        queryForExistingLocaLName("c", "/w/x/b/c");
+    }
+
+    @Test
+    @FixFor( "MODE-2030")
+    public void shouldIndexChildrenOfRenamedNode() throws Exception {
+        Node rootNode = session().getRootNode();
+        Node folder = rootNode.addNode("folder", "nt:folder");
+        Node file = folder.addNode("file", "nt:file");
+        Node contentNode = file.addNode("jcr:content", "nt:resource");
+        contentNode.setProperty("jcr:data", session().getValueFactory().createBinary("test".getBytes()));
+
+        session().save();
+
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folder/%'", 1);
+
+        folder.getSession().move(folder.getPath(), "/folder_1");
+        folder.getSession().save();
+
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folder_1/%'", 1);
+    }
+
+    @Test
+    @FixFor( "MODE-2030")
+    public void shouldIndexChildrenOfMovedNode() throws Exception {
+        Node rootNode = session().getRootNode();
+        Node folder = rootNode.addNode("folder", "nt:folder");
+        Node file = folder.addNode("file", "nt:file");
+        Node contentNode = file.addNode("jcr:content", "nt:resource");
+        contentNode.setProperty("jcr:data", session().getValueFactory().createBinary("test".getBytes()));
+        String lastModifiedBy = "testCode";
+        contentNode.setProperty("jcr:lastModifiedBy", lastModifiedBy);
+        rootNode.addNode("folderA");
+
+        session().save();
+
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folder/%'", 1);
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folderA/%'", 0);
+        queryAndExpectResults("SELECT * FROM [nt:resource] as r WHERE r.[jcr:lastModifiedBy]='"+ lastModifiedBy + "'" , 1);
+
+        folder.getSession().move(folder.getPath(), "/folderA/folderB");
+        folder.getSession().save();
+
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folder/%'", 0);
+        queryAndExpectResults("SELECT * FROM [nt:file] WHERE [jcr:path] LIKE '/folderA/folderB/%'", 1);
+        queryAndExpectResults("SELECT * FROM [nt:resource] as r WHERE r.[jcr:lastModifiedBy]='"+ lastModifiedBy + "'" , 1);
+    }
+
+    @Test
+    @FixFor( "MODE-2029" )
+    public void shouldRetrieveNodesUsingIsChildNodeAfterMove() throws Exception {
+        Node rootNode = session().getRootNode();
+        rootNode.addNode("a").addNode("b").addNode("c");
+        rootNode.addNode("tmp");
+        session.save();
+        queryAndExpectResults("SELECT * FROM [nt:unstructured] as node WHERE ISCHILDNODE (node, '/a/b')", 1);
+        session.getWorkspace().move("/a/b", "/tmp/b");
+        queryAndExpectResults("SELECT * FROM [nt:unstructured] as node WHERE ISCHILDNODE (node, '/tmp/b')", 1);
+        queryAndExpectResults("SELECT * FROM [nt:unstructured] as node WHERE ISCHILDNODE (node, '/a/b')", 0);
+    }
+
+    private List<Node> queryAndExpectResults(String queryString, int howMany) throws RepositoryException{
+        QueryManager queryManager = session.getWorkspace().getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+
+        NodeIterator nodes = query.execute().getNodes();
+        List<Node> result = new ArrayList<Node>();
+        while (nodes.hasNext()) {
+            result.add(nodes.nextNode());
+        }
+        assertEquals("Invalid nodes retrieved from query: " + result, howMany, result.size());
+        return result;
+    }
+
+    private void queryForAbsentLocalName( String localNodeName ) throws RepositoryException {
+        queryAndExpectResults("select n from [nt:unstructured] as n where localname(n)='" + localNodeName + "'", 0);
+    }
+
+    private void queryForExistingLocaLName( String localNodeName,
+                                            String expectedPath ) throws RepositoryException {
+        List<Node> nodes = queryAndExpectResults(
+                "select n from [nt:unstructured] as n where localname(n)='" + localNodeName + "'", 1);
+        Node node = nodes.get(0);
+        assertEquals(localNodeName, node.getName());
+        assertEquals(expectedPath, node.getPath());
     }
 
     protected static class PropertyListener implements EventListener {

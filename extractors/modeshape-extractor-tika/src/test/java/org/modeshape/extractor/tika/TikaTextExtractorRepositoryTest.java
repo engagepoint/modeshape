@@ -28,9 +28,12 @@ import static junit.framework.Assert.assertEquals;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import javax.jcr.NodeIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
+import javax.jcr.query.QueryManager;
 import javax.jcr.query.QueryResult;
+import org.junit.Assert;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.jcr.SingleUseAbstractTest;
@@ -73,25 +76,38 @@ public class TikaTextExtractorRepositoryTest extends SingleUseAbstractTest {
     @FixFor( "MODE-1561" )
     public void shouldNotExtractPastWriteLimit() throws Exception {
         startRepositoryWithConfiguration(getResource("repo-config-text-extraction-limit.json"));
-        //configured in the cfg file
+        // configured in the cfg file
         int configuredWriteLimit = 100;
 
-        //generate a string the size of the configured limit and check that it's been indexed
+        // generate a string the size of the configured limit and check that it's been indexed
         String randomString = TikaTextExtractorTest.randomString(configuredWriteLimit);
         jcrTools.uploadFile(session, "/testFile", new ByteArrayInputStream(randomString.getBytes()));
         session.save();
 
-        //test text extraction via querying, since that's where it's actually used
+        // test text extraction via querying, since that's where it's actually used
         String sql = "select [jcr:path] from [nt:base] where contains([nt:base].*, '" + randomString + "')";
-        jcrTools.printQuery(session, sql, 1);
+        queryAndExpectResults(sql, 1);
 
-        //generate a string larger than the limit and check that it hasn't been indexed
+        // generate a string larger than the limit and check that it hasn't been indexed
         randomString = TikaTextExtractorTest.randomString(configuredWriteLimit + 1);
         jcrTools.uploadFile(session, "testFile1", new ByteArrayInputStream(randomString.getBytes()));
         session.save();
 
         sql = "select [jcr:path] from [nt:base] where contains([nt:base].*, '" + randomString + "')";
-        jcrTools.printQuery(session, sql, 0);
+        queryAndExpectResults(sql, 0);
+    }
+
+    private void queryAndExpectResults(String queryString, int howMany) throws RepositoryException {
+        QueryManager queryManager = ((javax.jcr.Workspace)session.getWorkspace()).getQueryManager();
+        Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
+        NodeIterator nodes = query.execute().getNodes();
+        Assert.assertEquals(howMany, nodes.getSize());
+    }
+
+    @Test
+    public void shouldIgnoreMissingTikaDefaultDependendcy() throws Exception {
+        startRepositoryWithConfiguration(getResource("repo-config.json"));
+        uploadFile("image_file.jpg");
     }
 
     private void assertExtractedTextHasBeenIndexed( String validationQuery ) throws RepositoryException {

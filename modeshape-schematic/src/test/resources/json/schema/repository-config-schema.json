@@ -139,7 +139,7 @@
                             "properties" : {
                                 "type" : {
                                     "type" : "string",
-                                    "description" : "The specification of the database binary store, which stores BINARY values in a JDBC-compatible database.",
+                                    "description" : "The specification of the Infinispan binary store, which stores BINARY values in an Infinispan cache.",
                                     "enum" : [ "cache" ]
                                 },
                                 "dataCacheName" : {
@@ -161,10 +161,15 @@
                                     "default" : 4096,
                                     "description" : "The size threshold that dictates whether String and binary values should be stored in the binary store. String and binary values smaller than this value are stored with the node, whereas string and binary values with a size equal to or greater than this limit will be stored separately from the node and in the binary store, keyed by the SHA-1 hash of the value. This is a space and performance optimization that stores each unique large value only once. The default value is '4096' bytes, or 4 kilobytes."
                                 },
+                                "chunkSize" : {
+                                    "type" : "integer",
+                                    "default" : 1048576,
+                                    "description" : "The size (in bytes) of a segment which dictates into how many segments a binary value is split when stored in the cache. Each chunk represents an entry in the cache"
+                                },
                                 "description" : {
                                     "type" : "string",
                                     "description" : "The optional description of this section of the configuration. It is unused by ModeShape."
-                                },
+                                }
                             }
                         },
                     ]
@@ -554,45 +559,6 @@
                         },
                         {
                             "type" : "object",
-                            "description" : "The specification for storing the indexes for a (typically clustered) repository in an Infinispan data grid, making index changes visible to all elements of the cluster very quickly.",
-                            "additionalProperties" : false,
-                            "properties" : {
-                                "type" : {
-                                    "type" : "string",
-                                    "description" : "The specification of the Infinispan index storage type.",
-                                    "required" : true,
-                                    "enum" : ["infinispan"]
-                                },
-                                "lockCacheName" : {
-                                    "type" : "string",
-                                    "description" : "The name of the Infinispan cache where the index locks will be stored. If not provided, the default will be '<repositoryName>-index-locks'."
-                                },
-                                "dataCacheName" : {
-                                    "type" : "string",
-                                    "description" : "The name of the Infinispan cache where the index data will be stored. If not provided, the default will be '<repositoryName>-index-data'."
-                                },
-                                "metadataCacheName" : {
-                                    "type" : "string",
-                                    "description" : "The name of the Infinispan cache where the index metadata will be stored. If not provided, the default will be '<repositoryName>-index-metadata'."
-                                },
-                                "cacheConfiguration" : {
-                                    "type" : "string",
-                                    "description" : "The name of the Infinispan configuration file for creating a new cache manager. If a file could not be found (on the thread context classloader, on the application's classpath, or on the system classpath), then the name is assumed to reference an existing Infinispan CacheContainer instance via a valid JNDI name or as the name of a service as defined by the local environment. If no such container is found, then the cache container used by the 'storage' configuration is used."
-                                },
-                                "chunkSizeInBytes" : {
-                                    "type" : "integer",
-                                    "exclusiveMinimum" : 0,
-                                    "default" : 16834,
-                                    "description" : "The maximum size in bytes for each chunk of data. Larger sizes offer better search performance but might be problematic during network replication or storage. The default is 16KB, or 16834."
-                                },
-                                "description" : {
-                                    "type" : "string",
-                                    "description" : "The optional description of this section of the configuration. It is unused by ModeShape."
-                                },
-                            }
-                        },
-                        {
-                            "type" : "object",
                             "description" : "The specification for storing the indexes in a custom directory provider.",
                             "additionalProperties" : true,
                             "properties" : {
@@ -690,7 +656,7 @@
                             "additionalProperties" : false,
                             "properties" : {
                                 "when" : {
-                                    "enum" : ["if_missing","always","never"],
+                                    "enum" : ["if_missing","always","never", "fail_if_missing"],
                                     "default" : "if_missing",
                                     "description" : "Specifies whether the indexes need to be rebuilt immediately when each ModeShape process starts up, or only missing indexes are to be rebuilt or nothing should be rebuilt"
                                 },
@@ -900,7 +866,7 @@
                 "removeDerivedContentWithOriginal" : {
                     "type" : "boolean",
                     "default" : true,
-                    "description" : "Boolean option that controls whether the repository should also remove the content automatically derived by sequencers from the original content when that original content is removed. The default is 'true', since often times the derived content should not be kept if the original is being deleted."
+                    "description" : "DEPRECATED: This was never used and is currently ignored."
                 },
                 "threadPool" : {
                     "type" : "string",

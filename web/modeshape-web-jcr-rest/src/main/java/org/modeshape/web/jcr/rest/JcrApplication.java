@@ -23,14 +23,15 @@
  */
 package org.modeshape.web.jcr.rest;
 
-import javax.ws.rs.core.Application;
-import org.modeshape.web.jcr.rest.form.FileUploadForm;
-import org.modeshape.web.jcr.rest.output.HtmlBodyWriter;
-import org.modeshape.web.jcr.rest.output.JSONBodyWriter;
-import org.modeshape.web.jcr.rest.output.TextBodyWriter;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
+import javax.ws.rs.core.Application;
+import org.modeshape.web.jcr.rest.interceptor.CleanupInterceptor;
+import org.modeshape.web.jcr.rest.interceptor.LoggingInterceptor;
+import org.modeshape.web.jcr.rest.output.HtmlBodyWriter;
+import org.modeshape.web.jcr.rest.output.JSONBodyWriter;
+import org.modeshape.web.jcr.rest.output.TextBodyWriter;
 
 /**
  * Implementation of the JAX-RS {@code Application} class to identify all JAX-RS providers and classes in the application.
@@ -43,12 +44,7 @@ public final class JcrApplication extends Application {
     @Override
     public Set<Class<?>> getClasses() {
         return new HashSet<Class<?>>(Arrays.asList(new Class<?>[] { JcrResources.class, ModeShapeRestService.class,
-                FileUploadForm.class, HtmlBodyWriter.class, JSONBodyWriter.class, TextBodyWriter.class,
-                ExceptionMappers.PathNotFoundExceptionMapper.class, ExceptionMappers.JSONExceptionMapper.class,
-                ExceptionMappers.NotFoundExceptionMapper.class, ExceptionMappers.NoSuchRepositoryExceptionMapper.class,
-                ExceptionMappers.NoSuchWorkspaceExceptionMapper.class, ExceptionMappers.RepositoryExceptionMapper.class,
-                ExceptionMappers.InvalidQueryExceptionMapper.class, ExceptionMappers.NoSuchNodeTypeExceptionMapper.class,
-                ExceptionMappers.IllegalArgumentExceptionMapper.class }));
+                HtmlBodyWriter.class, JSONBodyWriter.class, TextBodyWriter.class, LoggingInterceptor.class,
+                CleanupInterceptor.class, ModeShapeExceptionMapper.class}));
     }
-
 }

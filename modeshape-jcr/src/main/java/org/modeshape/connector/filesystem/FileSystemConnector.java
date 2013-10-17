@@ -31,6 +31,8 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.URISyntaxException;
 import java.net.URL;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.Map;
 import java.util.regex.Pattern;
 import javax.jcr.NamespaceRegistry;
@@ -38,8 +40,6 @@ import javax.jcr.RepositoryException;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.util.FileUtil;
 import org.modeshape.common.util.IoUtil;
-import org.modeshape.common.util.SecureHash;
-import org.modeshape.common.util.SecureHash.Algorithm;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.JcrI18n;
 import org.modeshape.jcr.JcrLexicon;
@@ -52,8 +52,9 @@ import org.modeshape.jcr.federation.spi.Connector;
 import org.modeshape.jcr.federation.spi.DocumentChanges;
 import org.modeshape.jcr.federation.spi.DocumentReader;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
+import org.modeshape.jcr.federation.spi.PageKey;
+import org.modeshape.jcr.federation.spi.Pageable;
 import org.modeshape.jcr.federation.spi.WritableConnector;
-import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.Property;
@@ -108,7 +109,7 @@ import org.modeshape.jcr.value.binary.UrlBinaryValue;
  * </tr>
  * </table>
  */
-public class FileSystemConnector extends WritableConnector {
+public class FileSystemConnector extends WritableConnector implements Pageable {
 
     private static final String FILE_SEPARATOR = System.getProperty("file.separator");
     private static final String DELIMITER = "/";
@@ -164,6 +165,11 @@ public class FileSystemConnector extends WritableConnector {
     private String exclusionPattern;
 
     /**
+     * The maximum number of children a folder will expose at any given time.
+     */
+    private int pageSize = 20;
+
+    /**
      * The {@link FilenameFilter} implementation that is instantiated in the
      * {@link #initialize(NamespaceRegistry, NodeTypeManager)} method.
      */
@@ -212,7 +218,7 @@ public class FileSystemConnector extends WritableConnector {
         // Initialize the filename filter ...
         filenameFilter = new InclusionExclusionFilenameFilter();
         if (exclusionPattern != null) filenameFilter.setExclusionPattern(exclusionPattern);
-        if (inclusionPattern != null) filenameFilter.setInclusionPattern(exclusionPattern);
+        if (inclusionPattern != null) filenameFilter.setInclusionPattern(inclusionPattern);
 
         // Set up the extra properties storage ...
         if (EXTRA_PROPERTIES_JSON.equalsIgnoreCase(extraPropertiesStorage)) {
@@ -326,9 +332,7 @@ public class FileSystemConnector extends WritableConnector {
      */
     protected ExternalBinaryValue binaryFor( File file ) {
         try {
-            byte[] sha1 = SecureHash.getHash(Algorithm.SHA_1, file);
-            BinaryKey key = new BinaryKey(sha1);
-            return createBinaryValue(key, file);
+            return createBinaryValue(file);
         } catch (RuntimeException e) {
             throw e;
         } catch (Throwable e) {
@@ -340,15 +344,13 @@ public class FileSystemConnector extends WritableConnector {
      * Utility method to create a {@link BinaryValue} object for the given file. Subclasses should rarely override this method,
      * since the {@link UrlBinaryValue} will be applicable in most situations.
      * 
-     * @param key the binary key; never null
      * @param file the file for which the {@link BinaryValue} is to be created; never null
      * @return the binary value; never null
      * @throws IOException if there is an error creating the value
      */
-    protected ExternalBinaryValue createBinaryValue( BinaryKey key,
-                                                     File file ) throws IOException {
+    protected ExternalBinaryValue createBinaryValue( File file ) throws IOException {
         URL content = createUrlForFile(file);
-        return new UrlBinaryValue(key, getSourceName(), content, file.length(), file.getName(), getMimeTypeDetector());
+        return new UrlBinaryValue(getSourceName(), content, file.length(), file.getName(), getMimeTypeDetector());
     }
 
     /**
@@ -408,9 +410,10 @@ public class FileSystemConnector extends WritableConnector {
         if (isExcluded(file) || !file.exists()) return null;
         boolean isRoot = isRoot(id);
         boolean isResource = isContentNode(id);
-        DocumentWriter writer = newDocument(id);
+        DocumentWriter writer = null;
         File parentFile = file.getParentFile();
         if (isResource) {
+            writer = newDocument(id);
             BinaryValue binaryValue = binaryFor(file);
             writer.setPrimaryType(NT_RESOURCE);
             writer.addProperty(JCR_DATA, binaryValue);
@@ -432,25 +435,14 @@ public class FileSystemConnector extends WritableConnector {
             writer.setNotQueryable();
             parentFile = file;
         } else if (file.isFile()) {
+            writer = newDocument(id);
             writer.setPrimaryType(NT_FILE);
             writer.addProperty(JCR_CREATED, factories().getDateFactory().create(file.lastModified()));
             writer.addProperty(JCR_CREATED_BY, null); // ignored
             String childId = isRoot ? JCR_CONTENT_SUFFIX : id + JCR_CONTENT_SUFFIX;
             writer.addChild(childId, JCR_CONTENT);
         } else {
-            writer.setPrimaryType(NT_FOLDER);
-            writer.addProperty(JCR_CREATED, factories().getDateFactory().create(file.lastModified()));
-            writer.addProperty(JCR_CREATED_BY, null); // ignored
-            for (File child : file.listFiles(filenameFilter)) {
-                // Only include as a child if we can access and read the file. Permissions might prevent us from
-                // reading the file, and the file might not exist if it is a broken symlink (see MODE-1768 for details).
-                if (child.exists() && child.canRead() && (child.isFile() || child.isDirectory())) {
-                    // We use identifiers that contain the file/directory name ...
-                    String childName = child.getName();
-                    String childId = isRoot ? DELIMITER + childName : id + DELIMITER + childName;
-                    writer.addChild(childId, childName);
-                }
-            }
+            writer = newFolderWriter(id, file, 0);
         }
 
         if (!isRoot) {
@@ -472,11 +464,52 @@ public class FileSystemConnector extends WritableConnector {
         return writer.document();
     }
 
+    private DocumentWriter newFolderWriter( String id,
+                                            File file,
+                                            int offset ) {
+        boolean root = isRoot(id);
+        DocumentWriter writer = newDocument(id);
+        writer.setPrimaryType(NT_FOLDER);
+        writer.addProperty(JCR_CREATED, factories().getDateFactory().create(file.lastModified()));
+        writer.addProperty(JCR_CREATED_BY, null); // ignored
+        File[] children = file.listFiles(filenameFilter);
+        long totalChildren = 0;
+        int nextOffset = 0;
+        for (int i = 0; i < children.length; i++) {
+            File child = children[i];
+            // Only include as a child if we can access and read the file. Permissions might prevent us from
+            // reading the file, and the file might not exist if it is a broken symlink (see MODE-1768 for details).
+            if (child.exists() && child.canRead() && (child.isFile() || child.isDirectory())) {
+                // we need to count the total accessible children
+                totalChildren++;
+                // only add a child if it's in the current page
+                if (i >= offset && i < offset + pageSize) {
+                    // We use identifiers that contain the file/directory name ...
+                    String childName = child.getName();
+                    String childId = root ? DELIMITER + childName : id + DELIMITER + childName;
+                    writer.addChild(childId, childName);
+                    nextOffset = i + 1;
+                }
+            }
+        }
+        // if there are still accessible children add the next page
+        if (nextOffset < totalChildren) {
+            writer.addPage(id, nextOffset, pageSize, totalChildren);
+        }
+        return writer;
+    }
+
     @Override
     public String getDocumentId( String path ) {
         String id = path; // this connector treats the ID as the path
         File file = fileFor(id);
         return file.exists() ? id : null;
+    }
+
+    @Override
+    public Collection<String> getDocumentPathsById( String id ) {
+        // this connector treats the ID as the path
+        return Collections.singletonList(id);
     }
 
     @Override
@@ -585,6 +618,7 @@ public class FileSystemConnector extends WritableConnector {
         DocumentReader reader = readDocument(document);
 
         File file = fileFor(id);
+        String idOrig = id;
 
         // if we're dealing with the root of the connector, we can't process any moves/removes because that would go "outside" the
         // connector scope
@@ -623,8 +657,22 @@ public class FileSystemConnector extends WritableConnector {
             }
         }
 
+        // children renames have to be processed in the parent
+        DocumentChanges.ChildrenChanges childrenChanges = documentChanges.getChildrenChanges();
+        Map<String, Name> renamedChildren = childrenChanges.getRenamed();
+        for (String renamedChildId : renamedChildren.keySet()) {
+            File child = fileFor(renamedChildId);
+            Name newName = renamedChildren.get(renamedChildId);
+            String newNameStr = getContext().getValueFactories().getStringFactory().create(newName);
+            File renamedChild = new File(file, newNameStr);
+            if (!child.renameTo(renamedChild)) {
+                getLogger().debug("Cannot rename {0} to {1}", child, renamedChild);
+            }
+        }
+
         String primaryType = reader.getPrimaryTypeName();
         Map<Name, Property> properties = reader.getProperties();
+        id = idOrig;
         ExtraProperties extraProperties = extraPropertiesFor(id, true);
         extraProperties.addAll(properties).except(JCR_PRIMARY_TYPE, JCR_CREATED, JCR_LAST_MODIFIED, JCR_DATA);
         try {
@@ -648,5 +696,17 @@ public class FileSystemConnector extends WritableConnector {
         } catch (IOException e) {
             throw new DocumentStoreException(id, e);
         }
+    }
+
+    @Override
+    public Document getChildren( PageKey pageKey ) {
+        String parentId = pageKey.getParentId();
+        File folder = fileFor(parentId);
+        assert folder.isDirectory();
+        if (!folder.canRead()) {
+            getLogger().debug("Cannot read the {0} folder", folder.getAbsolutePath());
+            return null;
+        }
+        return newFolderWriter(parentId, folder, pageKey.getOffsetInt()).document();
     }
 }

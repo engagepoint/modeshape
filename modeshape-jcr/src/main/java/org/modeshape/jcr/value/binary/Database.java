@@ -107,6 +107,7 @@ public class Database {
         ACCESS,
         ORACLE,
         SYBASE,
+        CASSANDRA,
         UNKNOWN;
     }
 
@@ -278,6 +279,8 @@ public class Database {
                 return Type.ORACLE;
             } else if (name.contains("adaptive")) {
                 return Type.SYBASE;
+            } else if (name.contains("Cassandra")) {
+                return Type.CASSANDRA;
             }
             return Type.UNKNOWN;
         } catch (SQLException e) {
@@ -584,8 +587,7 @@ public class Database {
     public static InputStream asStream( ResultSet rs ) throws BinaryStoreException {
         boolean error = false;
         try {
-            boolean hasRaw = rs.first();
-            if (!hasRaw) {
+            if (!rs.next()) {
                 return null;
             }
             return rs.getBinaryStream(1);
@@ -615,8 +617,7 @@ public class Database {
     public static String asString( ResultSet rs ) throws BinaryStoreException {
         boolean error = false;
         try {
-            boolean hasRaw = rs.first();
-            if (!hasRaw) {
+            if (!rs.next()) {
                 return null;
             }
             return rs.getString(1);

@@ -451,4 +451,5 @@ public class AstNodeTest {
         assertThat(node4.getAbsolutePath(), is("/root/node1/node2/node3/node4"));
         assertThat(node5.getAbsolutePath(), is("/root/node1/node2/node3/node4/node5"));
     }
+
 }

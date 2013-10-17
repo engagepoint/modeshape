@@ -207,8 +207,8 @@
         <subsystem xmlns="urn:jboss:domain:modeshape:1.0">
             <!--The list of web applications that is packaged inside the kit and should be deployed when the subsystem starts up-->
             <webapp name="modeshape-rest.war"/>
-            <webapp name="modeshape-cmis.war"/>
             <webapp name="modeshape-webdav.war"/>
+	    <webapp name="modeshape-explorer.war"/>
 
             <!-- A sample repository that uses the "sample" cache in the "modeshape" container. All content, binary values,
                  and indexes are stored within the server's data directory. This is the simplest way to configure a repository
@@ -219,7 +219,9 @@
                 <indexing rebuild-upon-startup="never"/>
                 <!-- Define 3 workspaces to exist upon startup -->
                 <workspaces default-workspace="default" allow-workspace-creation="false">
-                    <workspace name="default"/>
+                    <workspace name="default">
+                        <initial-content>initial-content-default.xml</initial-content>
+                    </workspace>
                     <workspace name="other"/>
                     <workspace name="extra"/>
                 </workspaces>
@@ -386,8 +388,8 @@
                 <security-domain name="modeshape-security" cache-type="default">
                     <authentication>
                         <login-module code="UsersRoles" flag="required">
-                            <module-option name="usersProperties" value="modeshape-users.properties"/>
-                            <module-option name="rolesProperties" value="modeshape-roles.properties"/>
+                            <module-option name="usersProperties" value="${jboss.server.config.dir}/modeshape-users.properties"/>
+                            <module-option name="rolesProperties" value="${jboss.server.config.dir}/modeshape-roles.properties"/>
                         </login-module>
                     </authentication>
                 </security-domain>

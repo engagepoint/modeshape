@@ -54,6 +54,7 @@ import org.modeshape.common.util.IoUtil;
 import org.modeshape.jcr.cache.PropertyTypeUtil;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.NameFactory;
+import org.modeshape.jcr.value.NamespaceException;
 import org.modeshape.jcr.value.NamespaceRegistry;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.PropertyType;
@@ -67,20 +68,29 @@ import org.modeshape.jcr.value.basic.LocalNamespaceRegistry;
 @NotThreadSafe
 public class CndImporter {
 
-    protected final List<String> VALID_PROPERTY_TYPES = Collections.unmodifiableList(Arrays.asList(new String[] {"STRING",
-        "BINARY", "LONG", "DOUBLE", "BOOLEAN", "DATE", "NAME", "PATH", "REFERENCE", "WEAKREFERENCE", "DECIMAL", "URI",
-        "UNDEFINED", "*", "?"}));
+    protected final List<String> VALID_PROPERTY_TYPES = Collections.unmodifiableList(Arrays.asList("STRING",
+                                                                                                   "BINARY", "LONG", "DOUBLE",
+                                                                                                   "BOOLEAN", "DATE", "NAME",
+                                                                                                   "PATH", "REFERENCE",
+                                                                                                   "WEAKREFERENCE",
+                                                                                                   "SIMPLEREFERENCE",
+                                                                                                   "DECIMAL", "URI", "UNDEFINED",
+                                                                                                   "*", "?"));
 
-    protected final List<String> VALID_ON_PARENT_VERSION = Collections.unmodifiableList(Arrays.asList(new String[] {"COPY",
-        "VERSION", "INITIALIZE", "COMPUTE", "IGNORE", "ABORT"}));
+    protected final List<String> VALID_ON_PARENT_VERSION = Collections.unmodifiableList(Arrays.asList("COPY",
+                                                                                                      "VERSION", "INITIALIZE",
+                                                                                                      "COMPUTE", "IGNORE",
+                                                                                                      "ABORT"));
 
     protected final Set<String> VALID_QUERY_OPERATORS = Collections.unmodifiableSet(new HashSet<String>(
                                                                                                         Arrays.asList(new String[] {
                                                                                                             "=", "<>", "<", "<=",
                                                                                                             ">", ">=", "LIKE"})));
 
-    protected final List<String> BUILT_INS = Collections.unmodifiableList(Arrays.asList(new String[] {
-        "org/modeshape/jcr/jsr_283_builtins.cnd", "org/modeshape/jcr/modeshape_builtins.cnd"}));
+    protected static final String MODESHAPE_BUILT_INS = "org/modeshape/jcr/modeshape_builtins.cnd";
+    protected static final String JSR283_BUILTINS = "org/modeshape/jcr/jsr_283_builtins.cnd";
+
+    protected final List<String> BUILT_INS = Collections.unmodifiableList(Arrays.asList(JSR283_BUILTINS, MODESHAPE_BUILT_INS));
 
     /**
      * The default flag for using vendor extensions is {@value} .
@@ -750,6 +760,9 @@ public class CndImporter {
         try {
             return nameFactory.create(removeQuotes(value));
         } catch (ValueFormatException e) {
+            if (e.getCause() instanceof NamespaceException) {
+                throw (NamespaceException)e.getCause();
+            }
             throw new ParsingException(tokens.previousPosition(), CndI18n.expectedValidNameLiteral.text(value));
         }
     }

@@ -93,7 +93,7 @@ public final class TextExtractors {
 
             return output.getText();
         } catch (Exception e) {
-            LOGGER.error(JcrI18n.errorExtractingTextFromBinary, inMemoryBinaryValue.getHexHash(), e.getLocalizedMessage());
+            LOGGER.error(e, JcrI18n.errorExtractingTextFromBinary, inMemoryBinaryValue.getHexHash(), e.getLocalizedMessage());
         }
         return null;
     }
@@ -126,7 +126,7 @@ public final class TextExtractors {
 
     private static List<TextExtractor> getConfiguredExtractors( JcrRepository.RunningState repository,
                                                                 RepositoryConfiguration.TextExtracting extracting ) {
-        List<Component> extractorComponents = extracting.getTextExtractors();
+        List<Component> extractorComponents = extracting.getTextExtractors(repository.problems());
         List<TextExtractor> extractors = new ArrayList<TextExtractor>(extractorComponents.size());
         for (Component component : extractorComponents) {
             try {
@@ -136,7 +136,7 @@ public final class TextExtractors {
             } catch (Throwable t) {
                 String desc = component.getName();
                 String repoName = repository.name();
-                LOGGER.error(t, JcrI18n.unableToInitializeTextExtractor, desc, repoName, t.getMessage());
+                repository.error(t, JcrI18n.unableToInitializeTextExtractor, desc, repoName, t.getMessage());
             }
         }
         return extractors;
@@ -188,7 +188,7 @@ public final class TextExtractors {
                     store.storeExtractedText(binaryValue, extractedText);
                 }
             } catch (Exception e) {
-                LOGGER.error(JcrI18n.errorExtractingTextFromBinary, binaryValue.getHexHash(), e.getLocalizedMessage());
+                LOGGER.error(e, JcrI18n.errorExtractingTextFromBinary, binaryValue.getHexHash(), e.getLocalizedMessage());
             } finally {
                 // decrement the latch regardless of success/failure to avoid blocking, as extraction is not retried
                 latch.countDown();

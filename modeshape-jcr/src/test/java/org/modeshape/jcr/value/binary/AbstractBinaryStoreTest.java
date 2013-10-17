@@ -25,7 +25,6 @@ package org.modeshape.jcr.value.binary;
 
 import static junit.framework.Assert.assertEquals;
 import static junit.framework.Assert.assertNotNull;
-import static junit.framework.Assert.assertNull;
 import static junit.framework.Assert.assertTrue;
 import static junit.framework.Assert.fail;
 import java.io.ByteArrayInputStream;
@@ -55,8 +54,8 @@ import org.modeshape.jcr.value.BinaryValue;
 public abstract class AbstractBinaryStoreTest extends AbstractTransactionalTest {
 
     /**
-     * We need to generate the test byte arrays based on the minimum binary size, because that controls the distinction
-     * between Stored/In Memory binary values.
+     * We need to generate the test byte arrays based on the minimum binary size, because that controls the distinction between
+     * Stored/In Memory binary values.
      */
     public static final byte[] STORED_LARGE_BINARY = new byte[(int)(AbstractBinaryStore.DEFAULT_MINIMUM_BINARY_SIZE_IN_BYTES * 4)];
     public static final BinaryKey STORED_LARGE_KEY;
@@ -123,8 +122,19 @@ public abstract class AbstractBinaryStoreTest extends AbstractTransactionalTest 
         storeAndValidate(EMPTY_BINARY_KEY, EMPTY_BINARY);
     }
 
+    @Test
+    public void shouldHaveKey() throws BinaryStoreException, IOException {
+        storeAndValidate(STORED_MEDIUM_KEY, STORED_MEDIUM_BINARY);
+        assertTrue("Expected BinaryStore to contain the key", getBinaryStore().hasBinary(STORED_MEDIUM_KEY));
+    }
+
+    @Test
+    public void shouldNotHaveKey() {
+        assertTrue("Did not expect BinaryStore to contain the key", !getBinaryStore().hasBinary(invalidBinaryKey()));
+    }
+
     private BinaryValue storeAndValidate( BinaryKey key,
-                                   byte[] data ) throws BinaryStoreException, IOException {
+                                          byte[] data ) throws BinaryStoreException, IOException {
         BinaryValue res = getBinaryStore().storeValue(new ByteArrayInputStream(data));
         assertNotNull(res);
         assertEquals(key, res.getKey());
@@ -151,6 +161,12 @@ public abstract class AbstractBinaryStoreTest extends AbstractTransactionalTest 
             fail("Key was not removed");
         } catch (BinaryStoreException ex) {
         }
+    }
+
+    @Test
+    public void shouldAcceptStrategyHintsForStoringValues() throws Exception {
+        BinaryValue res = getBinaryStore().storeValue(new ByteArrayInputStream(STORED_MEDIUM_BINARY), null);
+        assertTrue(getBinaryStore().hasBinary(res.getKey()));
     }
 
     @Test( expected = BinaryStoreException.class )
@@ -183,10 +199,8 @@ public abstract class AbstractBinaryStoreTest extends AbstractTransactionalTest 
     public void shouldExtractAndStoreMimeTypeWhenDetectorConfigured() throws RepositoryException, IOException {
         getBinaryStore().setMimeTypeDetector(new DummyMimeTypeDetector());
         BinaryValue binaryValue = getBinaryStore().storeValue(new ByteArrayInputStream(IN_MEMORY_BINARY));
-        assertNull(((AbstractBinaryStore)getBinaryStore()).getStoredMimeType(binaryValue));
         // unclean stuff... a getter modifies silently data
         assertEquals(DummyMimeTypeDetector.DEFAULT_TYPE, getBinaryStore().getMimeType(binaryValue, "foobar.txt"));
-        assertEquals(DummyMimeTypeDetector.DEFAULT_TYPE, ((AbstractBinaryStore)getBinaryStore()).getStoredMimeType(binaryValue));
     }
 
     @Test
@@ -199,12 +213,12 @@ public abstract class AbstractBinaryStoreTest extends AbstractTransactionalTest 
         BinaryValue binaryValue = getBinaryStore().storeValue(new ByteArrayInputStream(STORED_LARGE_BINARY));
         String extractedText = binaryStore.getText(binaryValue);
         if (extractedText == null) {
-            //if nothing is found the first time, sleep and try again - Mongo on Windows seems to exibit this problem for some reason
+            // if nothing is found the first time, sleep and try again - Mongo on Windows seems to exibit this problem for some
+            // reason
             Thread.sleep(TimeUnit.SECONDS.toMillis(2));
             extractedText = binaryStore.getText(binaryValue);
         }
         assertEquals(DummyTextExtractor.EXTRACTED_TEXT, extractedText);
-        assertEquals(DummyTextExtractor.EXTRACTED_TEXT, ((AbstractBinaryStore)binaryStore).getExtractedText(binaryValue));
     }
 
     protected static final class DummyMimeTypeDetector implements MimeTypeDetector {

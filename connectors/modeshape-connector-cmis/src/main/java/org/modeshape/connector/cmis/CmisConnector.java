@@ -23,7 +23,30 @@
  */
 package org.modeshape.connector.cmis;
 
-import org.apache.chemistry.opencmis.client.api.*;
+import java.io.ByteArrayInputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.math.BigInteger;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.jcr.NamespaceRegistry;
+import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeDefinition;
+import javax.jcr.nodetype.NodeTypeTemplate;
+import javax.jcr.nodetype.PropertyDefinitionTemplate;
+import org.apache.chemistry.opencmis.client.api.CmisObject;
+import org.apache.chemistry.opencmis.client.api.Folder;
+import org.apache.chemistry.opencmis.client.api.ItemIterable;
+import org.apache.chemistry.opencmis.client.api.ObjectType;
+import org.apache.chemistry.opencmis.client.api.Property;
+import org.apache.chemistry.opencmis.client.api.Session;
+import org.apache.chemistry.opencmis.client.api.Tree;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -52,6 +75,9 @@ import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
+import org.modeshape.jcr.federation.spi.Connector;
+import org.modeshape.jcr.federation.spi.DocumentChanges;
+import org.modeshape.jcr.federation.spi.DocumentChanges.ChildrenChanges;
 import org.modeshape.jcr.federation.spi.DocumentChanges.PropertyChanges;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
@@ -345,7 +371,27 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
     }
 
     @Override
-    public boolean removeDocument(String id) {
+    public Collection<String> getDocumentPathsById( String id ) {
+System.out.println("------------- Get document by Id");        
+        CmisObject obj = session.getObject(id);
+        // check that object exist
+        if (obj instanceof Folder) {
+            return Collections.singletonList(((Folder)obj).getPath());
+        }
+        if (obj instanceof org.apache.chemistry.opencmis.client.api.Document) {
+            org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document)obj;
+            List<Folder> parents = doc.getParents();
+            List<String> paths = new ArrayList<String>(parents.size());
+            for (Folder parent : doc.getParents()) {
+                paths.add(parent.getPath() + "/" + doc.getName());
+            }
+            return paths;
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public boolean removeDocument( String id ) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(id);
@@ -684,8 +730,9 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
                 // modifing cmis:folders and cmis:documents
                 cmisObject = session.getObject(objectId.getIdentifier());
                 changes = delta.getPropertyChanges();
+                
 
-                // process children changes
+                // process children changes TODO TODO
                 if (delta.getChildrenChanges().getRenamed().size() > 0) {
                     debug("Children changes: renamed", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
                     for (Map.Entry<String, Name> entry : delta.getChildrenChanges().getRenamed().entrySet()) {
@@ -836,7 +883,19 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
                         cmisObject.updateProperties(updateProperties);
                     }
                 }
-
+                // check TODO TODO
+                ChildrenChanges childrenChanges = delta.getChildrenChanges();
+                Map<String, Name> renamed = childrenChanges.getRenamed();
+                
+                for (String key : renamed.keySet()) {
+                    CmisObject object = session.getObject(key);
+                    if (object == null) continue;
+                    
+                    Map<String, Object> newName = new HashMap<String, Object>();
+                    newName.put("cmis:name", renamed.get(key).getLocalName());
+                    
+                    object.updateProperties(newName);
+                }
                 break;
         }
         debug("end of update story -----------------------------");
@@ -984,6 +1043,8 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
                 return cmisDocument(cmisObject);
             case CMIS_POLICY:
             case CMIS_RELATIONSHIP:
+            case CMIS_SECONDARY:
+            case CMIS_ITEM:
         }
 
         // unexpected object type
@@ -1338,9 +1399,9 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
         NodeTypeTemplate type = typeManager.createNodeTypeTemplate();
 
         // convert CMIS type's attributes to node type template we have just created
-        type.setName(mapping != null ? mapping.getJcrName() : cmisType.getId());
-        type.setAbstract(!cmisType.isCreatable());
-        type.setMixin(false);
+        type.setName(cmisType.getId());
+        type.setAbstract(false);
+        type.setMixin(true);
         type.setOrderableChildNodes(true);
         type.setQueryable(true);
         type.setDeclaredSuperTypeNames(superTypes(cmisType));
@@ -1482,7 +1543,7 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
         // convert CMIS type's attributes to node type template we have just created
         type.setName("cmis:repository");
         type.setAbstract(false);
-        type.setMixin(true);
+        type.setMixin(false);
         type.setOrderableChildNodes(true);
         type.setQueryable(true);
         type.setDeclaredSuperTypeNames(new String[]{JcrConstants.NT_FOLDER});

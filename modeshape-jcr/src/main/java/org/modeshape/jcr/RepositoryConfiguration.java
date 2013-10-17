@@ -35,6 +35,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -79,7 +80,9 @@ import org.modeshape.jcr.clustering.DefaultChannelProvider;
 import org.modeshape.jcr.security.AnonymousProvider;
 import org.modeshape.jcr.security.JaasProvider;
 import org.modeshape.jcr.value.binary.AbstractBinaryStore;
+import org.modeshape.jcr.value.binary.BinaryStore;
 import org.modeshape.jcr.value.binary.BinaryStoreException;
+import org.modeshape.jcr.value.binary.CompositeBinaryStore;
 import org.modeshape.jcr.value.binary.DatabaseBinaryStore;
 import org.modeshape.jcr.value.binary.FileSystemBinaryStore;
 import org.modeshape.jcr.value.binary.TransientBinaryStore;
@@ -291,6 +294,12 @@ public class RepositoryConfiguration {
         public static final String MINIMUM_STRING_SIZE = "minimumStringSize";
 
         /**
+         * The name attribute which can be set on a binary store. It's only used when a {@link CompositeBinaryStore} is
+         * configured.
+         */
+        public static final String BINARY_STORE_NAME = "storeName";
+
+        /**
          * The name for the field whose value is a document containing workspace information.
          */
         public static final String WORKSPACES = "workspaces";
@@ -341,6 +350,11 @@ public class RepositoryConfiguration {
          * The name for the field whose value is a document containing binary storage information.
          */
         public static final String BINARY_STORAGE = "binaryStorage";
+
+        /**
+         * The name for the field whose value is a document containing binary storage information.
+         */
+        public static final String COMPOSITE_STORE_NAMED_BINARY_STORES = "namedStores";
 
         /**
          * The name for the field whose value is a document containing security information.
@@ -400,6 +414,7 @@ public class RepositoryConfiguration {
         public static final String DATA_CACHE_NAME = "dataCacheName";
         public static final String FULL_TEXT_SEARCH_ENABLED = "enableFullTextSearch";
         public static final String METADATA_CACHE_NAME = "metadataCacheName";
+        public static final String CHUNK_SIZE = "chunkSize";
         public static final String QUERY = "query";
         public static final String QUERY_ENABLED = "enabled";
         public static final String INDEX_STORAGE = "indexStorage";
@@ -420,12 +435,19 @@ public class RepositoryConfiguration {
         public static final String GARBAGE_COLLECTION = "garbageCollection";
         public static final String INITIAL_TIME = "initialTime";
         public static final String INTERVAL_IN_HOURS = "intervalInHours";
+
+        public static final String DOCUMENT_OPTIMIZATION = "optimization";
+        public static final String OPTIMIZATION_CHILD_COUNT_TARGET = "childCountTarget";
+        public static final String OPTIMIZATION_CHILD_COUNT_TOLERANCE = "childCountTolerance";
+
         /**
          * The name for the field (under "sequencing" and "query") specifying the thread pool that should be used for sequencing.
          * By default, all repository instances will use the same thread pool within the engine. To use a dedicated thread pool
          * for a single repository, simply use a name that is unique from all other repositories.
          */
         public static final String THREAD_POOL = "threadPool";
+
+        @Deprecated
         public static final String REMOVE_DERIVED_CONTENT_WITH_ORIGINAL = "removeDerivedContentWithOriginal";
 
         public static final String INDEXING_ANALYZER = "analyzer";
@@ -446,11 +468,6 @@ public class RepositoryConfiguration {
         public static final String INDEX_STORAGE_COPY_BUFFER_SIZE_IN_MEGABYTES = "copyBufferSizeInMegabytes";
         public static final String INDEX_STORAGE_RETRY_MARKER_LOOKUP = "retryMarkerLookup";
         public static final String INDEX_STORAGE_RETRY_INITIALIZE_PERIOD_IN_SECONDS = "retryInitializePeriodInSeconds";
-        public static final String INDEX_STORAGE_INFINISPAN_LOCK_CACHE = "lockCacheName";
-        public static final String INDEX_STORAGE_INFINISPAN_DATA_CACHE = "dataCacheName";
-        public static final String INDEX_STORAGE_INFINISPAN_META_CACHE = "metadataCacheName";
-        public static final String INDEX_STORAGE_INFINISPAN_CONTAINER = "cacheConfiguration";
-        public static final String INDEX_STORAGE_INFINISPAN_CHUNK_SIZE_IN_BYTES = "chunkSizeInBytes";
 
         public static final String INDEXING_BACKEND_JMS_CONNECTION_FACTORY_JNDI_NAME = "connectionFactoryJndiName";
         public static final String INDEXING_BACKEND_JMS_QUEUE_JNDI_NAME = "queueJndiName";
@@ -545,11 +562,13 @@ public class RepositoryConfiguration {
 
         public static final boolean MONITORING_ENABLED = true;
 
+        @Deprecated
         public static final boolean REMOVE_DERIVED_CONTENT_WITH_ORIGINAL = true;
 
         public static final String SEQUENCING_POOL = "modeshape-sequencer";
         public static final String QUERY_THREAD_POOL = "modeshape-indexer";
         public static final String GARBAGE_COLLECTION_POOL = "modeshape-gc";
+        public static final String OPTIMIZATION_POOL = "modeshape-opt";
 
         public static final String INDEXING_ANALYZER = StandardAnalyzer.class.getName();
         public static final String INDEXING_SIMILARITY = DefaultSimilarity.class.getName();
@@ -568,15 +587,17 @@ public class RepositoryConfiguration {
         public static final String INDEX_STORAGE_COPY_BUFFER_SIZE_IN_MEGABYTES = "16";
         public static final String INDEX_STORAGE_RETRY_MARKER_LOOKUP = "0";
         public static final String INDEX_STORAGE_RETRY_INITIALIZE_PERIOD_IN_SECONDS = "0";
-        public static final String INDEX_STORAGE_INFINISPAN_CHUNK_SIZE_IN_BYTES = "16834";
 
         public static final String INDEXING_BACKEND_TYPE = "lucene";
 
         public static final String CLUSTER_NAME = "ModeShape-JCR";
         public static final String CHANNEL_PROVIDER = DefaultChannelProvider.class.getName();
 
-        public static final String INITIAL_TIME = "00:00";
-        public static final int INTERVAL_IN_HOURS = 24;
+        public static final String GARBAGE_COLLECTION_INITIAL_TIME = "00:00";
+        public static final int GARBAGE_COLLECTION_INTERVAL_IN_HOURS = 24;
+
+        public static final String OPTIMIZATION_INITIAL_TIME = "02:00";
+        public static final int OPTIMIZATION_INTERVAL_IN_HOURS = 24;
     }
 
     public static final class FieldValue {
@@ -584,7 +605,6 @@ public class RepositoryConfiguration {
         public static final String INDEX_STORAGE_FILESYSTEM = "filesystem";
         public static final String INDEX_STORAGE_FILESYSTEM_MASTER = "filesystem-master";
         public static final String INDEX_STORAGE_FILESYSTEM_SLAVE = "filesystem-slave";
-        public static final String INDEX_STORAGE_INFINISPAN = "infinispan";
         public static final String INDEX_STORAGE_CUSTOM = "custom";
 
         public static final String INDEXING_BACKEND_TYPE_LUCENE = "lucene";
@@ -598,6 +618,7 @@ public class RepositoryConfiguration {
         public static final String BINARY_STORAGE_TYPE_FILE = "file";
         public static final String BINARY_STORAGE_TYPE_CACHE = "cache";
         public static final String BINARY_STORAGE_TYPE_DATABASE = "database";
+        public static final String BINARY_STORAGE_TYPE_COMPOSITE = "composite";
         public static final String BINARY_STORAGE_TYPE_CUSTOM = "custom";
 
     }
@@ -911,7 +932,6 @@ public class RepositoryConfiguration {
         Document replaced = replaceSystemPropertyVariables(document);
         this.doc = ensureNamed(replaced, documentName);
         this.docName = documentName;
-        warnUseOfDeprecatedFields();
     }
 
     public RepositoryConfiguration( String name,
@@ -927,7 +947,6 @@ public class RepositoryConfiguration {
         this.doc = ensureNamed(replaced, documentName);
         this.docName = documentName;
         this.environment = environment;
-        warnUseOfDeprecatedFields();
     }
 
     protected Environment environment() {
@@ -1149,9 +1168,9 @@ public class RepositoryConfiguration {
             return binaryStorage.getLong(FieldName.MINIMUM_STRING_SIZE, getMinimumBinarySizeInBytes());
         }
 
-        public AbstractBinaryStore getBinaryStore() throws Exception {
-            String type = binaryStorage.getString(FieldName.TYPE, "transient");
-            AbstractBinaryStore store = null;
+        public BinaryStore getBinaryStore() throws Exception {
+            String type = getType();
+            BinaryStore store = null;
             if (type.equalsIgnoreCase("transient")) {
                 store = TransientBinaryStore.get();
             } else if (type.equalsIgnoreCase("file")) {
@@ -1176,6 +1195,7 @@ public class RepositoryConfiguration {
                 String metadataCacheName = binaryStorage.getString(FieldName.METADATA_CACHE_NAME, getName());
                 String blobCacheName = binaryStorage.getString(FieldName.DATA_CACHE_NAME, getName());
                 String cacheConfiguration = binaryStorage.getString(FieldName.CACHE_CONFIGURATION); // may be null
+                int chunkSize = binaryStorage.getInteger(FieldName.CHUNK_SIZE, InfinispanBinaryStore.DEFAULT_CHUNK_SIZE);
                 boolean dedicatedCacheContainer = false;
                 if (cacheConfiguration == null) {
                     cacheConfiguration = getCacheConfiguration();
@@ -1186,7 +1206,25 @@ public class RepositoryConfiguration {
 
                 // String cacheTransactionManagerLookupClass = binaryStorage.getString(FieldName.CACHE_TRANSACTION_MANAGER_LOOKUP,
                 // Default.CACHE_TRANSACTION_MANAGER_LOOKUP);
-                store = new InfinispanBinaryStore(cacheContainer, dedicatedCacheContainer, metadataCacheName, blobCacheName);
+                store = new InfinispanBinaryStore(cacheContainer, dedicatedCacheContainer, metadataCacheName, blobCacheName, chunkSize);
+            } else if (type.equalsIgnoreCase("composite")) {
+
+                Map<String, BinaryStore> binaryStores = new LinkedHashMap<String, BinaryStore>();
+
+                Document binaryStoresConfiguration = binaryStorage.getDocument(FieldName.COMPOSITE_STORE_NAMED_BINARY_STORES);
+
+                for (String sourceName : binaryStoresConfiguration.keySet()) {
+                    Document binaryStoreConfig = binaryStoresConfiguration.getDocument(sourceName);
+                    binaryStores.put(sourceName, new BinaryStorage(binaryStoreConfig).getBinaryStore());
+                }
+
+                // must have at least one named store
+                if (binaryStores.isEmpty()) {
+                    throw new BinaryStoreException(JcrI18n.missingVariableValue.text("namedStores"));
+                }
+
+                store = new CompositeBinaryStore(binaryStores);
+
             } else if (type.equalsIgnoreCase("custom")) {
                 classname = binaryStorage.getString(FieldName.CLASSNAME);
                 classPath = binaryStorage.getString(FieldName.CLASSLOADER);
@@ -1202,6 +1240,15 @@ public class RepositoryConfiguration {
             if (store == null) store = TransientBinaryStore.get();
             store.setMinimumBinarySizeInBytes(getMinimumBinarySizeInBytes());
             return store;
+        }
+
+        /**
+         * Returns the type of the configured binary store.
+         * 
+         * @return the type of the configured binary store, never {@code null}
+         */
+        public String getType() {
+            return binaryStorage.getString(FieldName.TYPE, "transient");
         }
 
         /*
@@ -1505,15 +1552,16 @@ public class RepositoryConfiguration {
          * 
          * @return the immutable list of custom providers; never null but possibly empty
          */
-        public List<Component> getCustomProviders() {
+        protected List<Component> getCustomProviders() {
             Problems problems = new SimpleProblems();
-            List<Component> components = readComponents(security,
-                                                        FieldName.PROVIDERS,
-                                                        FieldName.CLASSNAME,
-                                                        PROVIDER_ALIASES,
-                                                        problems);
+            List<Component> components = getCustomProviders(problems);
             assert !problems.hasErrors();
             return components;
+        }
+
+        protected List<Component> getCustomProviders( Problems problems ) {
+            return readComponents(security, FieldName.PROVIDERS, FieldName.CLASSNAME, PROVIDER_ALIASES, problems);
+
         }
 
         protected void validateCustomProviders( Problems problems ) {
@@ -1641,7 +1689,8 @@ public class RepositoryConfiguration {
     public enum QueryRebuild {
         ALWAYS,
         NEVER,
-        IF_MISSING;
+        IF_MISSING,
+        FAIL_IF_MISSING
     }
 
     /**
@@ -1649,7 +1698,7 @@ public class RepositoryConfiguration {
      */
     public enum TransactionMode {
         AUTO,
-        NONE;
+        NONE
     }
 
     /**
@@ -1701,6 +1750,21 @@ public class RepositoryConfiguration {
          */
         public String getThreadPoolName() {
             return query.getString(FieldName.THREAD_POOL, Default.QUERY_THREAD_POOL);
+        }
+
+        /**
+         * Reads the indexing configuration, checking if the indexing is configured in clustered mode or not.
+         * 
+         * @return {@code true} if the indexing is configured in clustered mode, {@code false} otherwise
+         */
+        public boolean indexingClustered() {
+            Document indexStorage = query.getDocument(FieldName.INDEX_STORAGE);
+            if (indexStorage == null) {
+                return false;
+            }
+            String indexStorageType = indexStorage.getString(FieldName.TYPE);
+            return indexStorageType.equalsIgnoreCase(FieldValue.INDEX_STORAGE_FILESYSTEM_MASTER)
+                   || indexStorageType.equalsIgnoreCase(FieldValue.INDEX_STORAGE_FILESYSTEM_SLAVE);
         }
 
         /**
@@ -1759,13 +1823,6 @@ public class RepositoryConfiguration {
                 setDefProp(props,
                            FieldName.INDEX_STORAGE_RETRY_INITIALIZE_PERIOD_IN_SECONDS,
                            Default.INDEX_STORAGE_RETRY_INITIALIZE_PERIOD_IN_SECONDS);
-            } else if (FieldValue.INDEX_STORAGE_INFINISPAN.equalsIgnoreCase(type)) {
-                setDefProp(props,
-                           FieldName.INDEX_STORAGE_INFINISPAN_CHUNK_SIZE_IN_BYTES,
-                           Default.INDEX_STORAGE_INFINISPAN_CHUNK_SIZE_IN_BYTES);
-                setDefProp(props, FieldName.CACHE_CONFIGURATION, getCacheConfiguration());
-                // The cache names will be set when the Hibernate Search configuration is created; that way we don't have
-                // the repository name hard-coded in the properties ...
             }
             return props;
         }
@@ -1945,17 +2002,11 @@ public class RepositoryConfiguration {
         /**
          * Get the ordered list of text extractors. All text extractors are configured with this list.
          * 
+         * @param problems the container with which should be recorded any problems during component initialization
          * @return the immutable list of text extractors; never null but possibly empty
          */
-        public List<Component> getTextExtractors() {
-            Problems problems = new SimpleProblems();
-            List<Component> components = readComponents(textExtracting,
-                                                        FieldName.EXTRACTORS,
-                                                        FieldName.CLASSNAME,
-                                                        EXTRACTOR_ALIASES,
-                                                        problems);
-            assert !problems.hasErrors();
-            return components;
+        protected List<Component> getTextExtractors( Problems problems ) {
+            return readComponents(textExtracting, FieldName.EXTRACTORS, FieldName.CLASSNAME, EXTRACTOR_ALIASES, problems);
         }
 
         protected void validateTextExtractors( Problems problems ) {
@@ -1973,18 +2024,18 @@ public class RepositoryConfiguration {
     }
 
     /**
-     * Get the configuration for the sequencing-related aspects of this repository.
+     * Get the configuration for the federation-related aspects of this repository.
      * 
-     * @return the sequencing configuration; never null
+     * @return the federation configuration; never null
      */
     public Federation getFederation() {
         return new Federation(doc);
     }
 
     /**
-     * Get the configuration for the security-related aspects of this repository.
+     * Get the configuration for the garbage collection aspects of this repository.
      * 
-     * @return the security configuration; never null
+     * @return the garbage collection configuration; never null
      */
     public GarbageCollection getGarbageCollection() {
         return new GarbageCollection(doc.getDocument(FieldName.GARBAGE_COLLECTION));
@@ -2013,7 +2064,7 @@ public class RepositoryConfiguration {
          * @return the initial time; never null
          */
         public String getInitialTimeExpression() {
-            return gc.getString(FieldName.INITIAL_TIME, Default.INITIAL_TIME);
+            return gc.getString(FieldName.INITIAL_TIME, Default.GARBAGE_COLLECTION_INITIAL_TIME);
         }
 
         /**
@@ -2022,7 +2073,7 @@ public class RepositoryConfiguration {
          * @return the interval; never null
          */
         public int getIntervalInHours() {
-            return gc.getInteger(FieldName.INTERVAL_IN_HOURS, Default.INTERVAL_IN_HOURS);
+            return gc.getInteger(FieldName.INTERVAL_IN_HOURS, Default.GARBAGE_COLLECTION_INTERVAL_IN_HOURS);
         }
 
         /**
@@ -2045,6 +2096,87 @@ public class RepositoryConfiguration {
     }
 
     /**
+     * Get the configuration for the document optimization for this repository.
+     * 
+     * @return the document optimization configuration; never null
+     */
+    public DocumentOptimization getDocumentOptimization() {
+        Document storage = doc.getDocument(FieldName.STORAGE);
+        if (storage == null) {
+            storage = Schematic.newDocument();
+        }
+        return new DocumentOptimization(storage.getDocument(FieldName.DOCUMENT_OPTIMIZATION));
+    }
+
+    @Immutable
+    public class DocumentOptimization {
+        private final Document optimization;
+
+        protected DocumentOptimization( Document optimization ) {
+            this.optimization = optimization != null ? optimization : EMPTY;
+        }
+
+        /**
+         * Determine if document optimization is enabled. At this time, optimization is DISABLED by default and must be enabled by
+         * defining the "{@value FieldName#OPTIMIZATION_CHILD_COUNT_TARGET}" and "
+         * {@value FieldName#OPTIMIZATION_CHILD_COUNT_TOLERANCE}" fields.
+         * 
+         * @return true if enabled, or false otherwise
+         */
+        public boolean isEnabled() {
+            return !this.optimization.isEmpty() && getChildCountTarget() != Integer.MAX_VALUE;
+        }
+
+        /**
+         * Get the name of the thread pool that should be used for optimization work.
+         * 
+         * @return the thread pool name; never null
+         */
+        public String getThreadPoolName() {
+            return optimization.getString(FieldName.THREAD_POOL, Default.OPTIMIZATION_POOL);
+        }
+
+        /**
+         * Get the time that the first optimization process should be run.
+         * 
+         * @return the initial time; never null
+         */
+        public String getInitialTimeExpression() {
+            return optimization.getString(FieldName.INITIAL_TIME, Default.OPTIMIZATION_INITIAL_TIME);
+        }
+
+        /**
+         * Get the optimization interval in hours.
+         * 
+         * @return the interval; never null
+         */
+        public int getIntervalInHours() {
+            return optimization.getInteger(FieldName.INTERVAL_IN_HOURS, Default.OPTIMIZATION_INTERVAL_IN_HOURS);
+        }
+
+        /**
+         * Get the target for the number of children in a single persisted node document.
+         * 
+         * @return the child count target
+         */
+        public int getChildCountTarget() {
+            Integer result = optimization.getInteger(FieldName.OPTIMIZATION_CHILD_COUNT_TARGET);
+            return result == null ? Integer.MAX_VALUE : result.intValue();
+        }
+
+        /**
+         * Get the tolerance for the number of children in a single persisted node document. Generally, the documents are
+         * optimized only when the actual number of children differs from the target by the tolerance.
+         * 
+         * @return the child count tolerance
+         */
+        public int getChildCountTolerance() {
+            Integer result = optimization.getInteger(FieldName.OPTIMIZATION_CHILD_COUNT_TOLERANCE);
+            return result == null ? 0 : result.intValue();
+        }
+    }
+
+    /**
      * The security-related configuration information.
      */
     @Immutable
@@ -2060,7 +2192,9 @@ public class RepositoryConfiguration {
          * removed if that input is updated and the sequencer re-run.
          * 
          * @return true if the original derived content should be removed upon subsequent sequencing of the same input.
+         * @deprecated because it was never used
          */
+        @Deprecated
         public boolean removeDerivedContentWithOriginal() {
             return sequencing.getBoolean(FieldName.REMOVE_DERIVED_CONTENT_WITH_ORIGINAL,
                                          Default.REMOVE_DERIVED_CONTENT_WITH_ORIGINAL);
@@ -2082,13 +2216,13 @@ public class RepositoryConfiguration {
          */
         public List<Component> getSequencers() {
             Problems problems = new SimpleProblems();
-            List<Component> components = readComponents(sequencing,
-                                                        FieldName.SEQUENCERS,
-                                                        FieldName.CLASSNAME,
-                                                        SEQUENCER_ALIASES,
-                                                        problems);
+            List<Component> components = getSequencers(problems);
             assert !problems.hasErrors();
             return components;
+        }
+
+        protected List<Component> getSequencers( Problems problems ) {
+            return readComponents(sequencing, FieldName.SEQUENCERS, FieldName.CLASSNAME, SEQUENCER_ALIASES, problems);
         }
 
         /**
@@ -2115,10 +2249,10 @@ public class RepositoryConfiguration {
         /**
          * Get the list of connector configurations.
          * 
+         * @param problems the container with which should be recorded any problems during component initialization
          * @return the immutable list of connectors; never null but possibly empty
          */
-        public List<Component> getConnectors() {
-            Problems problems = new SimpleProblems();
+        public List<Component> getConnectors( Problems problems ) {
             List<Component> components = readComponents(federation,
                                                         FieldName.EXTERNAL_SOURCES,
                                                         FieldName.CLASSNAME,
@@ -2438,6 +2572,7 @@ public class RepositoryConfiguration {
     public Problems validate() {
         if (problems == null) {
             SimpleProblems problems = new SimpleProblems();
+            warnUseOfDeprecatedFields(problems);
             Results results = SCHEMA_LIBRARY.validate(doc, JSON_SCHEMA_URI);
             for (Problem problem : results) {
                 switch (problem.getType()) {
@@ -2495,7 +2630,7 @@ public class RepositoryConfiguration {
         return new RepositoryConfiguration(doc.clone(), docName, environment);
     }
 
-    protected void warnUseOfDeprecatedFields() {
+    protected void warnUseOfDeprecatedFields( SimpleProblems problems ) {
         for (List<String> path : DEPRECATED_FIELDS) {
             Document nested = this.doc;
             Object value = null;
@@ -2507,6 +2642,7 @@ public class RepositoryConfiguration {
             if (value != null) {
                 String p = StringUtil.join(path, ".");
                 LOGGER.warn(JcrI18n.repositoryConfigurationContainsDeprecatedField, p, this.doc);
+                problems.addWarning(JcrI18n.repositoryConfigurationContainsDeprecatedField, p, this.doc);
             }
         }
     }
