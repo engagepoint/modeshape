@@ -28,6 +28,7 @@ import org.infinispan.schematic.SchematicDb;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
+import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
@@ -100,7 +101,7 @@ public class FederatedDocumentStore implements DocumentStore {
 
         List<Connector> result = new ArrayList<Connector>();
         List<RepositoryConfiguration.Component> connectorsConfig
-                = connectors.getRepositoryConfiguration().getFederation().getConnectors();
+                = connectors.getRepositoryConfiguration().getFederation().getConnectors(new SimpleProblems());
 
         for (RepositoryConfiguration.Component component : connectorsConfig) {
             Connector conn = connectors.getConnectorForSourceName(component.getName());
@@ -431,20 +432,12 @@ public class FederatedDocumentStore implements DocumentStore {
     @Override
     public Document getChildReference(String parentKey,
                                       String childKey) {
-        // tmp hack for connector + unfiled = name
-        boolean isExternal = (parentKey == null && !isLocalSource(childKey));
-        //------------------------
-        if (!isExternal && isLocalSource(parentKey)) {
+        if (isLocalSource(parentKey)) {
             return localStore().getChildReference(parentKey, childKey);
         }
-        // tmp hack for connector + unfiled = name
-        Connector connector = (isExternal)
-                ? connectors.getConnectorForSourceKey(sourceKey(childKey))
-                : connectors.getConnectorForSourceKey(sourceKey(parentKey));
-        //------------------------------
-
+        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
         if (connector != null) {
-            parentKey = parentKey == null ? null : documentIdFromNodeKey(parentKey);
+            parentKey = documentIdFromNodeKey(parentKey);
             childKey = documentIdFromNodeKey(childKey);
             Document doc = connector.getChildReference(parentKey, childKey);
             if (doc != null) {

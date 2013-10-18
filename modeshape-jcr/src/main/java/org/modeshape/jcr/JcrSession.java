@@ -2113,9 +2113,8 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             mandatoryChildDefns = nodeTypeCapabilities.getMandatoryChildNodeDefinitions(primaryType, mixinTypes);
             if (!mandatoryChildDefns.isEmpty()) {
                 Set<Name> childrenNames = new HashSet<Name>();
-
-                for (NodeKey childKey : allChildren) {
-                    childrenNames.add(cache().getNode(childKey).getName(cache()));
+                for (ChildReference childRef : node.getChildReferences(cache())) {
+                    childrenNames.add(childRef.getName());
                 }
 
                 for (JcrNodeDefinition defn : mandatoryChildDefns) {

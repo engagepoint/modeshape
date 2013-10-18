@@ -1399,9 +1399,9 @@ System.out.println("------------- Get document by Id");
         NodeTypeTemplate type = typeManager.createNodeTypeTemplate();
 
         // convert CMIS type's attributes to node type template we have just created
-        type.setName(cmisType.getId());
-        type.setAbstract(false);
-        type.setMixin(true);
+        type.setName(mapping != null ? mapping.getJcrName() : cmisType.getId());
+        type.setAbstract(!cmisType.isCreatable());
+        type.setMixin(false);
         type.setOrderableChildNodes(true);
         type.setQueryable(true);
         type.setDeclaredSuperTypeNames(superTypes(cmisType));
