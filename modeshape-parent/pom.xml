@@ -207,11 +207,11 @@
               include a 'testResources' fragment in the 'build' section of the
               child project POM to say which files need to be filtered.
           -->
-        <jpaSource.dialect/>
-        <jpaSource.driverClassName/>
-        <jpaSource.url/>
-        <jpaSource.username/>
-        <jpaSource.password/>
+        <jpaSource.dialect />
+        <jpaSource.driverClassName />
+        <jpaSource.url />
+        <jpaSource.username />
+        <jpaSource.password />
         <jpaSource.maximumConnectionsInPool>2</jpaSource.maximumConnectionsInPool>
         <jpaSource.minimumConnectionsInPool>1</jpaSource.minimumConnectionsInPool>
         <jpaSource.numberOfConnectionsToAcquireAsNeeded>1</jpaSource.numberOfConnectionsToAcquireAsNeeded>
@@ -221,14 +221,14 @@
         <jpaSource.largeValueSizeInBytes>150</jpaSource.largeValueSizeInBytes>
         <jpaSource.autoGenerateSchema>create</jpaSource.autoGenerateSchema>
         <jpaSource.compressData>true</jpaSource.compressData>
-        <jpaSource.cacheTimeToLiveInMilliseconds/>
-        <jpaSource.creatingWorkspacesAllowed/>
-        <jpaSource.defaultWorkspaceName/>
-        <jpaSource.predefinedWorkspaceNames/>
-        <jpaSource.model/>
+        <jpaSource.cacheTimeToLiveInMilliseconds />
+        <jpaSource.creatingWorkspacesAllowed />
+        <jpaSource.defaultWorkspaceName />
+        <jpaSource.predefinedWorkspaceNames />
+        <jpaSource.model />
         <jpaSource.referentialIntegrityEnforced>true</jpaSource.referentialIntegrityEnforced>
         <jpaSource.retryLimit>3</jpaSource.retryLimit>
-        <jpaSource.rootNodeUuid/>
+        <jpaSource.rootNodeUuid />
         <jpaSource.showSql>false</jpaSource.showSql>
         <metadata.collectorClassName>org.modeshape.connector.meta.jdbc.JdbcMetadataCollector</metadata.collectorClassName>
 
@@ -535,7 +535,7 @@
                 <dataSource.driverClassName>com.mysql.jdbc.Driver</dataSource.driverClassName>
                 <dataSource.url>jdbc:mysql://localhost:3306/modeshape</dataSource.url>
                 <dataSource.username>root</dataSource.username>
-                <dataSource.password></dataSource.password>
+                <dataSource.password />
             </properties>
         </profile>
 
