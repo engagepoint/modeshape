@@ -40,6 +40,7 @@ import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
 import javax.jcr.nodetype.PropertyDefinitionTemplate;
+
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ItemIterable;
@@ -82,6 +83,7 @@ import org.modeshape.jcr.federation.spi.DocumentChanges.PropertyChanges;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
+import org.modeshape.jcr.value.ValueFactory;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -233,6 +235,8 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
             debug("Found ", Integer.toString(customMapping.getNamespaces().size()), " mapped namspaces ..");
         }
         debug("Added ", Integer.toString(mappedTypes.size()), " mapped types ..");
+        if (debug) logMappedTypes();
+
 
         this.factories = getContext().getValueFactories();
 
@@ -288,6 +292,23 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
             applicableTypesInstance = Collections.unmodifiableCollection(applicableTypesInstance);
         } else {
             applicableTypesInstance = Collections.EMPTY_SET;
+        }
+    }
+
+    private void logMappedTypes() {
+        for (MappedCustomType mapping : getMappedTypes().mappings) {
+            debug("Mapping: jcr/cmisExt <" + mapping.getJcrName() + "> = <" + mapping.getExtName() + ">");
+            debug("Mapped Properties..");
+            for (Map.Entry<String, String> entry : mapping.indexJcrProperties.entrySet()) {
+                debug("mapped property jct/cmisExt <" + entry.getKey() + "> = <" + entry.getValue() + ">");
+            }
+            StringBuilder ignoredPropsString = new StringBuilder();
+            if (mapping.getIgnoreExternalProperties() != null)
+                for (String s : mapping.getIgnoreExternalProperties()) {
+                    ignoredPropsString.append(s).append(";");
+                }
+            debug("Ignored external Properties: " + ignoredPropsString.toString());
+            debug("end mapping info -----");
         }
     }
 
@@ -371,15 +392,15 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
     }
 
     @Override
-    public Collection<String> getDocumentPathsById( String id ) {
-System.out.println("------------- Get document by Id");        
+    public Collection<String> getDocumentPathsById(String id) {
+        System.out.println("------------- Get document by Id");
         CmisObject obj = session.getObject(id);
         // check that object exist
         if (obj instanceof Folder) {
-            return Collections.singletonList(((Folder)obj).getPath());
+            return Collections.singletonList(((Folder) obj).getPath());
         }
         if (obj instanceof org.apache.chemistry.opencmis.client.api.Document) {
-            org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document)obj;
+            org.apache.chemistry.opencmis.client.api.Document doc = (org.apache.chemistry.opencmis.client.api.Document) obj;
             List<Folder> parents = doc.getParents();
             List<String> paths = new ArrayList<String>(parents.size());
             for (Folder parent : doc.getParents()) {
@@ -391,7 +412,7 @@ System.out.println("------------- Get document by Id");
     }
 
     @Override
-    public boolean removeDocument( String id ) {
+    public boolean removeDocument(String id) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(id);
@@ -730,7 +751,7 @@ System.out.println("------------- Get document by Id");
                 // modifing cmis:folders and cmis:documents
                 cmisObject = session.getObject(objectId.getIdentifier());
                 changes = delta.getPropertyChanges();
-                
+
 
                 // process children changes TODO TODO
                 if (delta.getChildrenChanges().getRenamed().size() > 0) {
@@ -886,14 +907,14 @@ System.out.println("------------- Get document by Id");
                 // check TODO TODO
                 ChildrenChanges childrenChanges = delta.getChildrenChanges();
                 Map<String, Name> renamed = childrenChanges.getRenamed();
-                
+
                 for (String key : renamed.keySet()) {
                     CmisObject object = session.getObject(key);
                     if (object == null) continue;
-                    
+
                     Map<String, Object> newName = new HashMap<String, Object>();
                     newName.put("cmis:name", renamed.get(key).getLocalName());
-                    
+
                     object.updateProperties(newName);
                 }
                 break;
@@ -1450,8 +1471,8 @@ System.out.println("------------- Get document by Id");
         typeManager.registerNodeTypes(nodeDefs, true);
 
         Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
-        debug("adding mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
-        nodes.addTypeMapping(jcrName, cmisType.getId());
+//        debug("adding connector nodes mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
+        nodes.addTypeMapping(jcrName, cmisTypeId);
     }
 
     /*
@@ -1652,8 +1673,8 @@ System.out.println("------------- Get document by Id");
         return cachedTypeDefinitions.get(typeId);
     }
 
-    public Document getChildReference( String parentKey,
-                                       String childKey ) {
+    public Document getChildReference(String parentKey,
+                                      String childKey) {
         CmisObject object = session.getObject(childKey);
         return newChildReference(object.getId(), object.getName());
     }
