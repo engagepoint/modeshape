@@ -8,15 +8,37 @@
     </parent>
     <artifactId>modeshape-web-explorer</artifactId>
     <packaging>war</packaging>
-    <name>ModeShape Repository Explorer</name>
-    <description>ModeShape repository explorer</description>
+    <name>ModeShape Repository Explorer (Bare)</name>
+    <description>ModeShape repository explorer that does not contain ModeShape libraries</description>
     <url>http://www.modeshape.org</url>
     <dependencies>
-        <!--  TESTING DEPENDENCIES -->
         <dependency>
             <groupId>javax.jcr</groupId>
             <artifactId>jcr</artifactId>
             <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.modeshape</groupId>
+            <artifactId>modeshape-common</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.modeshape</groupId>
+            <artifactId>modeshape-jcr-api</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.modeshape</groupId>
+            <artifactId>modeshape-web-jcr</artifactId>
         </dependency>
 
         <dependency>
@@ -43,7 +65,7 @@
             <groupId>com.googlecode.sardine</groupId>
             <artifactId>sardine</artifactId>
         </dependency>
-	<dependency>
+        <dependency>
             <groupId>com.google.gwt</groupId>
             <artifactId>gwt-servlet</artifactId>
             <scope>runtime</scope>
@@ -63,6 +85,13 @@
             <artifactId>smartgwt-skins</artifactId>
             <type>jar</type>
         </dependency>
+
+        <dependency>
+            <groupId>org.modeshape</groupId>
+            <artifactId>modeshape-jcr</artifactId>
+            <scope>test</scope>
+        </dependency>
+
     </dependencies>
     <build>
         <finalName>modeshape-explorer-${project.version}</finalName>
@@ -107,7 +136,7 @@
             </plugin>           
         </plugins>
     </build>
-<profiles>
+    <profiles>
         <profile>
             <id>assembly</id>
             <build>
