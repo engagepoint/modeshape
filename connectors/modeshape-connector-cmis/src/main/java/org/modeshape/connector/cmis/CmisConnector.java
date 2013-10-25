@@ -1451,7 +1451,7 @@ System.out.println("------------- Get document by Id");
 
         Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
         debug("adding mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
-        nodes.addTypeMapping(jcrName, cmisTypeId);
+        nodes.addTypeMapping(jcrName, cmisType.getId());
     }
 
     /*
