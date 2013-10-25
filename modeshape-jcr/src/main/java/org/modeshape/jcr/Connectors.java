@@ -611,6 +611,15 @@ public final class Connectors {
     }
 
     /**
+     * Preconfigured projections for each workspace.
+     *
+     * @return A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace.
+     */
+    public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjections() {
+        return this.snapshot.get().preconfiguredProjections;
+    }
+
+    /**
      * Returns the repository's document translator.
      * 
      * @return a {@link DocumentTranslator} instance.
