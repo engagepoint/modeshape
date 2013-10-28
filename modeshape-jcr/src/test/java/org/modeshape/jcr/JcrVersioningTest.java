@@ -212,6 +212,7 @@ public class JcrVersioningTest extends SingleUseAbstractTest {
     public void shouldNotAllowRemovingFromCheckedInNodeExistingChildNodeWithOpvOfSomethingOtherThanIgnore() throws Exception {
         registerNodeTypes(session, "cnd/versioning.cnd");
 
+
         // Set up parent node and check it in ...
         Node parent = session.getRootNode().addNode("versionableNode", "ver:versionable");
         parent.setProperty("versionProp", "v");
