@@ -23,6 +23,7 @@
  */
 package org.modeshape.jcr;
 
+
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNull.notNullValue;
 import static org.hamcrest.core.IsSame.sameInstance;
