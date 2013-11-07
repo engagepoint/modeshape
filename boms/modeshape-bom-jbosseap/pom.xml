@@ -1,11 +1,7 @@
-
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
-
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.modeshape.bom</groupId>
-    <artifactId>modeshape-bom-jbosseap</artifactId>
-
     <version>3.7.32-EP-SNAPSHOT</version>
 
     <name>ModeShape BOM for usage within EAP</name>
@@ -13,6 +9,7 @@
     <url>http://www.modeshape.org</url>
     <packaging>pom</packaging>
     <description>ModeShape and EAP6 usage Bill of Material (BOM)</description>
+
     <inceptionYear>2008</inceptionYear>
 
     <organization>
