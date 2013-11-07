@@ -325,6 +325,13 @@ public class RepositoryConfiguration {
          */
         public static final String NODE_TYPES = "node-types";
 
+
+        /**
+         * path to the folder that will keep unfiled documents and will be hidden
+         */
+        public static final String NODE_UPFILED_PATH = "node-unfiled-path";
+
+
         /**
          * The default value which symbolizes "all" the workspaces, meaning the initial content should be imported for each of the
          * new workspaces.
@@ -1026,6 +1033,16 @@ public class RepositoryConfiguration {
      */
     public InitialContent getInitialContent() {
         return new InitialContent(doc.getDocument(FieldName.WORKSPACES));
+    }
+
+
+    /**
+     * todo unfiled
+     *
+     * @return a {@code non-null} {@link InitialContent}
+     */
+    public String getUnfiledNodePath() {
+        return doc.getString(FieldName.NODE_UPFILED_PATH);
     }
 
     /**

@@ -1074,8 +1074,9 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                     this.connectors = new Connectors(this, connectorComponents, preconfiguredProjectionsByWorkspace);
                     logger.debug("Loading cache '{0}' from cache container {1}", cacheName, container);
                     SchematicDb database = Schematic.get(container, cacheName);
+                    // unfiled node path
                     this.documentStore = connectors.hasConnectors() ?
-                                         new FederatedDocumentStore(connectors, database) :
+                                         new FederatedDocumentStore(connectors, database, config.getUnfiledNodePath()) :
                                          new LocalDocumentStore(database);
                     this.txnMgr = this.documentStore.transactionManager();
                     MonitorFactory monitorFactory = new RepositoryMonitorFactory(this);
@@ -1287,6 +1288,22 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                         public Void call() throws Exception {
                             for (String workspaceName : repositoryCache().getWorkspaceNames()) {
                                 initialContentImporter().importInitialContent(workspaceName);
+
+                                // unfiled
+                                JcrSession internalSession = runningState().loginInternalSession(workspaceName);
+                                try {
+                                    JcrRootNode root = internalSession.getRootNode();
+                                    NodeKey desiredKey = new NodeKey(runningState().documentStore().getLocalSourceKey(),
+                                            NodeKey.keyForWorkspaceName(workspaceName),
+                                            "jcr:unfiled");
+                                    AbstractJcrNode unfiled =
+                                            root.addNode("unfiled", "nt:folder", desiredKey, false);
+                                    internalSession.save();
+                                } finally {
+                                    internalSession.logout();
+                                }
+                                //
+
                             }
                             return null;
                         }

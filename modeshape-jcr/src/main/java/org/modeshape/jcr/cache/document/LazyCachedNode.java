@@ -49,6 +49,9 @@ import org.modeshape.jcr.value.NamespaceRegistry;
 import org.modeshape.jcr.value.Path;
 import org.modeshape.jcr.value.Path.Segment;
 import org.modeshape.jcr.value.Property;
+import org.modeshape.jcr.value.basic.BasicName;
+
+import javax.jcr.nodetype.NodeType;
 
 /**
  * This is an immutable {@link CachedNode} implementation that lazily loads its content. Technically each instance modifies its
@@ -191,15 +194,23 @@ public class LazyCachedNode implements CachedNode, Serializable {
             CachedNode parent = parent(cache);
             if (parent == null) {
                 // This should be the root node ...
-                    parentReferenceToSelf = cache.childReferenceForRoot();
+                parentReferenceToSelf = cache.childReferenceForRoot();
             } else {
                 ChildReferences references = parent.getChildReferences(cache);
-                if (references.supportsGetChildReferenceByKey()) {
-                    parentReferenceToSelf = references.getChild(key);
+                NodeKey parentKey = getParentKey(cache);
+                // test for unfiled parent
+                if (parentKey.getIdentifier().equals("jcr:unfiled")) {
+                    parentReferenceToSelf = new ChildReference(key, JcrLexicon.UUID, 1);
                 } else {
-                    // Directly look up the ChildReference by going to the cache (and possibly connector) ...
-                    NodeKey parentKey = getParentKey(cache);
-                    parentReferenceToSelf = cache.getChildReference(parentKey, key);
+                    // continue otherwise
+                    if (references.supportsGetChildReferenceByKey()) {
+                        parentReferenceToSelf = references.getChild(key);
+                    } else {
+                        // Directly look up the ChildReference by going to the cache (and possibly connector) ...
+                        parentReferenceToSelf = cache.getChildReference(parentKey, key);
+                    }
+
+
                 }
                 parentReferenceToSelfParentRef = new WeakReference<CachedNode>(parent);
             }

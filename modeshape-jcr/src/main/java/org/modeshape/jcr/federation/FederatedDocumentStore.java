@@ -49,6 +49,7 @@ import org.modeshape.jcr.value.basic.StringReference;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 
 import javax.jcr.Workspace;
+import javax.jcr.nodetype.NodeType;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import java.util.*;
@@ -69,6 +70,7 @@ public class FederatedDocumentStore implements DocumentStore {
     private DocumentTranslator translator;
     private String localSourceKey;
     private List<Connector> unfiledSupportConnectors = new ArrayList<Connector>();
+    private String mappedUnfiledPath;
 
     /**
      * Creates a new instance with the given connectors and local db.
@@ -77,10 +79,17 @@ public class FederatedDocumentStore implements DocumentStore {
      * @param localDb    a {@code non-null} {@link SchematicDb} instance
      */
     public FederatedDocumentStore(Connectors connectors,
-                                  SchematicDb localDb) {
+                                  SchematicDb localDb,
+                                  String unfiledNodePath) {
         this.connectors = connectors;
         this.localDocumentStore = new LocalDocumentStore(localDb);
+        this.mappedUnfiledPath = unfiledNodePath;
         unfiledSupportConnectors = getUnfiledSupportConnectors(this.connectors);
+    }
+
+
+    public String getMappedUnfiledPath(){
+        return mappedUnfiledPath;
     }
 
     protected final DocumentTranslator translator() {
@@ -470,7 +479,8 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
     private boolean isSystemUnfiled(String key) {
-        return (key.contains(Workspace.NAME_UNFILED_NODE));
+        // todo OVERRIDE this to return actual unfiled path
+        return (key.contains("jcr:unfiled"));
     }
 
     private String sourceKey(String nodeKey) {
@@ -511,6 +521,10 @@ public class FederatedDocumentStore implements DocumentStore {
 
         // replace the id of each parent and add the optional federated parent
         List<String> parentKeys = new ArrayList<String>();
+        if (reader.getParentIds().size() == 0 && !externalDocumentId.endsWith("/CONTENT")) {
+//            parentKeys.add(new NodeKey(localSourceKey, FEDERATED_WORKSPACE_KEY, "jcr:unfiled").toString());
+            parentKeys.add("08d49cc7505d64jcr:unfiled");
+        }
         for (String parentId : reader.getParentIds()) {
             String parentKey = documentIdToNodeKeyString(sourceName, parentId);
             parentKeys.add(parentKey);
