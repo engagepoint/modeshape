@@ -1106,13 +1106,8 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
                 }
             }
 
-            if (value.getType() == PropertyType.STRING ) {
-                for (int i = 0; i < constraints.length; i++) {
-                    String constr = constraints[i].toString();
-                    if (constr.equals(convertedValue)) {
-                        return true;
-                    }
-                }
+            if (expressions.contains(convertedValue)) {
+                return true;
             }
             return false;
         }
