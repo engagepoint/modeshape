@@ -2918,29 +2918,43 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         if (defn == null || nodeTypes.getVersion() > defn.nodeTypesVersion) {
             assert !this.isRoot();
             // Determine the node type based upon this node's type information ...
-            CachedNode parent = getParent().node();
-            SessionCache cache = sessionCache();
-            Name nodeName = name();
-            Name primaryType = node().getPrimaryType(cache);
-            Name parentPrimaryType = parent.getPrimaryType(cache);
-            Set<Name> parentMixins = parent.getMixinTypes(cache);
-            int numExistingSnsInParent = parent.getChildReferences(cache).getChildCount(nodeName);
-            boolean skipProtected = false;
-            JcrNodeDefinition childDefn = nodeTypes.findChildNodeDefinition(parentPrimaryType,
-                                                                            parentMixins,
-                                                                            nodeName,
-                                                                            primaryType,
-                                                                            numExistingSnsInParent,
-                                                                            skipProtected);
-            if (childDefn == null) {
-                throw new ConstraintViolationException(JcrI18n.noChildNodeDefinition.text(nodeName,
-                                                                                          getParent().location(),
-                                                                                          readable(parentPrimaryType),
-                                                                                          readable(parentMixins)));
+            AbstractJcrNode theParent = null;
+            // get parent may throw NPE but we still want to process request
+            try {
+                theParent = getParent();
+            } catch (NullPointerException npe) { /*ignore*/ }
+
+            if (theParent != null) {
+                CachedNode parent = getParent().node();
+                SessionCache cache = sessionCache();
+                Name nodeName = name();
+                Name primaryType = node().getPrimaryType(cache);
+                Name parentPrimaryType = parent.getPrimaryType(cache);
+                Set<Name> parentMixins = parent.getMixinTypes(cache);
+                int numExistingSnsInParent = parent.getChildReferences(cache).getChildCount(nodeName);
+                boolean skipProtected = false;
+                JcrNodeDefinition childDefn = nodeTypes.findChildNodeDefinition(parentPrimaryType,
+                        parentMixins,
+                        nodeName,
+                        primaryType,
+                        numExistingSnsInParent,
+                        skipProtected);
+
+                if (childDefn == null) {
+                    throw new ConstraintViolationException(JcrI18n.noChildNodeDefinition.text(nodeName,
+                            getParent().location(),
+                            readable(parentPrimaryType),
+                            readable(parentMixins)));
+                }
+
+                NodeDefinitionId id = childDefn.getId();
+                setNodeDefinitionId(id, nodeTypes.getVersion());
+                return childDefn;
+            } else {
+                // let's give a default definition
+                NodeDefinitionId defReplacement = new NodeDefinitionId(nameFrom(NodeType.NT_FOLDER), JcrNodeType.RESIDUAL_NAME, new Name[]{nameFrom(NodeType.NT_HIERARCHY_NODE)});
+                return nodeTypes.getChildNodeDefinition(defReplacement);
             }
-            NodeDefinitionId id = childDefn.getId();
-            setNodeDefinitionId(id, nodeTypes.getVersion());
-            return childDefn;
         }
         return nodeTypes.getChildNodeDefinition(defn.nodeDefnId);
     }
@@ -3259,7 +3273,14 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                 return prop == null || booleanFactory.create(prop.getFirstValue());
             }
             if (node.isRoot()) break;
-            node = node.getParent();
+
+            // may throw NPE when there's no parent
+            // have to handle it
+            try {
+                node = node.getParent();
+            } catch (NullPointerException npe) {
+                break;
+            }
         }
         return true;
     }
