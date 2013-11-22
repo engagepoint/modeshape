@@ -24,7 +24,7 @@
 package org.modeshape.connector.cmis;
 
 import org.junit.*;
-import org.modeshape.connector.cmis.Properties;
+import org.modeshape.connector.cmis.mapping.Properties;
 import static org.junit.Assert.*;
 
 /**

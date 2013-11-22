@@ -41,8 +41,30 @@ package org.modeshape.connector.cmis;
  * @author kulikov
  */
 public class ObjectId {
+
     //this are object types we can outline
-    public enum Type {REPOSITORY_INFO, CONTENT, OBJECT}
+    public enum Type {
+        REPOSITORY_INFO("REPOSITORY_INFO"), CONTENT("CONTENT"), OBJECT("OBJECT"), UNFILED_STORAGE("jcr:unfiled");
+
+        private String value;
+
+        private Type(String value) {
+            this.value = value;
+        }
+
+        public static Type fromValue(String fromValue) {
+            for (Type type : values()) {
+                if (type.value.equals(fromValue))
+                    return type;
+            }
+
+            return null;
+        }
+
+        public String getValue() {
+            return value;
+        }
+    }
 
     private Type type;
     private String id;
@@ -83,6 +105,9 @@ public class ObjectId {
      * @return object instance.
      */
     public static ObjectId valueOf(String uuid) {
+        if (uuid.contains("#")) {
+            uuid = uuid.substring(0, uuid.indexOf("#"));
+        }
         int p = uuid.indexOf("/");
         if (p < 0) {
             return new ObjectId(Type.OBJECT, uuid);
@@ -90,7 +115,7 @@ public class ObjectId {
         String ident = uuid.substring(0, p);
         String type = uuid.substring(p + 1);
 
-        return new ObjectId(Type.valueOf(type.toUpperCase()), ident);
+        return new ObjectId(Type.fromValue(type), ident);
     }
 
     /**
@@ -102,7 +127,11 @@ public class ObjectId {
      * @return text view of this identifier.
      */
     public static String toString(Type type, String id) {
-        return type == Type.OBJECT ? id : id + "/" + type.toString();
+        return type == Type.OBJECT ? id : id + "/" + type.getValue();
     }
-    
+
+
+    public static boolean isUnfiledStorage(String id) {
+        return Type.UNFILED_STORAGE.getValue().equals(id.replace("/", ""));
+    }
 }

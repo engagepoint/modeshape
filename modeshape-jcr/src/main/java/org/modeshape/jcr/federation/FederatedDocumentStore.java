@@ -48,8 +48,6 @@ import org.modeshape.jcr.value.basic.NodeKeyReference;
 import org.modeshape.jcr.value.basic.StringReference;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 
-import javax.jcr.Workspace;
-import javax.jcr.nodetype.NodeType;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import java.util.*;
@@ -521,10 +519,7 @@ public class FederatedDocumentStore implements DocumentStore {
 
         // replace the id of each parent and add the optional federated parent
         List<String> parentKeys = new ArrayList<String>();
-        if (reader.getParentIds().size() == 0 && !externalDocumentId.endsWith("/CONTENT")) {
-//            parentKeys.add(new NodeKey(localSourceKey, FEDERATED_WORKSPACE_KEY, "jcr:unfiled").toString());
-            parentKeys.add("08d49cc7505d64jcr:unfiled");
-        }
+
         for (String parentId : reader.getParentIds()) {
             String parentKey = documentIdToNodeKeyString(sourceName, parentId);
             parentKeys.add(parentKey);
@@ -640,4 +635,13 @@ public class FederatedDocumentStore implements DocumentStore {
         }
     }
 
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+        Connector unfiledConnectorForType = getUnfiledConnectorForType(primaryType);
+        if (unfiledConnectorForType != null)
+            return new NodeKey(NodeKey.keyForSourceName(unfiledConnectorForType.getSourceName()),
+                    FEDERATED_WORKSPACE_KEY,
+                    "/" + "jcr:unfiled").toString();
+        return "jcr:unfiled";
+    }
 }

@@ -62,6 +62,7 @@ import javax.jcr.NoSuchWorkspaceException;
 import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.nodetype.NodeType;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.naming.NoInitialContextException;
@@ -110,14 +111,9 @@ import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.bus.ChangeBus;
 import org.modeshape.jcr.bus.ClusteredRepositoryChangeBus;
 import org.modeshape.jcr.bus.RepositoryChangeBus;
-import org.modeshape.jcr.cache.NodeCache;
-import org.modeshape.jcr.cache.NodeKey;
-import org.modeshape.jcr.cache.RepositoryCache;
-import org.modeshape.jcr.cache.SessionCache;
-import org.modeshape.jcr.cache.SessionEnvironment;
+import org.modeshape.jcr.cache.*;
 import org.modeshape.jcr.cache.SessionEnvironment.Monitor;
 import org.modeshape.jcr.cache.SessionEnvironment.MonitorFactory;
-import org.modeshape.jcr.cache.WorkspaceNotFoundException;
 import org.modeshape.jcr.cache.document.DocumentStore;
 import org.modeshape.jcr.cache.document.LocalDocumentStore;
 import org.modeshape.jcr.cache.document.TransactionalWorkspaceCaches;
@@ -150,13 +146,13 @@ import org.modeshape.jcr.value.binary.infinispan.InfinispanBinaryStore;
 import org.modeshape.jmx.RepositoryStatisticsBean;
 
 /**
- * 
+ *
  */
 public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * The set of supported query language string constants.
-     * 
+     *
      * @see javax.jcr.query.QueryManager#getSupportedQueryLanguages()
      * @see javax.jcr.query.QueryManager#createQuery(String, String)
      */
@@ -210,7 +206,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Create a Repository instance given the {@link RepositoryConfiguration configuration}.
-     * 
+     *
      * @param configuration the repository configuration; may not be null
      * @throws ConfigurationException if there is a problem with the configuration
      */
@@ -248,7 +244,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Get the state of this JCR repository instance.
-     * 
+     *
      * @return the state; never null
      */
     public State getState() {
@@ -257,14 +253,14 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Get the name of this JCR repository instance.
-     * 
+     *
      * @return the name; never null
      */
     @Override
     public String getName() {
         return repositoryName.get();
     }
-    
+
     public Connectors getConnectors() {
     	return this.connectors;
     }
@@ -281,7 +277,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      * Note that this provides un-checked access to the statistics, unlike {@link RepositoryManager#getRepositoryMonitor()} in the
      * public API which only exposes the statistics if the session's user has administrative privileges.
      * </p>
-     * 
+     *
      * @return the statistics component; never null
      * @throws IllegalStateException if the repository is not {@link #getState() running}
      * @see Workspace#getRepositoryManager()
@@ -306,8 +302,8 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      *     </li>
      * </ul>
      * </p>
-     * 
-     * @return a {@link Problems} instance which may contains errors and warnings raised by various components; may be empty if 
+     *
+     * @return a {@link Problems} instance which may contains errors and warnings raised by various components; may be empty if
      * nothing unusual happened during start but never {@code null}
      *
      * @throws FileNotFoundException if the Infinispan configuration file is specified but could not be found
@@ -315,7 +311,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      * @throws Exception if there is a problem with underlying resource setup
      */
     public Problems getStartupProblems() throws Exception {
-        doStart();  
+        doStart();
         SimpleProblems result = new SimpleProblems();
         result.addAll(this.configurationProblems);
         result.addAll(runningState().problems());
@@ -324,7 +320,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Start this repository instance.
-     * 
+     *
      * @throws FileNotFoundException if the Infinispan configuration file is specified but could not be found
      * @throws IOException if there is a problem with the specified Infinispan configuration file
      * @throws Exception if there is a problem with underlying resource setup
@@ -335,7 +331,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Terminate all active sessions.
-     * 
+     *
      * @return a future representing the asynchronous session termination process.
      */
     Future<Boolean> shutdown() {
@@ -360,7 +356,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      * Apply the supplied changes to this repository's configuration, and if running change the services to reflect the updated
      * configuration. Note that this method assumes the proposed changes have already been validated; see
      * {@link RepositoryConfiguration#validate(Changes)}.
-     * 
+     *
      * @param changes the changes for the configuration
      * @throws FileNotFoundException if the Infinispan configuration file is changed but could not be found
      * @throws IOException if there is a problem with the specified Infinispan configuration file
@@ -551,7 +547,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
     /**
      * Get the immutable configuration for this repository.
-     * 
+     *
      * @return the configuration; never null
      */
     public RepositoryConfiguration getConfiguration() {
@@ -987,7 +983,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 this.problems = new SimpleProblems();
             } else {
                 logger.debug("Updating '{0}' repository with configuration: \n{1}", repositoryName(), this.config);
-                this.problems = other.problems;                
+                this.problems = other.problems;
             }
             ExecutionContext tempContext = new ExecutionContext();
 
@@ -1244,7 +1240,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         public Connectors getConnectors() {
         	return connectors;
         }
-        
+
         public RepositoryConfiguration getRepositoryConfiguration() {
         	return config;
         }
@@ -1268,7 +1264,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         /**
          * Performs the steps required after the running state has been created and before a repository is considered
          * "initialized"
-         * 
+         *
          * @throws Exception if anything goes wrong in this phase. If it does, the transaction used for startup should be rolled
          *         back
          */
@@ -1296,9 +1292,16 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                                     NodeKey desiredKey = new NodeKey(runningState().documentStore().getLocalSourceKey(),
                                             NodeKey.keyForWorkspaceName(workspaceName),
                                             "jcr:unfiled");
-                                    AbstractJcrNode unfiled =
-                                            root.addNode("unfiled", "nt:folder", desiredKey, false);
-                                    internalSession.save();
+
+                                    try {
+                                        AbstractJcrNode unfiled = root.getNode("unfiled");
+                                    } catch (javax.jcr.PathNotFoundException nfeIgnore) {
+                                        AbstractJcrNode unfiled = root.addNode("unfiled", "nt:folder", desiredKey, false);
+                                        unfiled.addMixin(NodeType.MIX_REFERENCEABLE);
+                                        internalSession.save();
+                                    }
+
+
                                 } finally {
                                     internalSession.logout();
                                 }
@@ -1339,7 +1342,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         /**
          * Perform any initialization code that requires the repository to be in a running state. The repository has been
          * considered started up.
-         * 
+         *
          * @throws Exception if there is a problem during this phase.
          */
         protected final void postInitialize() throws Exception {
@@ -2081,7 +2084,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
      * Determine the initial delay before the garbage collection process(es) should be run, based upon the supplied initial
      * expression. Note that the initial expression specifies the hours and minutes in local time, whereas this method should
      * return the delay in milliseconds after the current time.
-     * 
+     *
      * @param initialTimeExpression the expression of the form "<code>hh:mm</code>"; never null
      * @return the number of milliseconds after now that the process(es) should be started
      */
@@ -2129,7 +2132,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
         /**
          * Perform the garbage collection task.
-         * 
+         *
          * @param repository the non-null and {@link State#RUNNING running} repository instance
          */
         protected abstract void doRun( JcrRepository repository );

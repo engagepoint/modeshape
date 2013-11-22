@@ -201,4 +201,6 @@ public interface DocumentStore {
      */
     public ExternalBinaryValue getExternalBinary( String sourceName,
                                                   String id );
+
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName);
 }
