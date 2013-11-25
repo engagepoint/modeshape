@@ -636,8 +636,12 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
     @Override
-    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+    public String getUnfiledStorageKey(Name primaryType, String workspace) {
         Connector unfiledConnectorForType = getUnfiledConnectorForType(primaryType);
+        return getUnfiledStorageKey(unfiledConnectorForType);
+    }
+
+    public String getUnfiledStorageKey(Connector unfiledConnectorForType) {
         if (unfiledConnectorForType != null)
             return new NodeKey(NodeKey.keyForSourceName(unfiledConnectorForType.getSourceName()),
                     FEDERATED_WORKSPACE_KEY,
