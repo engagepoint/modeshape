@@ -30,6 +30,8 @@ import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
+import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
+import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
@@ -54,6 +56,7 @@ import org.modeshape.connector.cmis.operations.impl.*;
 import org.modeshape.connector.cmis.util.CryptoUtils;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.RepositoryConfiguration;
+import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.*;
 import org.modeshape.jcr.value.BinaryValue;
@@ -62,6 +65,9 @@ import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeTypeDefinition;
+import javax.jcr.nodetype.NodeTypeTemplate;
+import javax.jcr.nodetype.PropertyDefinitionTemplate;
 import javax.xml.ws.handler.HandlerResolver;
 import java.io.IOException;
 import java.math.BigInteger;
@@ -142,6 +148,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String relationshipService;
     private String repositoryService;
     private String versioningService;
+    private Properties properties;
     // root folder reference flag
     private boolean hideRootFolderReference;
     // credentials
@@ -710,6 +717,72 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             return newDocument(id);
         }
 
+    }
+
+
+    /**
+     * Import given CMIS type to the JCR repository.
+     * 
+     * @param cmisType cmis object type
+     * @param typeManager JCR type manager/
+     * @param registry
+     * @throws RepositoryException if there is a problem importing the types
+     */
+    @SuppressWarnings( "unchecked" )
+    public void importType( ObjectType cmisType,
+                             NodeTypeManager typeManager,
+                             NamespaceRegistry registry ) throws RepositoryException {
+        // TODO: get namespace information and register
+        // registry.registerNamespace(cmisType.getLocalNamespace(), cmisType.getLocalNamespace());
+
+        // create node type template
+        NodeTypeTemplate type = typeManager.createNodeTypeTemplate();
+
+        // convert CMIS type's attributes to node type template we have just created
+        type.setName(cmisType.getId());
+        type.setAbstract(false);
+        type.setMixin(false);
+        type.setOrderableChildNodes(true);
+        type.setQueryable(true);
+        if (!cmisType.isBaseType()) {
+            type.setDeclaredSuperTypeNames(superTypes(cmisType));
+        }
+
+        Map<String, PropertyDefinition<?>> props = cmisType.getPropertyDefinitions();
+        Set<String> names = props.keySet();
+        // properties
+        for (String name : names) {
+            PropertyDefinition<?> pd = props.get(name);
+            PropertyDefinitionTemplate pt = typeManager.createPropertyDefinitionTemplate();
+            pt.setRequiredType(properties.getJcrType(pd.getPropertyType()));
+            pt.setAutoCreated(false);
+            pt.setAvailableQueryOperators(new String[] {});
+            pt.setName(name);
+            pt.setMandatory(pd.isRequired());
+            type.getPropertyDefinitionTemplates().add(pt);
+        }
+
+        // register type
+        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[] {type};
+        typeManager.registerNodeTypes(nodeDefs, true);
+    }
+
+    /**
+     * Determines supertypes for the given CMIS type in terms of JCR.
+     *
+     * @param cmisType given CMIS type
+     * @return supertypes in JCR lexicon.
+     */
+    private String[] superTypes( ObjectType cmisType ) {
+        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_FOLDER) {
+            return new String[] {JcrConstants.NT_FOLDER};
+        }
+
+        if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
+            return new String[] {JcrConstants.NT_FILE};
+        }
+
+        return new String[] {cmisType.getParentType().getId()};
     }
 
     public Document getChildReference(String parentKey,
