@@ -24,7 +24,7 @@
     <module>modeshape-web-jcr-webdav-war</module>
     <module>modeshape-web-cmis</module>
     <module>modeshape-web-cmis-war</module>
-    <!--<module>modeshape-web-explorer</module>-->
-    <!--<module>modeshape-web-explorer-war</module>-->
+    <module>modeshape-web-explorer</module>
+    <module>modeshape-web-explorer-war</module>
   </modules>
 </project>
