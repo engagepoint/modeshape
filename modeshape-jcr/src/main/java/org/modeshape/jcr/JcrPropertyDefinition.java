@@ -1106,6 +1106,9 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
                 }
             }
 
+            if (expressions.contains(convertedValue)) {
+                return true;
+            }
             return false;
         }
 
