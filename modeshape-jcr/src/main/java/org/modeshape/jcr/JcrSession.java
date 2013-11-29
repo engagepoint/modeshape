@@ -2272,4 +2272,10 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             cache().checkForTransaction();
         }
     }
+
+
+
+    public String getUnfiledNodeKey(String primaryType, String workspaceName) {
+        return repository.runningState().documentStore().getUnfiledStorageKey(nameFactory().create(primaryType), workspaceName);
+    }
 }

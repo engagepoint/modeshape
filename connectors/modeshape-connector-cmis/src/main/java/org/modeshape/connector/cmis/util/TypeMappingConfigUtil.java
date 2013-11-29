@@ -1,8 +1,8 @@
 package org.modeshape.connector.cmis.util;
 
 import org.infinispan.schematic.document.Document;
-import org.modeshape.connector.cmis.MappedCustomType;
-import org.modeshape.connector.cmis.MappedTypesContainer;
+import org.modeshape.connector.cmis.mapping.MappedCustomType;
+import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 
 import java.util.List;
@@ -15,8 +15,8 @@ public class TypeMappingConfigUtil {
     public static String PROPERTY_IGNORE_EXTERNAL_PROPERTIES = "ignoreExternalProperties";
     public static String PROPERTY_JCR_NAMESPACE = "jcrNamespaceUri";
 
-    public static MappedTypesContainer getMappedTypes(TypeCustomMappingList typeMappings) {
-        MappedTypesContainer result = new MappedTypesContainer();
+    public static MappedTypesContainer getMappedTypes(TypeCustomMappingList typeMappings, MappedCustomType defaultsDelegate) {
+        MappedTypesContainer result = new MappedTypesContainer(defaultsDelegate);
         if (typeMappings == null) return result;
         for (Object obja : typeMappings.getTypes()) {
             Document typeMapping = (Document) obja;
@@ -24,7 +24,7 @@ public class TypeMappingConfigUtil {
             String jcrType = typeMapping.getString(PROPERTY_JCR_TYPE_NAME);
             String externalType = typeMapping.getString(PROPERTY_EXTERNAL_TYPE_NAME);
 
-            MappedCustomType mappedCustomType = new MappedCustomType(jcrType, externalType);
+            MappedCustomType mappedCustomType = new MappedCustomType(jcrType, externalType, defaultsDelegate);
             mappedCustomType.setJcrNamespaceUri(typeMapping.getString(PROPERTY_JCR_NAMESPACE));
 
             if (typeMapping.getDocument(PROPERTY_MAPPED_PROPERTIES) != null) {
@@ -43,4 +43,5 @@ public class TypeMappingConfigUtil {
 
         return result;
     }
+
 }

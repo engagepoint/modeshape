@@ -21,11 +21,11 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.modeshape.connector.cmis;
+package org.modeshape.connector.cmis.mapping;
 
 import java.util.HashMap;
-import java.util.Map;
 
+import org.modeshape.connector.cmis.CmisLexicon;
 import org.modeshape.jcr.JcrLexicon;
 
 /**

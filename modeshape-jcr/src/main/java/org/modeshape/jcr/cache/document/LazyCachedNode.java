@@ -191,16 +191,16 @@ public class LazyCachedNode implements CachedNode, Serializable {
             CachedNode parent = parent(cache);
             if (parent == null) {
                 // This should be the root node ...
-                    parentReferenceToSelf = cache.childReferenceForRoot();
+                parentReferenceToSelf = cache.childReferenceForRoot();
             } else {
                 ChildReferences references = parent.getChildReferences(cache);
-                if (references.supportsGetChildReferenceByKey()) {
-                    parentReferenceToSelf = references.getChild(key);
-                } else {
-                    // Directly look up the ChildReference by going to the cache (and possibly connector) ...
+                    if (references.supportsGetChildReferenceByKey()) {
+                        parentReferenceToSelf = references.getChild(key);
+                    } else {
+                        // Directly look up the ChildReference by going to the cache (and possibly connector) ...
                     NodeKey parentKey = getParentKey(cache);
-                    parentReferenceToSelf = cache.getChildReference(parentKey, key);
-                }
+                        parentReferenceToSelf = cache.getChildReference(parentKey, key);
+                    }
                 parentReferenceToSelfParentRef = new WeakReference<CachedNode>(parent);
             }
         }

@@ -5,6 +5,7 @@
         "default": "default",
         "allowCreation": true
     },
+    "node-unfiled-path" : "/unfiled",
     "security": {
         "anonymous": {
             "roles": ["readonly", "readwrite", "admin"],

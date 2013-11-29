@@ -435,4 +435,9 @@ public class LocalDocumentStore implements DocumentStore {
             return priorResult.combine(newResult);
         }
     }
+
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+        return "jcr:unfiled";
+    }
 }
