@@ -8,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.6.21-EP</version>
+    <version>3.6.21-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -727,8 +727,21 @@
         <pluginManagement>
             <plugins>
 
+                <!--tmp release plugin-->
 
+                <plugin>
+                    <artifactId>maven-release-plugin</artifactId>
+                    <version>2.4.2</version>
+                    <configuration>
+                        <!--
+                          During release:perform, enable the "release" profile
+                         -->
+                        <releaseProfiles>release</releaseProfiles>
+                        <goals>deploy assembly:single</goals>
+                    </configuration>
+                </plugin>
 
+                <!--||-->
 
                 <!--
                         Fixes how test resources of a project can be used in projects
