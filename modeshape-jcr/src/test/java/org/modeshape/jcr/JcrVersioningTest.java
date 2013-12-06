@@ -1009,7 +1009,6 @@ public class JcrVersioningTest extends SingleUseAbstractTest {
         assertNode("/page/child2");
     }
 
-
     @Test
     @FixFor( "MODE-2112" )
     public void shouldRestoreMovedNode2() throws Exception {

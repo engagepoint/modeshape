@@ -1249,7 +1249,6 @@ final class JcrVersionManager implements VersionManager {
                         restoredSharedChild(target, sourceChild, targetChildNode);
                         continue;
                     }
-
                 }
 
                 if (!restoreTargetUnderSamePath) {
