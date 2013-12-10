@@ -81,7 +81,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         // max time for waiting in milliseconds
         long maxTime = 30000L;
 
-        // actially waiting time in milliseconds
+        // actually waiting time in milliseconds
         long waitingTime = 0L;
 
         // time quant in milliseconds
@@ -102,7 +102,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         if (!isReady) {
             throw new IllegalStateException("CMIS repository did not respond withing " + maxTime + " milliseconds");
         }
-        logger.info("CMIS repository has been started successfuly");
+        logger.info("CMIS repository has been started successfully");
     }
 
     @AfterClass
@@ -527,26 +527,33 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     public void testRename() throws Exception{
         Node root = getSession().getNode("/cmis");
 
-        String fileName = "testFile_ed_" + Long.toString((new Date()).getTime());
+        // Create node
+        String fileName       = "rename_testFile_" + Long.toString((new Date()).getTime());
         String mappedNodeType = "emailDocument";
 
         Node node1 = root.addNode(fileName, mappedNodeType);
         node1.addMixin("mix:referenceable");
+
         byte[] content = "Hello World".getBytes();
         ByteArrayInputStream bin = new ByteArrayInputStream(content);
         bin.reset();
 
         Node contentNode = node1.addNode("jcr:content", "nt:resource");
-        Binary binary = session.getValueFactory().createBinary(bin);
+        Binary binary = getSession().getValueFactory().createBinary(bin);
+
         contentNode.setProperty("jcr:data", binary);
         contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+
         getSession().save();
 
+        // Rename node
         Node node;
 
         node = getSession().getNodeByIdentifier(node1.getIdentifier());
-        String nameUpdated = "updated" + fileName;
+
+        String nameUpdated = "updated_" + fileName;
         String newPath = node.getParent().getPath() + "/" + nameUpdated;
+
         getSession().move(node.getPath(), newPath);
         getSession().save();
 
@@ -740,5 +747,4 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertNotNull(folder);
         assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
     }
-    
 }

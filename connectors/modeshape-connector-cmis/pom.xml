@@ -29,6 +29,7 @@
         <dependency>
             <groupId>org.apache.chemistry.opencmis</groupId>
             <artifactId>chemistry-opencmis-server-inmemory</artifactId>
+            <version>0.9.0-beta-1</version>
             <type>war</type>
             <scope>test</scope>
         </dependency>
@@ -94,6 +95,7 @@
                                 <artifactItem>
                                     <groupId>org.apache.chemistry.opencmis</groupId>
                                     <artifactId>chemistry-opencmis-server-inmemory</artifactId>
+                                    <version>0.9.0-beta-1</version>
                                     <type>war</type>
                                 </artifactItem>
                             </artifactItems>

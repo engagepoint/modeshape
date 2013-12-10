@@ -57,7 +57,7 @@ public class ObjectIdTest {
      */
     @Test
     public void testContentType() {
-        String uuid = "1234-5678--76fs/content";
+        String uuid = "1234-5678--76fs/CONTENT";
         ObjectId ID = ObjectId.valueOf(uuid);
 
         assertEquals(ObjectId.Type.CONTENT, ID.getType());
@@ -66,7 +66,7 @@ public class ObjectIdTest {
 
     @Test
     public void testRepository() {
-        String uuid = "/repository_info";
+        String uuid = "/REPOSITORY_INFO";
         ObjectId ID = ObjectId.valueOf(uuid);
 
         assertEquals(ObjectId.Type.REPOSITORY_INFO, ID.getType());

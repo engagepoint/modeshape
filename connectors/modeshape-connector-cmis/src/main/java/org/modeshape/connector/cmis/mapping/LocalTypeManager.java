@@ -182,6 +182,19 @@ public class LocalTypeManager {
     }
 
     /**
+     * Indicates what given cmis base type can be imported
+     *
+     * @param    baseTypeId cmis base type id
+     *
+     * @return   true   if base type will be imported
+     *           false  otherwise
+     */
+    public static boolean isSupportedBaseType (BaseTypeId baseTypeId) {
+        return ( (baseTypeId == BaseTypeId.CMIS_DOCUMENT) || (baseTypeId == BaseTypeId.CMIS_FOLDER) );
+    }
+
+
+    /**
      * Import given CMIS type to the JCR repository.
      *
      * @param cmisType    cmis object type
@@ -195,14 +208,19 @@ public class LocalTypeManager {
                            NamespaceRegistry registry) throws RepositoryException {
         // cache
         cachedTypeDefinitions.put(cmisType.getId(), cmisType);
+
         // skip base types because we are going to
         // map base types directly
-        if (cmisType.isBaseType() || cmisType.getId().equals(Constants.CMIS_DOCUMENT_UNVERSIONED)) {
+        if (cmisType.isBaseType() || !isSupportedBaseType(cmisType.getBaseTypeId())) {
             return;
         }
-        String cmisTypeId = cmisType.getId();
+
+        if (cmisType.getId().equals(Constants.CMIS_DOCUMENT_UNVERSIONED)) {
+            return;
+        }
+
         MappedCustomType mapping = mappedTypes.findByExtName(cmisType.getId());
-        cmisTypeId = mapping.getJcrName();
+        String cmisTypeId = mapping.getJcrName();
 
         // namespace registration
         debug("Type: ", cmisTypeId);
@@ -260,10 +278,19 @@ public class LocalTypeManager {
 
             if (cmisPropDef.getChoices() != null && cmisPropDef.getChoices().size() > 0) {
                 LinkedList<String> choices = new LinkedList<String>();
+
                 for (Choice choice : cmisPropDef.getChoices()) {
-                    if (choice.getValue() != null && choice.getValue().size() > 0)
-                        choices.add((String) choice.getValue().get(0));
+                    if (choice.getValue() != null && choice.getValue().size() > 0) {
+                        Object choiceValue = choice.getValue().get(0);
+
+                        if (choiceValue instanceof String) {
+                            choices.add((String) choiceValue);
+                        } else {
+                            choices.add(choiceValue.toString());
+                        }
+                    }
                 }
+
                 jcrProp.setValueConstraints(choices.toArray(new String[choices.size()]));
             }
 
