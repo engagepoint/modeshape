@@ -421,7 +421,7 @@ public class JcrWorkspaceTest extends SingleUseAbstractTest {
         assertNotEquals(nodeB.getIdentifier(), otherSession.getNode("/B").getIdentifier());
     }
 
-    @Test
+  @Test
     @FixFor( "MODE-2114" )
     public void copiedReferencesShouldHaveUpdatedUUIDs() throws Exception {
         tools.registerNodeTypes(session, "cnd/references.cnd");
@@ -521,7 +521,7 @@ public class JcrWorkspaceTest extends SingleUseAbstractTest {
         assertEquals(folder2CreatedTs, otherFolder2.getProperty("jcr:created").getDate().getTimeInMillis());
     }
 
-    @SkipLongRunning
+  @SkipLongRunning
     @FixFor( "MODE-2012" )
     @Test
     public void shouldCorrectlyImportSameContentIntoMultipleWorkspaces() throws Exception {
