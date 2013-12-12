@@ -21,10 +21,7 @@ import org.modeshape.jcr.value.ValueFactories;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
-import javax.jcr.nodetype.NodeType;
-import javax.jcr.nodetype.NodeTypeDefinition;
-import javax.jcr.nodetype.NodeTypeTemplate;
-import javax.jcr.nodetype.PropertyDefinitionTemplate;
+import javax.jcr.nodetype.*;
 import java.util.*;
 
 
@@ -300,6 +297,14 @@ public class LocalTypeManager {
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
+        if (typeManager.getNodeType(type.getName()).isNodeType("nt:folder")) {
+            NodeDefinitionTemplate child = typeManager.createNodeDefinitionTemplate();
+            child.setName("*");
+            child.setRequiredPrimaryTypeNames(new String[]{"nt:base"});
+            child.setSameNameSiblings(true);
+            type.getNodeDefinitionTemplates().add(child);
+            typeManager.registerNodeTypes(nodeDefs, true);
+        }
 
         Name jcrName = factories.getNameFactory().create(type.getName());
         MappedCustomType mappedType = mappedTypes.findByExtName(cmisTypeId);
