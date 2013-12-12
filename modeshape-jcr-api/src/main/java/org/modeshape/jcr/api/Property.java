@@ -37,8 +37,8 @@ import javax.jcr.ValueFormatException;
 public interface Property extends javax.jcr.Property {
 
     /**
-     * Converts the value of the property (if possible) to the specified type.
-     * The list of supported types is:
+     * Converts the value(s) of the property (if possible) to the specified type.
+     * The list of supported types for single-valued properties is:
      * <ul>
      *     <li>{@link String}</li>
      *     <li>{@link Long}</li>
@@ -116,11 +116,21 @@ public interface Property extends javax.jcr.Property {
     public <T> T getAs(Class<T> type) throws ValueFormatException, RepositoryException;
 
     /**
-
-     * Converts the value of the property located at the given index to the specified type. This should only be used for multi-valued
-     * properties and <b>array types are not supported</b>
+     * Converts the value of the property located at the given index to the specified type. This can be used for single-valued
+     * properties if the <code>index</code> property is '0', or multi-valued properties. <b>Array types should not be supplied 
+     * as the first parameter.</b>
      * <p>
-     * For example: {@code getAs(Long.class, 1)}
+     * For example, this is a property usage of this method to obtain the value of a single-valued property or 
+     * the first value of a multi-valued property as a {@code long}:
+     * <pre>
+     *     Long value = prop.getAs(Long.class, 0)
+     * </pre>
+     * Likewise, the following usage will only work for multi-valued properties, since only a multi-valued property 
+     * can have 2 or more values:
+     * <pre>
+     *     Long value = prop.getAs(Long.class, 1)
+     * </pre>
+     * </p>
      *
      * @param type a {@link Class} representing the type to which to convert the value of the property; may not be {@code null}
      * and is expected to be one of the types from {@link Property#getAs(Class)}.
