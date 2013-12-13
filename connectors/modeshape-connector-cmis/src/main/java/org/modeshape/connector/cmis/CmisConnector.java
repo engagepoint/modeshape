@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeDefinitionTemplate;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
@@ -1469,6 +1470,16 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
+
+        //  Enabling SNS
+        if (typeManager.getNodeType(type.getName()).isNodeType("nt:folder")) {
+            NodeDefinitionTemplate child = typeManager.createNodeDefinitionTemplate();
+            child.setName("*");
+            child.setRequiredPrimaryTypeNames(new String[]{"nt:base"});
+            child.setSameNameSiblings(true);
+            type.getNodeDefinitionTemplates().add(child);
+            typeManager.registerNodeTypes(nodeDefs, true);
+        }
 
         Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
 //        debug("adding connector nodes mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
