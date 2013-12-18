@@ -71,10 +71,12 @@ public class ImmutableChildReferences {
     public static ChildReferences create( ChildReferences first,
                                           ChildReferencesInfo segmentingInfo,
                                           ChildReferences externalReferences,
+
                                           WorkspaceCache cache,
                                           String nodeKey) {
         if (segmentingInfo.nextKey == null && externalReferences.isEmpty()) return first;
         Segmented segmentedReferences = new Segmented(nodeKey, cache, first, segmentingInfo);
+
         return !externalReferences.isEmpty() ? new FederatedReferences(segmentedReferences, externalReferences) : segmentedReferences;
     }
 
