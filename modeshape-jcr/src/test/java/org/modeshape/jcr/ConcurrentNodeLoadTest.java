@@ -66,12 +66,12 @@ public class ConcurrentNodeLoadTest
     private ModeShapeEngine engine;
     private JcrRepository repository;
 
-    private boolean print;
+
 
     @Before
     public void beforeEach() throws Exception {
 
-        print = false;
+        FileUtil.delete("target/load");
         config = RepositoryConfiguration.read(
                 "load/concurrent-load-repo-config.json");
         engine = new ModeShapeEngine();
@@ -92,9 +92,9 @@ public class ConcurrentNodeLoadTest
     @SkipLongRunning
     @Test
     public void shouldCreateItemsConcurrently() throws Exception {
-        print = true;
-        int threadsCount = 5;
-        int countPerThread = 1000;
+
+        int threadsCount = 50;
+        int countPerThread = 100;
         startEngineAndDeployRepository();
         initializeFolder(FOLDER_NAME);
         ExecutorService executorService = Executors.newFixedThreadPool(threadsCount);
@@ -105,14 +105,13 @@ public class ConcurrentNodeLoadTest
                 threadResults.add(executorService.submit(new ItemCreator(j, countPerThread)));
             }
             for (Future<?> future : threadResults) {
-                future.get(2, TimeUnit.MINUTES);
+                future.get(3, TimeUnit.MINUTES);
             }
         }
         finally {
-            executorService.shutdown();
-            executorService.awaitTermination(3, TimeUnit.MINUTES);
-
+            executorService.shutdownNow();
         }
+
         JcrSession session = repository.login();
         Long actual = session.getRootNode().getNode(FOLDER_NAME).childCount();
         Long expected = Long.valueOf(threadsCount*countPerThread);
@@ -177,18 +176,10 @@ public class ConcurrentNodeLoadTest
                             .addNode(
                                     "item-" + threadNum + "-" + num,
                                     typeId);
-            if (!fileNode
-                    .isNodeType(
-                            JcrMixLexicon.REFERENCEABLE.toString())) {
-                fileNode
-                    .addMixin(JcrMixLexicon.REFERENCEABLE.toString());
-            }
+
             Node contentNode = fileNode
                     .addNode(Node.JCR_CONTENT, NodeType.NT_RESOURCE);
-            contentNode.addMixin(NodeType.MIX_CREATED);
-            if (contentNode.canAddMixin(typeId)) {
-                contentNode.addMixin(typeId);
-            }
+
             Binary binary = jcrSession.getValueFactory()
                     .createBinary("Sample content".getBytes());
             contentNode.setProperty("jcr:data", binary);
