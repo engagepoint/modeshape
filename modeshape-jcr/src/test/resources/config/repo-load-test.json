@@ -1,0 +1,24 @@
+{
+    "name" : "Persistent Repository",
+    "jndiName" : "",
+    "monitoring" : {
+        "enabled" : true
+    },
+    "storage" : {
+        "cacheName" : "persistentRepository",
+        "cacheConfiguration" : "config/infinispan-concurrent-persistent.xml"
+    },
+    "workspaces" : {
+        "default" : "default",
+        "allowCreation" : true
+    },
+
+    "node-types" : ["cnd/engagepoint_content_types.cnd"],
+
+    "security" : {
+        "anonymous" : {
+            "roles" : ["readonly","readwrite","admin"],
+            "useOnFailedLogin" : false
+        }
+    }
+}
