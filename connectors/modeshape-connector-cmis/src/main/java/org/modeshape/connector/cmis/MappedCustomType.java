@@ -8,6 +8,7 @@ public class MappedCustomType {
     private Set<String> ignoreExternalProperties = new HashSet<String>();
     private String jcrName;
     private String extName;
+    private Map<String, String> propertyFeatures;
 
     Map<String, String> indexJcrProperties = new HashMap<String, String>();
     Map<String, String> indexExtProperties = new HashMap<String, String>();
@@ -56,5 +57,17 @@ public class MappedCustomType {
         for (String sType : ignoreExternalProps) {
             this.ignoreExternalProperties.add(sType.trim());
         }
+    }
+
+    public boolean hasFeature(String featureName){
+        return propertyFeatures.containsKey(featureName);
+    }
+
+    public String getFeature(String featureName) {
+        return propertyFeatures.get(featureName);
+    }
+
+    public Set<String> getFeaturesList(){
+        return propertyFeatures.keySet();
     }
 }

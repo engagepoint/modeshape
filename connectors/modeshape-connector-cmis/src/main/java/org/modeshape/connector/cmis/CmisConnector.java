@@ -1467,19 +1467,23 @@ public class CmisConnector extends Connector implements UnfiledSupportConnector 
             if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
         }
 
+        //  Enabling SNS
+        String typeName = type.getName();
+        if (mappedTypes != null) {
+            MappedCustomType mcType =  mappedTypes.findByJcrName(typeName);
+            if (mcType.hasFeature("SnsType")) {
+                NodeDefinitionTemplate child = typeManager.createNodeDefinitionTemplate();
+                child.setName("*");
+                String baseTypeName = mcType.getFeature("SnsType");
+                //
+                child.setRequiredPrimaryTypeNames(new String[]{baseTypeName});
+                child.setSameNameSiblings(true);
+                type.getNodeDefinitionTemplates().add(child);
+            }
+        }
         // register type
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
-
-        //  Enabling SNS
-        if (typeManager.getNodeType(type.getName()).isNodeType("nt:folder")) {
-            NodeDefinitionTemplate child = typeManager.createNodeDefinitionTemplate();
-            child.setName("*");
-            child.setRequiredPrimaryTypeNames(new String[]{"nt:base"});
-            child.setSameNameSiblings(true);
-            type.getNodeDefinitionTemplates().add(child);
-            typeManager.registerNodeTypes(nodeDefs, true);
-        }
 
         Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
 //        debug("adding connector nodes mapping jcr/cmis:", jcrName.toString(), " = ", cmisTypeId);
