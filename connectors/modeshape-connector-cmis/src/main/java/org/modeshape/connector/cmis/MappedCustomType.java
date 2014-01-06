@@ -60,14 +60,28 @@ public class MappedCustomType {
     }
 
     public boolean hasFeature(String featureName){
+        if (propertyFeatures == null)
+            return false;
         return propertyFeatures.containsKey(featureName);
     }
 
     public String getFeature(String featureName) {
+        if (propertyFeatures == null)
+            return null;
         return propertyFeatures.get(featureName);
     }
 
-    public Set<String> getFeaturesList(){
+    public void updatePropertyFeature(String key, String value) {
+        if (propertyFeatures == null) {
+            propertyFeatures = new HashMap<String, String>();
+        }
+        if (propertyFeatures.containsKey(key)) {
+            propertyFeatures.remove(key);
+        }
+        propertyFeatures.put(key, value);
+    }
+    public Set<String> getFeaturesList() {
+        if (propertyFeatures == null) return null;
         return propertyFeatures.keySet();
     }
 }
