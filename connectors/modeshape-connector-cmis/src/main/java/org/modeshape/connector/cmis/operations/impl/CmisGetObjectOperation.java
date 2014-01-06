@@ -124,6 +124,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         // content node - mandatory child for a document
         writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, internalId), JcrConstants.JCR_CONTENT);
 
+        // modification date
+        writer.addMixinType(NodeType.MIX_LAST_MODIFIED);
+
         return writer.document();
     }
 
