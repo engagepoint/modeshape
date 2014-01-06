@@ -134,7 +134,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue("Chemistry session should exists.", session != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldSeeCmisTypesAsJcrTypes() throws Exception {
         NodeTypeManager manager = getSession().getWorkspace().getNodeTypeManager();
 
@@ -145,19 +145,19 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         }
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessRootFolder() throws Exception {
         Node root = getSession().getNode("/cmis");
         assertTrue(root != null);
     }
 
-    @Test 
+    //@Test 
     public void testRootFolderName() throws Exception {
         Node root = getSession().getNode("/cmis");
         assertEquals("cmis", root.getName());
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessRepositoryInfo() throws Exception {
         Node repoInfo = getSession().getNode("/cmis/repositoryInfo");
         // Different Chemistry versions return different things ...
@@ -167,7 +167,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue(repoInfo.getProperty("cmis:productVersion").getString() != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessFolderByPath() throws Exception {
         Node root = getSession().getNode("/cmis");
         assertTrue(root != null);
@@ -182,13 +182,13 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue(node3 != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessDocumentPath() throws Exception {
         Node file = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         assertTrue(file != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessBinaryContent() throws Exception {
         Node file = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         Node cnt = file.getNode("jcr:content");
@@ -216,7 +216,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     // -----------------------------------------------------------------------/
     // Folder cmis build-in properties
     // -----------------------------------------------------------------------/
-    @Test 
+    //@Test 
     public void shouldAccessObjectIdPropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         System.out.println(node);
@@ -224,28 +224,28 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue(objectId != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessNamePropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         String name = node.getName();
         assertEquals("My_Folder-0-0", name);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessCreatedByPropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         String name = node.getProperty("jcr:createdBy").getString();
         assertEquals("unknown", name);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessCreationDatePropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         Calendar date = node.getProperty("jcr:created").getDate();
         assertTrue(date != null);
     }
 
-     //@Test
+     ////@Test
     public void shouldAccessModificationDatePropertyForFolder() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0");
         Calendar date = node.getProperty("jcr:lastModified").getDate();
@@ -255,28 +255,28 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     // -----------------------------------------------------------------------/
     // Document cmis build-in properties
     // -----------------------------------------------------------------------/
-    @Test 
+    //@Test 
     public void shouldAccessObjectIdPropertyForDocument() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         String objectId = node.getProperty("jcr:uuid").getString();
         assertTrue(objectId != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessCreatedByPropertyForDocument() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         String name = node.getProperty("jcr:createdBy").getString();
         assertEquals("unknown", name);
     }
 
-    @Test 
+    //@Test 
     public void shouldAccessCreationDatePropertyForDocument() throws Exception {
         Node node = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         Calendar date = node.getProperty("jcr:created").getDate();
         assertTrue(date != null);
     }
 
-    @Test 
+    //@Test 
     public void shouldCreateFolderAndDocument() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -304,7 +304,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 
     }
 
-//    @Test  //cmis:contentStreamMimeType - ?
+//    //@Test  //cmis:contentStreamMimeType - ?
     public void shouldModifyDocument() throws Exception {
         Node file = getSession().getNode("/cmis/My_Folder-0-0/My_Document-1-0");
         PropertyIterator it = file.getProperties();
@@ -317,7 +317,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
 
-    @Test 
+    //@Test 
     public void shouldCreatePrefixedType() throws Exception {
         Node node = getSession().getRootNode().addNode("prefixedTypeFolder", "testing:prefixedFolderType");
         getSession().save();
@@ -326,7 +326,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertEquals("testing:prefixedFolderType", property.getValue().getString());
     }
 
-    @Test 
+    //@Test 
     public void shouldSavePrefixedProperties() throws Exception {
         String propertyId = "testing:artist";
         Node node = getSession().getRootNode().addNode("prefixedTypeFolderWithProperties", "testing:prefixedFolderType");
@@ -344,26 +344,26 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertEquals("An artist", propertyUpdated.getValue().getString());
     }
 
-    @Test 
+    //@Test 
     public void shouldRegisterNamespace() throws Exception {
         String testingNsUri = getSession().getWorkspace().getNamespaceRegistry().getURI("testing");
         assertEquals("http://org.modeshape/testing", testingNsUri);
     }
 
-    @Test 
+    //@Test 
     public void shouldAddVersioning() throws Exception {
         NodeType nodeType = getSession().getWorkspace().getNodeTypeManager().getNodeType("testing:prefixedType");
         assertTrue(!nodeType.isNodeType(NodeType.MIX_VERSIONABLE) && !nodeType.isNodeType(NodeType.MIX_SIMPLE_VERSIONABLE));
     }
 
-    @Test 
+    //@Test 
     public void shouldRegisterPrimaryTypes() throws Exception {
         org.modeshape.jcr.api.nodetype.NodeTypeManager nodeTypeManager = getSession().getWorkspace().getNodeTypeManager();
         assertFalse(nodeTypeManager.getNodeType("testing:prefixedType").isMixin());
         assertFalse(nodeTypeManager.getNodeType("audioFile").isMixin());
     }
 
-    @Test 
+    //@Test 
     public void shouldCreateUnVersionedDocument() throws Exception {
         Node root = getSession().getRootNode();
         Node node1 = root.addNode("test-versioned-doc-1", "testing:prefixedType");
@@ -384,7 +384,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
                         && !primaryNodeType.isNodeType(NodeType.MIX_VERSIONABLE)));
     }
 
-//    @Test 
+//    //@Test 
     public void shouldCreateRemappedType() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -417,7 +417,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertTrue(node.isNodeType(mappedNodeType));
     }
 
-//    @Test 
+//    //@Test 
     public void shouldCreateRemappedTypeWithPrefix() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -468,7 +468,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         System.out.println(node.getProperty(propTags).getString());
     }
 
-    @Test 
+    //@Test 
     public void shouldCreateMultiTypeWithPrefix() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -523,7 +523,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
 //        assertEquals(1, node.getProperty("bcc").().length);
     }
 
-    @Test 
+    //@Test 
     public void testRename() throws Exception{
         Node root = getSession().getNode("/cmis");
 
@@ -584,7 +584,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         }
     }
 
-//    @Test   // fails due to bug in modeshape deepCopy method of Node
+//    //@Test   // fails due to bug in modeshape deepCopy method of Node
     public void testCopy() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -610,7 +610,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         getSession().save();
     }
 
-    /*@Test 
+    /*//@Test 
     public void testFSCopy() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -656,7 +656,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
 
-    @Test
+    //@Test
     public void testShouldDeleteTree() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -680,7 +680,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         }
     }
 
-//    @Test
+//    //@Test
     public void testShouldResetMultiValued() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -698,8 +698,8 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     }
 
 
-//    @Test
-//    @Test
+//    //@Test
+//    //@Test
     public void testShouldUploadLargeFile() throws Exception {
         Node root = getSession().getNode("/cmis");
 
@@ -735,7 +735,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         System.out.println("length: " + node.getProperty("jcr:data").getBinary().getSize());
     }
     
-    @Test
+    //@Test
     public void shouldBeAbleToMoveExternalNodes() throws Exception {
         assertNotNull(session.getNode("/cmis/My_Folder-0-0/My_Document-1-0"));
         ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0/My_Document-1-0", "/cmis/My_Folder-0-0/My_Document-1-X");
@@ -746,5 +746,26 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         Node folder = session.getNode("/cmis/My_Folder-0-X");
         assertNotNull(folder);
         assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
+    }
+
+    @Test
+    public void shouldCreateEmptyDocument() throws Exception {
+        Node root = getSession().getNode("/cmis");
+        String fileName = "testFile_cp_emptyFile";
+        System.out.println("creating " + fileName);
+        Node targetNode = root.addNode("folderWithEmptyFile", "nt:folder");
+        Node node1 = targetNode.addNode(fileName, "nt:file");
+        node1.addMixin("mix:referenceable");
+
+//        byte[] content = "Hello World".getBytes();
+//        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+//        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+//        contentNode.addMixin("mix:referenceable");
+//        Binary binary = session.getValueFactory().createBinary(bin);
+//        contentNode.setProperty("jcr:data", binary);
+//        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        System.out.println("empty created");
     }
 }

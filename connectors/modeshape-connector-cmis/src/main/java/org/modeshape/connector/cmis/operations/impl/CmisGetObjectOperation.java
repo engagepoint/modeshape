@@ -52,7 +52,7 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @param cmisObject CMIS folder object
      * @return JCR node document.
      */
-    public Document cmisFolder(CmisObject cmisObject) {
+    public DocumentWriter cmisFolder(CmisObject cmisObject) {
         CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId);
 
         Folder folder = (Folder) cmisObject;
@@ -82,7 +82,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = folder.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
-        return writer.document();
+        return writer;
     }
 
 

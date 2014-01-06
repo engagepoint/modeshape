@@ -158,7 +158,30 @@ public class FederatedDocumentStore implements DocumentStore {
         if (connector != null) {
             checkConnectorIsWritable(connector);
             EditableDocument editableDocument = replaceNodeKeysWithDocumentIds(document);
-            connector.storeDocument(editableDocument);
+            String docId = connector.storeDocument(editableDocument);
+
+
+            document = connector.getDocumentById(docId);
+            if (document != null) {
+                // clone the document, so we don't alter the original
+                EditableDocument editableDocument = replaceConnectorIdsWithNodeKeys(document, connector.getSourceName());
+//                if (editableDocument.get("parent")==null) editableDocument.
+                editableDocument = updateCachingTtl(connector, editableDocument);
+                editableDocument = updateQueryable(connector, editableDocument);
+
+                // Extract any embedded documents ...
+                Object removedContainer = editableDocument.remove(DocumentTranslator.EMBEDDED_DOCUMENTS);
+                if (removedContainer instanceof EditableDocument) {
+                    EditableDocument embeddedDocs = (EditableDocument) removedContainer;
+                    for (Document.Field field : embeddedDocs.fields()) {
+                        String id = field.getName();
+                        Document doc = field.getValueAsDocument();
+                        // Place the embedded document in the local value store ...
+                        if (doc != null) localStore().put(id, doc);
+                    }
+                }
+                return new FederatedSchematicEntry(editableDocument);
+            }
         }
         return null;
     }
