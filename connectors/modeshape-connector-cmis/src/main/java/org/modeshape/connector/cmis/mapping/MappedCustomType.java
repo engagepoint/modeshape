@@ -10,6 +10,7 @@ public class MappedCustomType {
     private Set<String> ignoreExternalProperties = new HashSet<String>();
     private String jcrName;
     private String extName;
+    private Map<String, String> propertyFeatures;
 
     Map<String, String> indexJcrProperties = new HashMap<String, String>();
     Map<String, String> indexExtProperties = new HashMap<String, String>();
@@ -100,4 +101,29 @@ public class MappedCustomType {
         return isTransient;
     }
 
+    public boolean hasFeature(String featureName){
+        if (propertyFeatures == null)
+            return false;
+        return propertyFeatures.containsKey(featureName);
+    }
+
+    public String getFeature(String featureName) {
+        if (propertyFeatures == null)
+            return null;
+        return propertyFeatures.get(featureName);
+    }
+
+    public void updatePropertyFeature(String key, String value) {
+        if (propertyFeatures == null) {
+            propertyFeatures = new HashMap<String, String>();
+        }
+        if (propertyFeatures.containsKey(key)) {
+            propertyFeatures.remove(key);
+        }
+        propertyFeatures.put(key, value);
+    }
+    public Set<String> getFeaturesList() {
+        if (propertyFeatures == null) return null;
+        return propertyFeatures.keySet();
+    }
 }

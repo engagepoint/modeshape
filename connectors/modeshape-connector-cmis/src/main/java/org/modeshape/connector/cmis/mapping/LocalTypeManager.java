@@ -21,6 +21,8 @@ import org.modeshape.jcr.value.ValueFactories;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NoSuchNodeTypeException;
+import javax.jcr.nodetype.NodeDefinitionTemplate;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
@@ -124,7 +126,15 @@ public class LocalTypeManager {
     public void initialize(Session session, String[] applicableUnfiledTypes) throws RepositoryException {
         // register new types from external repository
         registerPredefinedNamspaces(registry);
-        importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry);
+//        importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry);
+        List<NodeTypeTemplate> definitionsList = new ArrayList<NodeTypeTemplate>();
+        importTypes(session.getTypeDescendants(null, Integer.MAX_VALUE, true), nodeTypeManager, registry, definitionsList);
+        updateTypes(nodeTypeManager, definitionsList);
+        // after importing and updating - we need to register/update all types
+        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[definitionsList.size()];
+        definitionsList.toArray(nodeDefs);
+        nodeTypeManager.registerNodeTypes(nodeDefs, true);
+        // todo: reimport, use types from manager
         registerRepositoryInfoType(nodeTypeManager);
         initializeApplicableUnfiledTypes(applicableUnfiledTypes);
     }
@@ -174,10 +184,11 @@ public class LocalTypeManager {
      */
     private void importTypes(List<Tree<ObjectType>> types,
                              NodeTypeManager typeManager,
-                             NamespaceRegistry registry) throws RepositoryException {
+                             NamespaceRegistry registry,
+                             List<NodeTypeTemplate> typeTemplates) throws RepositoryException {
         for (Tree<ObjectType> tree : types) {
-            importType(tree.getItem(), typeManager, registry);
-            importTypes(tree.getChildren(), typeManager, registry);
+            importType(tree.getItem(), typeManager, registry, typeTemplates);
+            importTypes(tree.getChildren(), typeManager, registry, typeTemplates);
         }
     }
 
@@ -205,7 +216,8 @@ public class LocalTypeManager {
     @SuppressWarnings("unchecked")
     public void importType(ObjectType cmisType,
                            NodeTypeManager typeManager,
-                           NamespaceRegistry registry) throws RepositoryException {
+                           NamespaceRegistry registry,
+                           List<NodeTypeTemplate> typeTemplates) throws RepositoryException {
         // cache
         cachedTypeDefinitions.put(cmisType.getId(), cmisType);
 
@@ -297,14 +309,67 @@ public class LocalTypeManager {
             if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
         }
 
+        typeTemplates.add(type);
+//        Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
+//        nodes.addTypeMapping(jcrName, cmisTypeId);
         // register type
-        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
-        typeManager.registerNodeTypes(nodeDefs, true);
+//        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
+//        typeManager.registerNodeTypes(nodeDefs, true);
 
         Name jcrName = factories.getNameFactory().create(type.getName());
         MappedCustomType mappedType = mappedTypes.findByExtName(cmisTypeId);
         // put a duplicate with another variant of JCR name like {namespae}localname
         mappedTypes.addSecondaryJcrKey(jcrName.toString(), mappedType);
+    }
+
+    /*
+    * update existent types in typeManager with new features
+    */
+    public void updateTypes(NodeTypeManager typeManager, List<NodeTypeTemplate> defList) throws RepositoryException {
+        if (mappedTypes == null)
+            return;
+
+        if (typeManager == null)
+            return;
+
+        for ( String typeKey : mappedTypes.indexByJcrName.keySet()) {
+            MappedCustomType mcType = mappedTypes.findByJcrName(typeKey);
+            //  Enabling SNS
+            if (mcType.hasFeature(Constants.FEATURE_NAME_SNS)) {
+                NodeDefinitionTemplate child = typeManager.createNodeDefinitionTemplate();
+                child.setName("*");
+                String baseTypeName = mcType.getFeature(Constants.FEATURE_NAME_SNS);
+
+                child.setRequiredPrimaryTypeNames(new String[]{baseTypeName});
+                child.setSameNameSiblings(true);
+
+                // Obtain type definition - and update it
+                boolean foundInDefList = false;
+                for( NodeTypeTemplate defType: defList ) {
+                    if (defType.getName().equals(typeKey)) {
+                        foundInDefList = true;
+                        defType.getNodeDefinitionTemplates().add(child);
+                    }
+                }
+                if (foundInDefList) {
+                    continue;  // was already updated in definition list
+                }
+
+                NodeType type = null;
+                try {
+                    type = typeManager.getNodeType(typeKey);
+                } catch (NoSuchNodeTypeException e) {
+                    continue;   // no such type registered
+                }
+                if (type == null)
+                    continue;
+                NodeTypeTemplate typeTemplate = typeManager.createNodeTypeTemplate(type);
+                typeTemplate.getNodeDefinitionTemplates().add(child);
+                // Type was obtained from type manager, so update it there
+                NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{typeTemplate};
+                typeManager.registerNodeTypes(nodeDefs, true);
+            }
+        }
     }
 
     /*
