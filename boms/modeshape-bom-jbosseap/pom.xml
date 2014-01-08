@@ -31,54 +31,6 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-    </scm>
-
-    <issueManagement>
-        <system>jira</system>
-        <url>http://issues.jboss.org/browse/MODE</url>
-    </issueManagement>
-
-    <developers>
-        <developer>
-            <id>modeshape.org</id>
-            <name>ModeShape Community</name>
-            <organization>modeshape.org</organization>
-            <organizationUrl>http://modeshape.org</organizationUrl>
-        </developer>
-    </developers>
-
-    <properties>
-        <!-- ***************** -->
-        <!-- Repository Deployment URLs -->
-        <!-- ***************** -->
-        <jboss.releases.repo.url>https://repository.jboss.org/nexus/service/local/staging/deploy/maven2/</jboss.releases.repo.url>
-        <jboss.snapshots.repo.url>https://repository.jboss.org/nexus/content/repositories/snapshots/</jboss.snapshots.repo.url>
-
-        <jcr.version>2.0</jcr.version>
-        <version.org.eap.bom>6.1.0-redhat-1</version.org.eap.bom>
-    </properties>
-
-    <inceptionYear>2008</inceptionYear>
-
-    <organization>
-        <name>JBoss, by Red Hat</name>
-        <url>http://www.jboss.org</url>
-    </organization>
-
-    <licenses>
-        <license>
-            <name>GNU Lesser General Public License</name>
-            <url>http://repository.jboss.org/licenses/lgpl-2.1.txt</url>
-            <!--url>http://www.gnu.org/licenses/lgpl.html</url-->
-            <distribution>repo</distribution>
-            <comments>A business-friendly OSS license</comments>
-        </license>
-    </licenses>
-
-    <scm>
-        <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
-        <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
-        <url>http://github.com/ModeShape/modeshape</url>
       <tag>modeshape-3.7.31-EP-SNAPSHOT</tag>
   </scm>
 
