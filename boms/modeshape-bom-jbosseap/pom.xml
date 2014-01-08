@@ -53,6 +53,9 @@
         <!-- ***************** -->
         <jboss.releases.repo.url>https://repository.jboss.org/nexus/service/local/staging/deploy/maven2/</jboss.releases.repo.url>
         <jboss.snapshots.repo.url>https://repository.jboss.org/nexus/content/repositories/snapshots/</jboss.snapshots.repo.url>
+
+        <jcr.version>2.0</jcr.version>
+        <version.org.eap.bom>6.1.0-redhat-1</version.org.eap.bom>
     </properties>
 
     <inceptionYear>2008</inceptionYear>
