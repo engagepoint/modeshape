@@ -75,8 +75,9 @@ public class LocalTypeManager {
         result.addPropertyMapping("jcr:uuid", "cmis:objectId");
         result.addPropertyMapping("jcr:createdBy", "cmis:createdBy");
         result.addPropertyMapping("jcr:created", "cmis:creationDate");
+        result.addPropertyMapping("jcr:lastModified", "cmis:lastModificationDate");
         // ignores
-        result.setIgnoreExternalProperties(Arrays.asList("cmis:lastModificationDate", "cmis:lastModifiedBy"));
+        result.setIgnoreExternalProperties(Arrays.asList("cmis:lastModifiedBy"));
 
         return result;
     }
