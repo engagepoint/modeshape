@@ -8,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.6.22-EP-SNAPSHOT</version>
+    <version>3.7.26-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -332,6 +332,7 @@
 
         <!-- GWT version -->
         <gwt.version>2.5.1</gwt.version>
+        <gwt.maven.plugin.version>${gwt.version}</gwt.maven.plugin.version>
 
         <!-- Smart GWT version -->
         <smartgwt.version>2.4</smartgwt.version>
@@ -1362,7 +1363,6 @@
                 <groupId>org.apache.chemistry.opencmis</groupId>
                 <artifactId>chemistry-opencmis-server-bindings</artifactId>
                 <version>${chemistry.version}</version>
-                <classifier>classes</classifier>
             </dependency>
 
             <dependency>

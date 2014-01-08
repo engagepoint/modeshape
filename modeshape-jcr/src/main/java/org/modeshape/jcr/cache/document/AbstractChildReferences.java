@@ -127,7 +127,9 @@ public abstract class AbstractChildReferences implements ChildReferences {
                     // See if there are any nodes inserted before this node ...
                     ChildInsertions insertions = changes.insertionsBefore(next);
                     if (insertions != null && nextAfterIter != next) { // prevent circular references
-                        nextAfterIter = next;
+                        if (nextAfterIter == null) {
+                            nextAfterIter = next;
+                        }
                         iter = insertions.inserted().iterator();
                         continue;
                     }
@@ -226,6 +228,7 @@ public abstract class AbstractChildReferences implements ChildReferences {
 
         @Override
         public boolean hasNext() {
+            if (last != null) return true; // 'hasNext()' has been called multiple times before 'next()'
             while (super.hasNext()) {
                 last = super.next();
                 if (last.getName().equals(name)) return true;
