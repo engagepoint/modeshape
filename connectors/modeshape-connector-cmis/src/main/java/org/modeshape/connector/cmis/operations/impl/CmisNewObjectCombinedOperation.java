@@ -139,10 +139,10 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
 
             }
 
-            ObjectId objectId = ObjectId.valueOf(document.getString("key"));
-            String identifier = objectId.getIdentifier().replace("-", "");
+//            ObjectId objectId = ObjectId.valueOf(document.getString("key"));
+//            String identifier = objectId.getIdentifier().replace("-", "");
 //            cmisProperties.put(secondaryIdPropertyName, Collections.singletonList(identifier));
-            cmisProperties.put(secondaryIdPropertyName, identifier);
+//            cmisProperties.put(secondaryIdPropertyName, identifier);
 
             VersioningState versioningState = VersioningState.NONE;
 

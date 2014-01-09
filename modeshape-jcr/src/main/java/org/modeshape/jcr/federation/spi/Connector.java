@@ -459,7 +459,7 @@ public abstract class Connector {
      * @throws DocumentAlreadyExistsException if there is already a new document with the same identifier
      * @throws DocumentNotFoundException if one of the modified documents was removed by another session
      */
-    public abstract void storeDocument( Document document );
+    public abstract String storeDocument( Document document );
 
     /**
      * Updates a document using the provided changes.

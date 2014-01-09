@@ -42,7 +42,7 @@ public abstract class ReadOnlyConnector extends Connector {
     }
 
     @Override
-    public final void storeDocument( Document document ) {
+    public final String storeDocument( Document document ) {
         //this should never really be called, because FederatedDocumentStore performs the check
         throw new UnsupportedOperationException("Connector is readonly");
     }

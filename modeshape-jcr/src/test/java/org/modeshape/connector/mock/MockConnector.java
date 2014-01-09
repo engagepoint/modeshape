@@ -220,12 +220,14 @@ public class MockConnector extends WritableConnector implements Pageable {
     }
 
     @Override
-    public void storeDocument( Document document ) {
+    public String storeDocument( Document document ) {
         DocumentReader reader = readDocument(document);
         String documentId = reader.getDocumentId();
         assert documentId != null;
         persistDocument(documentId, document);
         storedDocument(documentId, document);
+
+        return null;
     }
 
     /**

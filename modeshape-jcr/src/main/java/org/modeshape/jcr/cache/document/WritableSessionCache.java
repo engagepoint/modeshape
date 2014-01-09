@@ -23,17 +23,7 @@
  */
 package org.modeshape.jcr.cache.document;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedHashSet;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -1168,7 +1158,8 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                 if (node.isNew()) {
                     // We need to create the schematic entry for the new node ...
-                    if (documentStore.storeDocument(keyStr, doc) != null) {
+                    SchematicEntry schematicEntry = documentStore.storeDocument(keyStr, doc);
+                    if (schematicEntry != null) {
                         if (replacedNodes != null && replacedNodes.contains(key)) {
                             // Then a node is being removed and recreated with the same key ...
                             documentStore.localStore().put(keyStr, doc);
@@ -1177,8 +1168,61 @@ public class WritableSessionCache extends AbstractSessionCache {
                             documentStore.localStore().put(keyStr, doc);
                             removedNodes.remove(key);
                         } else {
-                            // We couldn't create the entry because one already existed ...
-                            throw new DocumentAlreadyExistsException(keyStr);
+                            String newKey = schematicEntry.getContentAsDocument().getString("key");
+                            if (!newKey.equals(doc.getString("key"))) {
+                                ThreadLocal<Map<String,String>> threadLocal = new ThreadLocal<Map<String,String>>();
+                                if (threadLocal.get() == null) {
+                                    threadLocal.set(new HashMap<String, String>());
+                                }
+                                threadLocal.get().put(doc.getString("key"), newKey);
+                                //documentStore.localStore().remove(keyStr);
+
+                                // refresh file child ??
+                                NodeKey parentKey = translator.getParentKey(doc, workspaceCache.getWorkspaceKey(), null);
+//                                CachedNode originalParent = workspaceCache.getNode(parentKey);
+
+                                SchematicEntry newCOntentSchema = documentStore.get(newKey);
+                                NodeKey newFileKey = translator.getParentKey(newCOntentSchema.asDocument(), workspaceCache.getWorkspaceKey(), null);
+                                CachedNode newFileNode = workspaceCache.getNode(newFileKey);
+
+                                CachedNode fileAsParent = newFileNode;
+
+                                NodeKey originalFolderKey = fileAsParent.getParentKey(workspaceCache);
+//                                NodeKey originalFolderKey = originalParent.getParentKey(workspaceCache);
+                                /*ChildReferences childReferences = originalParent.getChildReferences(workspaceCache);
+                                NodeKey currentNodeKey = new NodeKey(keyStr);
+                                ChildReference child = childReferences.getChild(currentNodeKey);
+                                if (child != null) {
+                                    SchematicEntry fileEntry = documentStore.get(originalParent.getParentKey(workspaceCache).toString());
+                                    EditableDocument fileDocument = fileEntry.editDocumentContent();
+                                    ChangedChildren xx = new ChangedChildren();
+                                    ChildReference newReference = new ChildReference(new NodeKey(newKey), child.getSegment());
+                                    xx.insertBefore(child, newReference);
+                                    //
+                                    translator.changeChildren(fileDocument, xx, null);
+                                }*/
+
+                                // folder children
+//                                SchematicEntry newContentEntry = documentStore.get(newKey);
+//                                EditableDocument editableDocument = newContentEntry.editDocumentContent();
+//                                NodeKey newFileKey = translator.getParentKey(editableDocument, workspaceCache.getWorkspaceKey(), null);
+                                NodeKey oldFileKey = translator.getParentKey(doc, workspaceCache.getWorkspaceKey(), null);
+
+                                SchematicEntry folderEntry = documentStore.get(originalFolderKey.toString());
+                                EditableDocument folderDoc = folderEntry.editDocumentContent();
+                                ChangedChildren folderChildrenChanges = new ChangedChildren();
+                                ChildReferences folderRefs = workspaceCache.getNode(originalFolderKey).getChildReferences(workspaceCache);
+                                ChildReference fileChild = folderRefs.getChild(oldFileKey);
+                                if (fileChild != null) {
+                                    ChildReference childReference = new ChildReference(newFileKey, fileChild.getSegment());
+                                    folderChildrenChanges.insertBefore(fileChild, childReference);
+
+                                    translator.changeChildren(folderDoc, folderChildrenChanges, null);
+                                }
+                            } else {
+                                // We couldn't create the entry because one already existed ...
+                                throw new DocumentAlreadyExistsException(keyStr);
+                            }
                         }
                     }
 
