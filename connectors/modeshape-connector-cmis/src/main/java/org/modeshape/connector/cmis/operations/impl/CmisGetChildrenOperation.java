@@ -1,9 +1,6 @@
 package org.modeshape.connector.cmis.operations.impl;
 
-import org.apache.chemistry.opencmis.client.api.CmisObject;
-import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.ItemIterable;
-import org.apache.chemistry.opencmis.client.api.Session;
+import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.infinispan.schematic.document.Document;
@@ -18,11 +15,14 @@ import java.util.Iterator;
 
 public class CmisGetChildrenOperation extends CmisOperation {
 
-    String remoteUnfiledNodeId;
+    private String remoteUnfiledNodeId;
+    private String commonIdPropertyName;
 
-    public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId) {
+    public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
+            String commonIdPropertyName) {
         super(session, localTypeManager);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
+        this.commonIdPropertyName= commonIdPropertyName;
     }
 
     /**
@@ -60,7 +60,14 @@ public class CmisGetChildrenOperation extends CmisOperation {
             String childId = (CmisOperationCommons.isDocument(next) && CmisOperationCommons.isVersioned(next))
                     ? CmisOperationCommons.asDocument(next).getVersionSeriesId()
                     : next.getId();
-            writer.addChild(childId, next.getName());
+
+            // use common ID instead
+            Property<Object> commonIdProp = next.getProperty(commonIdPropertyName);
+            if (commonIdProp != null && commonIdProp.getValueAsString() != null) {
+                writer.addChild(commonIdProp.getValueAsString(), next.getName());
+            } else {
+                writer.addChild(childId, next.getName());
+            }
         }
 
         if (pageIterator.hasNext())

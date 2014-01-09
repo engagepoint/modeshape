@@ -31,11 +31,13 @@ public class CmisGetObjectOperation extends CmisOperation {
     private DocumentProducer documentProducer;
     private String projectedNodeId;
     private String remoteUnfiledNodeId;
+    private String commonIdPropertyName;
 
     public CmisGetObjectOperation(Session session, LocalTypeManager localTypeManager,
                                   boolean addRequiredPropertiesOnRead, boolean hideRootFolderReference,
                                   String projectedNodeId,
                                   String remoteUnfiledNodeId,
+                                  String commonIdPropertyName,
                                   DocumentProducer documentProducer) {
         super(session, localTypeManager);
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
@@ -43,6 +45,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         this.documentProducer = documentProducer;
         this.projectedNodeId = projectedNodeId;
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
+        this.commonIdPropertyName = commonIdPropertyName;
     }
 
 
@@ -53,7 +56,9 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
-        CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId);
+        CmisGetChildrenOperation childrenOperation =
+                new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
+                        commonIdPropertyName);
 
         Folder folder = (Folder) cmisObject;
         DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
@@ -189,7 +194,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
 
         if (originalId.contains("#")) {
-            CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId);
+            CmisGetChildrenOperation childrenOperation =
+                    new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
+                            commonIdPropertyName);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, Constants.DEFAULT_PAGE_SIZE, PageWriter.UNKNOWN_TOTAL_SIZE);

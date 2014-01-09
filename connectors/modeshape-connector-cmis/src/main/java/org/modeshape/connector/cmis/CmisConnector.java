@@ -250,13 +250,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 writer.addProperty(JcrLexicon.UUID, id);
 
                 // content node - mandatory child for a document
-                writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, id), JcrConstants.JCR_CONTENT);
+//                writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, id), JcrConstants.JCR_CONTENT);
 
                 EditableDocument document = writer.document();
                 System.out.println("Return cached document by init params:: " + document);
                 return document;
             } else if (objectId.getType() == ObjectId.Type.CONTENT) {
-                String contentId = ObjectId.toString(ObjectId.Type.CONTENT, objectId.getIdentifier());
+                return null;
+                /*String contentId = ObjectId.toString(ObjectId.Type.CONTENT, objectId.getIdentifier());
                 DocumentWriter writer = newDocument(contentId);
 
                 writer.setPrimaryType(NodeType.NT_RESOURCE);
@@ -264,7 +265,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
                 // reference
                 writer.addMixinType(NodeType.MIX_REFERENCEABLE);
-                writer.addProperty(JcrLexicon.UUID, contentId);
+                writer.addProperty(JcrLexicon.UUID, contentId);*/
 
 //                Property<Object> lastModified = doc.getProperty(PropertyIds.LAST_MODIFICATION_DATE);
 //                Property<Object> lastModifiedBy = doc.getProperty(PropertyIds.LAST_MODIFIED_BY);
@@ -278,9 +279,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 //                writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
 //                writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
 
-                EditableDocument document = writer.document();
+                /*EditableDocument document = writer.document();
                 System.out.println("Return cached document content by init params:: " + document);
-                return document;
+                return document;*/
             }
         }
 
@@ -498,8 +499,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     }
 
     CmisObject findByCommonId(String id) {
-        return null;
-/*
         if (commonIdPropertyName == null || commonIdTypeName == null || commonIdQuery == null)
             return null;
 
@@ -518,7 +517,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         } catch (CmisObjectNotFoundException nfe){
             log().warn("Failed to find object by " + commonIdPropertyName + " = " + id.replace("-",""));
             return null;
-        }*/
+        }
     }
 
     /**
@@ -548,9 +547,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject);
                 if (keyChildrenCache.containsKey(id)) {
                     List<String> strings = keyChildrenCache.get(id);
-//                    for (String string : strings) {
-//                        document.addChild(string, keyCache.get(string).name.getLocalName());
-//                    }
+                    for (String string : strings) {
+                        NewDocumentParams newDocumentParams = keyCache.get(string);
+                        if (newDocumentParams != null)
+                            document.addChild(string, newDocumentParams.name.getLocalName());
+                    }
                 }
 
                 return document.document();
@@ -597,7 +598,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     @Override
     public Document getChildren(PageKey pageKey) {
         CmisGetChildrenOperation cmisGetChildrenOperation =
-                new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId);
+                new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, commonIdPropertyName);
         DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
         return writer.document();
     }
@@ -615,6 +616,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 hideRootFolderReference,
                 caughtProjectedId,
                 remoteUnfiledNodeId,
+                commonIdPropertyName,
                 new ConnectorDocumentProducer());
     }
 
