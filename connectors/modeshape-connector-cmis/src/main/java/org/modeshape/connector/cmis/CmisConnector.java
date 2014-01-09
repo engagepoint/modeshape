@@ -455,7 +455,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     }
 
     @Override
-    public String storeDocument(Document document) {
+    public void storeDocument(Document document) {
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
         String identifier = objectId.getIdentifier();
         System.out.println("[CmisConnector] storeDocument -- identifier::  " + identifier + " // data:: " + document);
@@ -472,19 +472,16 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                         document, new BinaryContentProducer());
                 keyCache.remove(identifier);
 
-                return ObjectId.toString(ObjectId.Type.CONTENT, result);
+//                return ObjectId.toString(ObjectId.Type.CONTENT, result);
             } else {
                 newDocumentParams.setDocument(document);
             }
         } else {
             CmisStoreOperation cmisStoreOperation = new CmisStoreOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate);
             cmisStoreOperation.storeDocument(document, new BinaryContentProducer());
-            return null;
         }
         System.out.println("keyCache size: " + keyCache.size());
         System.out.println("keyChildrenCache size: " + keyChildrenCache.size());
-
-        return null;
     }
 
     @Override

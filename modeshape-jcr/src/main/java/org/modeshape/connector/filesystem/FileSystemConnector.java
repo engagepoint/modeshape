@@ -571,7 +571,7 @@ public class FileSystemConnector extends WritableConnector implements Pageable {
     }
 
     @Override
-    public String storeDocument( Document document ) {
+    public void storeDocument( Document document ) {
         // Create a new directory or file described by the document ...
         DocumentReader reader = readDocument(document);
         String id = reader.getDocumentId();
@@ -611,8 +611,6 @@ public class FileSystemConnector extends WritableConnector implements Pageable {
         } catch (IOException e) {
             throw new DocumentStoreException(id, e);
         }
-
-        return null;
     }
 
     @Override
