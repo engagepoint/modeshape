@@ -161,18 +161,19 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String remoteUnfiledNodeId;
     // debug
     private boolean debug = false;
-    //
+    // single version && commonId logic
     String commonIdPropertyName;
     String commonIdTypeName;
     String commonIdQuery;
-
-    boolean singleVersionCreation = true;
+    private String[] singleVersionTypes;
 
     // -----  runtime variables -------------
     // id of the first projected folder
     private Session session;
     private String caughtProjectedId = null;
     private LocalTypeManager localTypeManager;
+
+    private Set<Name> singleVersionTypeNames = new HashSet<Name>();
 
     public CmisConnector() {
         super();
@@ -219,6 +220,16 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 customMapping);
         // register external types into JCR
         localTypeManager.initialize(session, applicableUnfiledTypes);
+
+        initSingleVersionTypeSet(nodeTypeManager);
+    }
+
+    private void initSingleVersionTypeSet(NodeTypeManager nodeTypeManager){
+        if (singleVersionTypes == null) return;
+
+        for (String typeName : singleVersionTypes) {
+            singleVersionTypeNames.add(factories().getNameFactory().create(typeName));
+        }
     }
 
     @Override
@@ -435,8 +446,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         String resultGuid = null;
         MappedCustomType mappedType = localTypeManager.getMappedTypes().findByJcrName(primaryType.toString());
         String cmisObjectTypeName = mappedType.getExtName();
-
-        if (singleVersionCreation &&
+        // need to resolve jcr name to prefixed/humanReadable
+        MappedCustomType mappedJcrType = localTypeManager.getMappedTypes().findByJcrName(primaryType.toString());
+        boolean doAsSingleVersion = singleVersionTypeNames.contains(primaryType);
+        if (doAsSingleVersion &&
                 localTypeManager.getTypeDefinition(session, cmisObjectTypeName).getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
 
             resultGuid = "FAKE_" + UUID.randomUUID().toString();
