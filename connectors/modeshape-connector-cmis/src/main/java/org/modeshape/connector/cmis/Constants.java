@@ -8,7 +8,7 @@ public interface Constants {
     public static final String REPOSITORY_INFO_NODE_NAME = "repositoryInfo";
     public static final String JCR_DATA = "jcr:data";
     public static final long DEFAULT_PAGE_SIZE = 16;
-    public static final String FEATURE_NAME_SNS = "SnsBaseType";
+    public static final String FEATURE_NAME_SNS = "snsBaseType";
 
 
 }
