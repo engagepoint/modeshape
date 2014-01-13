@@ -512,7 +512,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         if (commonIdPropertyName == null || commonIdTypeName == null || commonIdQuery == null)
             return null;
 
-        String query = String.format(commonIdQuery, commonIdTypeName, commonIdPropertyName, id.replace("-",""));
+        String query = String.format(commonIdQuery, commonIdTypeName, commonIdPropertyName,/* id.replace("-","")*/ id);
         log().warn("Trying to find object using query <" + query + ">");
         ItemIterable<QueryResult> queryResult = session.query(query, false);
 

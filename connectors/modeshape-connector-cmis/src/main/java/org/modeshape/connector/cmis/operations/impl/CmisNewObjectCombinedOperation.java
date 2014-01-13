@@ -142,7 +142,8 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
 
             ObjectId objectId = ObjectId.valueOf(document.getString("key"));
             PropertyDefinition<?> sidDefinition = objectType.getPropertyDefinitions().get(secondaryIdPropertyName);
-            String identifier = objectId.getIdentifier().replace("-", "_");
+            String identifier = objectId.getIdentifier();
+//            String identifier = objectId.getIdentifier().replace("-", "_");
             if (sidDefinition.getCardinality() == Cardinality.MULTI) {
                 cmisProperties.put(secondaryIdPropertyName, Collections.singletonList(identifier));
             } else {
