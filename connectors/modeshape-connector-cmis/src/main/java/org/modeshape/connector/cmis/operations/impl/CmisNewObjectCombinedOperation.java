@@ -8,6 +8,7 @@ import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
+import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
@@ -139,10 +140,14 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
 
             }
 
-//            ObjectId objectId = ObjectId.valueOf(document.getString("key"));
-//            String identifier = objectId.getIdentifier().replace("-", "");
-//            cmisProperties.put(secondaryIdPropertyName, Collections.singletonList(identifier));
-//            cmisProperties.put(secondaryIdPropertyName, identifier);
+            ObjectId objectId = ObjectId.valueOf(document.getString("key"));
+            PropertyDefinition<?> sidDefinition = objectType.getPropertyDefinitions().get(secondaryIdPropertyName);
+            String identifier = objectId.getIdentifier().replace("-", "_");
+            if (sidDefinition.getCardinality() == Cardinality.MULTI) {
+                cmisProperties.put(secondaryIdPropertyName, Collections.singletonList(identifier));
+            } else {
+                cmisProperties.put(secondaryIdPropertyName, identifier);
+            }
 
             VersioningState versioningState = VersioningState.NONE;
 
