@@ -1,6 +1,5 @@
 package org.modeshape.connector.cmis.operations.impl;
 
-import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
 import org.apache.chemistry.opencmis.client.api.Session;
@@ -12,6 +11,7 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
@@ -23,10 +23,6 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
-import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
-import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
-
 public class CmisNewObjectCombinedOperation extends CmisOperation {
 
     private boolean ignoreEmptyPropertiesOnCreate;
@@ -34,8 +30,8 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
 
     public CmisNewObjectCombinedOperation(Session session, LocalTypeManager localTypeManager,
                                           String secondaryIdPropertyName,
-                                          boolean ignoreEmptyPropertiesOnCreate) {
-        super(session, localTypeManager);
+                                          boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager,finderUtil);
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
         this.secondaryIdPropertyName = secondaryIdPropertyName;
     }

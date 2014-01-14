@@ -5,6 +5,7 @@ import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
@@ -20,8 +21,8 @@ public class CmisStoreOperation extends CmisOperation {
 
     private boolean ignoreEmptyPropertiesOnCreate;
 
-    public CmisStoreOperation(Session session, LocalTypeManager localTypeManager, boolean ignoreEmptyPropertiesOnCreate) {
-        super(session, localTypeManager);
+    public CmisStoreOperation(Session session, LocalTypeManager localTypeManager, boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager, finderUtil);
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
     }
 

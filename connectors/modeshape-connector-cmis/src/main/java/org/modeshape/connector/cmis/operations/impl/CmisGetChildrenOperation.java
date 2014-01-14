@@ -3,11 +3,10 @@ package org.modeshape.connector.cmis.operations.impl;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
-import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 
@@ -19,8 +18,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
     private String commonIdPropertyName;
 
     public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
-            String commonIdPropertyName) {
-        super(session, localTypeManager);
+            String commonIdPropertyName,CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
         this.commonIdPropertyName= commonIdPropertyName;
     }
@@ -46,7 +45,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
         if (ObjectId.isUnfiledStorage(parentId)) {
             children = getUnfiledDocuments(pageKey);
         } else {
-            Folder parent = (Folder) session.getObject(parentId);
+            Folder parent = (Folder) finderUtil.find(parentId);
             children = parent.getChildren();
         }
 

@@ -8,6 +8,7 @@ import org.apache.chemistry.opencmis.commons.definitions.TypeDefinition;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
@@ -38,8 +39,9 @@ public class CmisGetObjectOperation extends CmisOperation {
                                   String projectedNodeId,
                                   String remoteUnfiledNodeId,
                                   String commonIdPropertyName,
-                                  DocumentProducer documentProducer) {
-        super(session, localTypeManager);
+                                  DocumentProducer documentProducer,
+                                  CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager, finderUtil);
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.hideRootFolderReference = hideRootFolderReference;
         this.documentProducer = documentProducer;
@@ -58,7 +60,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
         CmisGetChildrenOperation childrenOperation =
                 new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                        commonIdPropertyName);
+                        commonIdPropertyName, finderUtil);
 
         Folder folder = (Folder) cmisObject;
         DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
@@ -97,13 +99,13 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @param cmisObject cmis document node
      * @return JCR node document.
      */
-    public Document cmisDocument(CmisObject cmisObject) {
+    public Document cmisDocument(CmisObject cmisObject, String incomingId) {
         org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(cmisObject);
 
         // document and internalId
         // internal id = cmisId (when folder or not versioned) || version series id
         String internalId = CmisOperationCommons.isVersioned(cmisObject) ? doc.getVersionSeriesId() : doc.getId();
-        DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, internalId));
+        DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, incomingId));
 
         // set correct type
         writer.setPrimaryType(localTypeManager.cmisTypeToJcr(cmisObject.getType().getId()).getJcrName());
@@ -124,10 +126,10 @@ public class CmisGetObjectOperation extends CmisOperation {
 
         // reference
         writer.addMixinType(NodeType.MIX_REFERENCEABLE);
-        writer.addProperty(JcrLexicon.UUID, internalId);
+        writer.addProperty(JcrLexicon.UUID, incomingId);
 
         // content node - mandatory child for a document
-        writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, internalId), JcrConstants.JCR_CONTENT);
+        writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, incomingId), JcrConstants.JCR_CONTENT);
 
         return writer.document();
     }
@@ -138,13 +140,13 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @param id the id of the CMIS document.
      * @return JCR node representation.
      */
-    public Document cmisContent(String id) {
-        String contentId = ObjectId.toString(ObjectId.Type.CONTENT, id);
+    public Document cmisContent(String id, String incomingId) {
+        String contentId = ObjectId.toString(ObjectId.Type.CONTENT, incomingId);
         DocumentWriter writer = documentProducer.getNewDocument(contentId);
 
-        org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(session.getObject(id));
+        org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(finderUtil.find(id));
         writer.setPrimaryType(NodeType.NT_RESOURCE);
-        writer.setParent(id);
+        writer.setParent(incomingId);
 
         if (doc.getContentStream() != null) {
             InputStream is = doc.getContentStream().getStream();
@@ -196,7 +198,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
                     new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                            commonIdPropertyName);
+                            commonIdPropertyName, finderUtil);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, Constants.DEFAULT_PAGE_SIZE, PageWriter.UNKNOWN_TOTAL_SIZE);
