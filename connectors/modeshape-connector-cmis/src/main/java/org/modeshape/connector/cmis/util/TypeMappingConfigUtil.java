@@ -14,6 +14,7 @@ public class TypeMappingConfigUtil {
     public static String PROPERTY_MAPPED_PROPERTIES = "propertyMappings";
     public static String PROPERTY_IGNORE_EXTERNAL_PROPERTIES = "ignoreExternalProperties";
     public static String PROPERTY_JCR_NAMESPACE = "jcrNamespaceUri";
+    public static String PROPERTY_JCR_FEATURES = "propertyFeatures";
 
     public static MappedTypesContainer getMappedTypes(TypeCustomMappingList typeMappings, MappedCustomType defaultsDelegate) {
         MappedTypesContainer result = new MappedTypesContainer(defaultsDelegate);
@@ -37,6 +38,14 @@ public class TypeMappingConfigUtil {
             List<String> ignoreExternalProperties = (List<String>) typeMapping.getArray(PROPERTY_IGNORE_EXTERNAL_PROPERTIES);
             if (ignoreExternalProperties != null && ignoreExternalProperties.size() > 0) {
             	mappedCustomType.setIgnoreExternalProperties(ignoreExternalProperties);
+            }
+
+            Document features = typeMapping.getDocument(PROPERTY_JCR_FEATURES);
+            if (features != null) {
+                Iterable<Document.Field> featuresList = features.fields();
+                for (Document.Field feature : featuresList) {
+                    mappedCustomType.updatePropertyFeature(feature.getName(), feature.getValueAsString());
+                }
             }
             result.addTypeMapping(mappedCustomType);
         }
