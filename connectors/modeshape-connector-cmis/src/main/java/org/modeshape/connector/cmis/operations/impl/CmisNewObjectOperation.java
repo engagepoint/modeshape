@@ -8,7 +8,7 @@ import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
-import org.modeshape.connector.cmis.CmisObjectFinderUtil;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
@@ -88,13 +88,12 @@ public class CmisNewObjectOperation extends CmisOperation {
                     if (parent == null) {
                         // unfiled
                         result = session.createDocument(params, null, null, versioningState, null, null, null).getId();
+                        String mappingId = CmisOperationCommons.getMappingId(session.getObject(result));
+                        result = ObjectId.toString(ObjectId.Type.OBJECT, mappingId);
                     } else {
                         org.apache.chemistry.opencmis.client.api.Document document = parent.createDocument(params, null, versioningState);
-                        result = ObjectId.toString(ObjectId.Type.OBJECT, document.getId());
+                        result = ObjectId.toString(ObjectId.Type.OBJECT, CmisOperationCommons.getMappingId(document));
                     }
-
-                    String resultId = (versioningState != VersioningState.NONE) ? CmisOperationCommons.asDocument(session.getObject(result)).getVersionSeriesId() : result;
-                    result = resultId;
 
                     break;
                 default:

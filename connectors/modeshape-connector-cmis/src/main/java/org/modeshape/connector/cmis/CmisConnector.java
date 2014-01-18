@@ -29,18 +29,16 @@ import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
-import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
-import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
-import org.infinispan.schematic.document.EditableDocument;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
+import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
+import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
-import org.modeshape.connector.cmis.mapping.MappedCustomType;
-import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.connector.cmis.operations.impl.*;
 import org.modeshape.connector.cmis.util.CryptoUtils;
@@ -53,7 +51,6 @@ import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
-import javax.jcr.nodetype.NodeType;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
@@ -157,18 +154,15 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // debug
     private boolean debug = false;
     // single version && commonId logic
-    String commonIdPropertyName;
-    String commonIdTypeName;
-    String commonIdQuery;
-    private String[] singleVersionTypes;
+    private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
 
     // -----  runtime variables -------------
     // id of the first projected folder
     private Session session;
-    private String caughtProjectedId = null;
+    private String caughtProjectedId = null; // todo review
     private LocalTypeManager localTypeManager;
+    private SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
 
-    private Set<Name> singleVersionTypeNames = new HashSet<Name>();
 
     public CmisConnector() {
         super();
@@ -178,19 +172,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Collection<Name> getApplicableUnfiledTypes() {
         return localTypeManager.getApplicableTypesInstance();
     }
-
-    public MappedTypesContainer getMappedTypes() {
-        return localTypeManager.getMappedTypes();
-    }
-
-    protected org.modeshape.connector.cmis.mapping.Properties properties() {
-        return localTypeManager.getPropertyUtils();
-    }
-
-    protected MappedTypesContainer mappedTypes() {
-        return localTypeManager.getMappedTypes();
-    }
-
 
     // required by the custom query processor
     public Session getSession() {
@@ -216,84 +197,23 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         // register external types into JCR
         localTypeManager.initialize(session, applicableUnfiledTypes);
 
-        initSingleVersionTypeSet(nodeTypeManager);
+        singleVersionOptions.initialize(factories(), nodeTypeManager);
 
-        cmisObjectFinderUtil = new CmisObjectFinderUtil(session, commonIdPropertyName, commonIdTypeName, commonIdQuery);
+        cmisObjectFinderUtil = new CmisObjectFinderUtil(session, singleVersionOptions);
     }
 
-    private void initSingleVersionTypeSet(NodeTypeManager nodeTypeManager){
-        if (singleVersionTypes == null) return;
-
-        for (String typeName : singleVersionTypes) {
-            singleVersionTypeNames.add(factories().getNameFactory().create(typeName));
-        }
-    }
 
     @Override
     public Document getDocumentById(String id) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(id);
-        System.out.println("[CmisConnector] getDocumentById ID :: " + id);
-        if (keyCache.containsKey(objectId.getIdentifier())) {
-            NewDocumentParams theParams = keyCache.get(objectId.getIdentifier());
-            if (theParams.getDocument() != null) {
-                Document document = theParams.getDocument();
-                System.out.println("Return cached document:: " + document);
-                return document;
-            }
-            if (objectId.getType() == ObjectId.Type.OBJECT) {
-                DocumentWriter writer = newDocument(id);
 
-                // set correct type
-                writer.setPrimaryType(theParams.primaryType);
-
-                // parents
-                writer.setParents(ObjectId.toString(ObjectId.Type.OBJECT, theParams.parentId));
-
-                // fill properties
-
-                // reference
-                writer.addMixinType(NodeType.MIX_REFERENCEABLE);
-                writer.addProperty(JcrLexicon.UUID, id);
-
-                // content node - mandatory child for a document
-//                writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, id), JcrConstants.JCR_CONTENT);
-
-                EditableDocument document = writer.document();
-                System.out.println("Return cached document by init params:: " + document);
-                return document;
-            } else if (objectId.getType() == ObjectId.Type.CONTENT) {
-                return null;
-                /*String contentId = ObjectId.toString(ObjectId.Type.CONTENT, objectId.getIdentifier());
-                DocumentWriter writer = newDocument(contentId);
-
-                writer.setPrimaryType(NodeType.NT_RESOURCE);
-                writer.setParent(objectId.getIdentifier());
-
-                // reference
-                writer.addMixinType(NodeType.MIX_REFERENCEABLE);
-                writer.addProperty(JcrLexicon.UUID, contentId);*/
-
-//                Property<Object> lastModified = doc.getProperty(PropertyIds.LAST_MODIFICATION_DATE);
-//                Property<Object> lastModifiedBy = doc.getProperty(PropertyIds.LAST_MODIFIED_BY);
-
-//                writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
-//                writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
-
-//                writer.addMixinType(NodeType.MIX_CREATED);
-//                Property<Object> created = doc.getProperty(PropertyIds.CREATION_DATE);
-//                Property<Object> createdBy = doc.getProperty(PropertyIds.CREATED_BY);
-//                writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
-//                writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
-
-                /*EditableDocument document = writer.document();
-                System.out.println("Return cached document content by init params:: " + document);
-                return document;*/
-            }
+        CmisGetObjectOperation cmisGetObjectOperation = getCmisGetOperation();
+        // lookup in the cache first
+        if (isCachedTempDocument(objectId.getIdentifier())) {
+            return getCmisSingleVersionOperations().getCachedTempDocument(objectId);
         }
-
-        CmisGetObjectOperation cmisGetObjectOperation = cmisGetOperation();
 
         // this action depends from object type
         switch (objectId.getType()) {
@@ -309,22 +229,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 // the nt:file node while in cmis domain it is a property of
                 // the cmis:document object. This action searches original
                 // cmis:document and converts its content property into jcr node
-                ObjectId objectIdd = ObjectId.valueOf(id);
-                CmisObject cmisObject =
-                        cmisObjectFinderUtil.find(objectIdd.getIdentifier());
-
-                // object does not exist? return null
-                if (cmisObject == null) {
-                    return null;
-                }
-
-
-
-                String documentMappedId = (CmisOperationCommons.isDocument(cmisObject) && CmisOperationCommons.isVersioned(cmisObject))
-                        ? CmisOperationCommons.asDocument(cmisObject).getVersionSeriesId()
-                        : cmisObject.getId();
-
-                return cmisGetObjectOperation.cmisContent(documentMappedId, objectIdd.getIdentifier());
+                // result object should have same id as requested
+                return cmisGetObjectOperation.cmisContent(objectId.getIdentifier());
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
                 return cmisObject(objectId.getIdentifier());
@@ -332,6 +238,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             default:
                 return null;
         }
+    }
+
+    /*
+    * look up local temp storage for proposed id
+    */
+    public boolean isCachedTempDocument(String id) {
+        return singleVersionCache.containsKey(id);
     }
 
     @Override
@@ -356,11 +269,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 String cmisId = objectId.getIdentifier();
 
                 // now checking that this document exists
-//                return session.getObject(cmisId) != null;
                 return cmisObjectFinderUtil.find(cmisId) != null;
             default:
                 // here we checking cmis:folder and cmis:document
-//                return session.getObject(id) != null;
                 return cmisObjectFinderUtil.find(id) != null;
         }
     }
@@ -372,7 +283,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public String getDocumentId(String path) {
         // establish relation between path and object identifier
         String id = session.getObjectByPath(path).getId();
-        // try to catch and save first projectoion's filderId to stick unfiled to it..
+        // try to catch and save first projection's folderId to stick unfiled to it..
         if (caughtProjectedId == null) caughtProjectedId = id;
         // what if 1st projection is not up but second is ok ?? will we get there to get Id of the first one ?
 
@@ -401,38 +312,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
     // -------------------  CRUD implementation ------------------
-    private Map<String, NewDocumentParams> keyCache = new HashMap<String, NewDocumentParams>();
-    private Map<String, List<String>> keyChildrenCache = new HashMap<String, List<String>>();
-
-    class NewDocumentParams {
-        String parentId;
-        Name name;
-        Name primaryType;
-        Document document;
-
-        NewDocumentParams(String parentId, Name name, Name primaryType) {
-            this.parentId = parentId;
-            this.name = name;
-            this.primaryType = primaryType;
-        }
-
-        Document getDocument() {
-            return document;
-        }
-
-        void setDocument(Document document) {
-            this.document = document;
-        }
-    }
-
 
     @Override
     public String newDocumentId(String parentId,
                                 Name name,
                                 Name primaryType) {
 
-        CmisNewObjectOperation cmisNewObjectOperation = new CmisNewObjectOperation(session, localTypeManager, cmisObjectFinderUtil);
-//        System.out.println("[CmisConnector] newDocumentId -- parent ID:: " + parentId + " of type:: " + primaryType.toString());
+        // do some early check to prevent extra actions..
         // let'start from checking primary type
         if (primaryType.getLocalName().equals("resource")) {
             // nt:resource node belongs to cmis:document's content thus
@@ -440,63 +326,35 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             return ObjectId.toString(ObjectId.Type.CONTENT, parentId);
         }
 
-        String resultGuid = null;
-        MappedCustomType mappedType = localTypeManager.getMappedTypes().findByJcrName(primaryType.toString());
-        String cmisObjectTypeName = mappedType.getExtName();
-        // need to resolve jcr name to prefixed/humanReadable
-        MappedCustomType mappedJcrType = localTypeManager.getMappedTypes().findByJcrName(primaryType.toString());
-        boolean doAsSingleVersion = singleVersionTypeNames.contains(primaryType);
-        if (doAsSingleVersion &&
-                localTypeManager.getTypeDefinition(session, cmisObjectTypeName).getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
+        CmisSingleVersionOperations singleVersionOps = getCmisSingleVersionOperations();
 
-            resultGuid = "FAKE_" + UUID.randomUUID().toString();
-            NewDocumentParams value = new NewDocumentParams(parentId, name, primaryType);
-            keyCache.put(resultGuid, value);
-            // parent
-            List<String> childValues = keyChildrenCache.get(parentId);
-            if (childValues == null) childValues = new ArrayList<String>();
-            childValues.add(resultGuid);
-            keyChildrenCache.put(parentId, childValues);
+        if (singleVersionOps.doAsSingleVersion(primaryType)) {
+            return singleVersionOps.newDocumentId(parentId, name, primaryType);
         } else {
-            resultGuid = cmisNewObjectOperation.newDocumentId(parentId, name, primaryType);
+            CmisNewObjectOperation cmisNewObjectOperation = getCmisNewObjectOperation();
+            return cmisNewObjectOperation.newDocumentId(parentId, name, primaryType);
         }
-        System.out.println("[CmisConnector] newDocumentId is + " + resultGuid + " +  -- parent ID:: " + parentId + " of type:: " + primaryType.toString());
-        return resultGuid;
     }
+
 
     @Override
     public void storeDocument(Document document) {
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
-        String identifier = objectId.getIdentifier();
-        System.out.println("[CmisConnector] storeDocument -- identifier::  " + identifier + " // data:: " + document);
-        if (keyCache.containsKey(identifier)) {
-            NewDocumentParams newDocumentParams = keyCache.get(identifier);
-            if (objectId.getType() == ObjectId.Type.CONTENT) {
-                CmisNewObjectCombinedOperation cmisStoreOperation =
-                        new CmisNewObjectCombinedOperation(session, localTypeManager,
-                                commonIdPropertyName,
-                                ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
-                String result = cmisStoreOperation.storeDocument(
-                        newDocumentParams.parentId, newDocumentParams.name, newDocumentParams.primaryType,
-                        newDocumentParams.getDocument(),
-                        document, new BinaryContentProducer());
-                keyCache.remove(identifier);
+        CmisSingleVersionOperations singleVersionOps = getCmisSingleVersionOperations();
 
-//                return ObjectId.toString(ObjectId.Type.CONTENT, result);
-            } else {
-                newDocumentParams.setDocument(document);
-            }
+        if (singleVersionOps.doStoreAsSingleVersion(objectId)) {
+            singleVersionOps.storeDocument(objectId, document,
+                    getCmisNewObjectCombinedOperation(),
+                    new BinaryContentProducer());
         } else {
-            CmisStoreOperation cmisStoreOperation = new CmisStoreOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
+            CmisStoreOperation cmisStoreOperation = getCmisStoreOperation();
             cmisStoreOperation.storeDocument(document, new BinaryContentProducer());
         }
-        System.out.println("keyCache size: " + keyCache.size());
-        System.out.println("keyChildrenCache size: " + keyChildrenCache.size());
     }
 
     @Override
     public void updateDocument(DocumentChanges delta) {
-        CmisUpdateOperation cmisUpdateOperation = new CmisUpdateOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
+        CmisUpdateOperation cmisUpdateOperation = getCmisUpdateOperation();
         cmisUpdateOperation.updateDocument(delta, new BinaryContentProducer());
     }
 
@@ -519,20 +377,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             return null;
         }
 
-        CmisGetObjectOperation cmisGetObjectOperation = cmisGetOperation();
+        CmisGetObjectOperation cmisGetObjectOperation = getCmisGetOperation();
 
         // converting CMIS object to JCR node
         switch (cmisObject.getBaseTypeId()) {
             case CMIS_FOLDER:
                 DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject);
-                if (keyChildrenCache.containsKey(id)) {
-                    List<String> strings = keyChildrenCache.get(id);
-                    for (String string : strings) {
-                        NewDocumentParams newDocumentParams = keyCache.get(string);
-                        if (newDocumentParams != null)
-                            document.addChild(string, newDocumentParams.name.getLocalName());
-                    }
-                }
+                getCmisSingleVersionOperations().addCachedChildren(id, document);
 
                 return document.document();
 
@@ -570,7 +421,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     public Document getChildReference(String parentKey,
                                       String childKey) {
-        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > akjdghaslkdhasgdkasjghdsk");
+        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
 //        CmisObject object = session.getObject(childKey);
         CmisObject object = cmisObjectFinderUtil.find(childKey);
         return newChildReference(object.getId(), object.getName());
@@ -579,26 +430,53 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     @Override
     public Document getChildren(PageKey pageKey) {
         CmisGetChildrenOperation cmisGetChildrenOperation =
-                new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, commonIdPropertyName, cmisObjectFinderUtil);
+                getCmisGetChildrenOperation();
         DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
         return writer.document();
     }
 
-
     // -------------------------------- AUXILIARIES -------------------------
+
+    private CmisStoreOperation getCmisStoreOperation() {
+        return new CmisStoreOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
+    }
+
+    private CmisUpdateOperation getCmisUpdateOperation() {
+        return new CmisUpdateOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
+    }
+
+    private CmisGetChildrenOperation getCmisGetChildrenOperation() {
+        return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions, cmisObjectFinderUtil);
+    }
+
+    private CmisNewObjectCombinedOperation getCmisNewObjectCombinedOperation() {
+        return new CmisNewObjectCombinedOperation(session, localTypeManager,
+                singleVersionOptions,
+                ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
+    }
+
+    private CmisSingleVersionOperations getCmisSingleVersionOperations() {
+        return new CmisSingleVersionOperations(session, localTypeManager,
+                cmisObjectFinderUtil, singleVersionOptions, singleVersionCache, getDocumentProducer());
+    }
+
+    private CmisNewObjectOperation getCmisNewObjectOperation() {
+        return new CmisNewObjectOperation(session, localTypeManager, cmisObjectFinderUtil);
+    }
 
     /*
     * new instance of cmis getObjectOp
     */
-    private CmisGetObjectOperation cmisGetOperation() {
+    private CmisGetObjectOperation getCmisGetOperation() {
         return new CmisGetObjectOperation(
                 session, localTypeManager,
                 addRequiredPropertiesOnRead,
                 hideRootFolderReference,
                 caughtProjectedId,
                 remoteUnfiledNodeId,
-                commonIdPropertyName,
-                new ConnectorDocumentProducer(), cmisObjectFinderUtil);
+                singleVersionOptions,
+                getDocumentProducer(), cmisObjectFinderUtil
+        );
     }
 
 
@@ -704,7 +582,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     }
 
-    public class ConnectorDocumentProducer implements DocumentProducer {
+    //
+    private ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
+
+    ConnectorDocumentProducer getDocumentProducer() {
+        return documentProducer;
+    }
+
+    public final class ConnectorDocumentProducer implements DocumentProducer {
 
         public DocumentWriter getNewDocument(String id) {
             return newDocument(id);

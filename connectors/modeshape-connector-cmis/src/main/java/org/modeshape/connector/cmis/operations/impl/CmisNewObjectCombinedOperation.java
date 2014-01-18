@@ -11,8 +11,9 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
-import org.modeshape.connector.cmis.CmisObjectFinderUtil;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
+import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
@@ -29,14 +30,14 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
     private String secondaryIdPropertyName;
 
     public CmisNewObjectCombinedOperation(Session session, LocalTypeManager localTypeManager,
-                                          String secondaryIdPropertyName,
+                                          SingleVersionOptions singleVersionOptions,
                                           boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
         super(session, localTypeManager,finderUtil);
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
-        this.secondaryIdPropertyName = secondaryIdPropertyName;
+        this.secondaryIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
     }
 
-    public String storeDocument(String parentId,
+    public void storeDocument(String parentId,
                                 Name name,
                                 Name primaryType,
                                 Document document,
@@ -163,15 +164,13 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
             }
 
             // replace id with version series id
-            result = (versioningState != VersioningState.NONE)
-                    ? CmisOperationCommons.asDocument(session.getObject(result)).getVersionSeriesId()
-                    : result;
+//            result = CmisOperationCommons.getMappingId(session.getObject(result));
 
-            return result;
+//            return result;
         } catch (Exception e) {
             e.printStackTrace();
         }
-        return null;
+//        return null;
     }
 
     private ContentStream getContentStream(Document document, BinaryContentProducerInterface binaryProducer) {

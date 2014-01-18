@@ -3,8 +3,9 @@ package org.modeshape.connector.cmis.operations.impl;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
-import org.modeshape.connector.cmis.CmisObjectFinderUtil;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
+import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
@@ -18,10 +19,10 @@ public class CmisGetChildrenOperation extends CmisOperation {
     private String commonIdPropertyName;
 
     public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
-            String commonIdPropertyName,CmisObjectFinderUtil finderUtil) {
+                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil) {
         super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
-        this.commonIdPropertyName= commonIdPropertyName;
+        this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
     }
 
     /**
@@ -56,17 +57,9 @@ public class CmisGetChildrenOperation extends CmisOperation {
         Iterator<CmisObject> pageIterator = page.iterator();
         for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
             CmisObject next = page.iterator().next();
-            String childId = (CmisOperationCommons.isDocument(next) && CmisOperationCommons.isVersioned(next))
-                    ? CmisOperationCommons.asDocument(next).getVersionSeriesId()
-                    : next.getId();
+            String childId = finderUtil.getObjectMappingId(next);
 
-            // use common ID instead
-            Property<Object> commonIdProp = next.getProperty(commonIdPropertyName);
-            if (commonIdProp != null && commonIdProp.getValueAsString() != null) {
-                writer.addChild(commonIdProp.getValueAsString(), next.getName());
-            } else {
-                writer.addChild(childId, next.getName());
-            }
+            writer.addChild(childId, next.getName());
         }
 
         if (pageIterator.hasNext())

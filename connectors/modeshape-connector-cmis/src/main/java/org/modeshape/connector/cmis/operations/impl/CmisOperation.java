@@ -2,7 +2,7 @@ package org.modeshape.connector.cmis.operations.impl;
 
 
 import org.apache.chemistry.opencmis.client.api.Session;
-import org.modeshape.connector.cmis.CmisObjectFinderUtil;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 
 public abstract class CmisOperation {

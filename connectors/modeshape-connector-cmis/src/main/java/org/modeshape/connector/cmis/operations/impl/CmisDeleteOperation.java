@@ -4,7 +4,7 @@ import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.enums.UnfileObject;
-import org.modeshape.connector.cmis.CmisObjectFinderUtil;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 
@@ -45,7 +45,7 @@ public class CmisDeleteOperation extends CmisOperation {
             if (object == null) return true;
 
             if (object instanceof Folder) {
-                // don't care about unfile vs delete for now
+                // don't care about unfiling vs delete for now
                 ((Folder) object).deleteTree(true, UnfileObject.DELETE, false);
             } else {
                 // delete document
