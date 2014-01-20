@@ -47,6 +47,9 @@ public class CmisOperationCommons {
         return (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
     }
 
+    /*
+    * checks versionable setting of the object's type
+    */
     public static boolean isVersioned(CmisObject cmisObject) {
         ObjectType objectType = cmisObject.getType();
         if (objectType instanceof DocumentTypeDefinition) {
@@ -71,7 +74,6 @@ public class CmisOperationCommons {
             pwc.cancelCheckOut();
             throw new CmisRuntimeException(e.getMessage(), e);
         }
-//        return pwc.getId();
     }
 
 

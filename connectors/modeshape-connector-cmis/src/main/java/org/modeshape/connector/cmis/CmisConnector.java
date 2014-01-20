@@ -162,7 +162,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String caughtProjectedId = null; // todo review
     private LocalTypeManager localTypeManager;
     private SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
-
+    // local document producer instance
+    private ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
     public CmisConnector() {
         super();
@@ -196,9 +197,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 customMapping);
         // register external types into JCR
         localTypeManager.initialize(session, applicableUnfiledTypes);
-
+        // Single version saving feature
         singleVersionOptions.initialize(factories(), nodeTypeManager);
-
+        // extended getObject logic
         cmisObjectFinderUtil = new CmisObjectFinderUtil(session, singleVersionOptions);
     }
 
@@ -266,10 +267,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 // the nt:file node while in cmis domain it is a property of
                 // the cmis:document object. so to perform this operation we need
                 // to restore identifier of the original cmis:document. it is easy
-                String cmisId = objectId.getIdentifier();
-
                 // now checking that this document exists
-                return cmisObjectFinderUtil.find(cmisId) != null;
+                return cmisObjectFinderUtil.find(objectId.getIdentifier()) != null;
             default:
                 // here we checking cmis:folder and cmis:document
                 return cmisObjectFinderUtil.find(id) != null;
@@ -422,7 +421,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Document getChildReference(String parentKey,
                                       String childKey) {
         debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
-//        CmisObject object = session.getObject(childKey);
         CmisObject object = cmisObjectFinderUtil.find(childKey);
         return newChildReference(object.getId(), object.getName());
     }
@@ -437,35 +435,41 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // -------------------------------- AUXILIARIES -------------------------
 
+    /* regular store operation */
     private CmisStoreOperation getCmisStoreOperation() {
         return new CmisStoreOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
     }
 
+    /* regular update operation */
     private CmisUpdateOperation getCmisUpdateOperation() {
         return new CmisUpdateOperation(session, localTypeManager, ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
     }
 
+    /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
         return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions, cmisObjectFinderUtil);
     }
 
+    /* newObject/store ops combined in a single call - used by singleVersion feature */
     private CmisNewObjectCombinedOperation getCmisNewObjectCombinedOperation() {
         return new CmisNewObjectCombinedOperation(session, localTypeManager,
                 singleVersionOptions,
                 ignoreEmptyPropertiesOnCreate, cmisObjectFinderUtil);
     }
 
+    /* a set of modified actions and utils/checks to support singleVersion feature */
     private CmisSingleVersionOperations getCmisSingleVersionOperations() {
         return new CmisSingleVersionOperations(session, localTypeManager,
                 cmisObjectFinderUtil, singleVersionOptions, singleVersionCache, getDocumentProducer());
     }
 
+    /* regular newObjectId op */
     private CmisNewObjectOperation getCmisNewObjectOperation() {
         return new CmisNewObjectOperation(session, localTypeManager, cmisObjectFinderUtil);
     }
 
     /*
-    * new instance of cmis getObjectOp
+    * new instance of cmis getObjectOperation
     */
     private CmisGetObjectOperation getCmisGetOperation() {
         return new CmisGetObjectOperation(
@@ -538,13 +542,20 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // ---------------------- LOGGERS --------------------------------------
 
 
-    // DEBUG. this method will be removed todo
+    // DEBUG
     public void debug(String... values) {
         if (debug) {
+            StringBuilder sb = new StringBuilder();
             for (String value : values) {
-                System.out.print(value + " ");
+                sb.append(value).append(" ");
             }
-            System.out.println();
+            if (getLogger() != null) {
+                getLogger().debug(sb.toString());
+            } else if (log() != null /* simple logger */) {
+                log().debug(sb.toString());
+            } else {
+                System.out.println(sb.toString());
+            }
         }
     }
 
@@ -582,13 +593,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     }
 
-    //
-    private ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
-
+    // document producer lazily cached
     ConnectorDocumentProducer getDocumentProducer() {
         return documentProducer;
     }
 
+    //
     public final class ConnectorDocumentProducer implements DocumentProducer {
 
         public DocumentWriter getNewDocument(String id) {

@@ -37,6 +37,13 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
         this.secondaryIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
     }
 
+
+    /*
+    * does creation of a document in the external CMIS repository
+    * submitting all the collected data: type + name, meta-data, content
+    *
+    * type, name, meta-data are being taken from cached TempDocument
+    */
     public void storeDocument(String parentId,
                                 Name name,
                                 Name primaryType,
