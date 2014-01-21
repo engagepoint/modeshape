@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.6.25-EP-SNAPSHOT</version>
+        <version>3.7.25-EP-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-web-explorer</artifactId>
@@ -104,7 +104,7 @@
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>gwt-maven-plugin</artifactId>
-                <version>2.5.1</version>
+                <version>${gwt.maven.plugin.version}</version>
                 <executions>
                     <execution>
                         <goals>
@@ -115,7 +115,6 @@
                 </executions>
                 <configuration>
                     <runTarget>org.modeshape.explorer.client.Explorer/Explorer.html</runTarget>
-                    <!--<version>2.5.1</version>-->
                 </configuration>
             </plugin>            
             <plugin>

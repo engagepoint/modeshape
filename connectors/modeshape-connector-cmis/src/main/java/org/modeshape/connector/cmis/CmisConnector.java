@@ -52,6 +52,7 @@ import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.xml.ws.handler.HandlerResolver;
 import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
@@ -470,6 +471,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             public Element getSOAPHeaders(Object portObject) {
                 // Place headers here
                 return super.getSOAPHeaders(portObject);
+            }
+
+            @Override
+            public HandlerResolver getHandlerResolver() {
+                return null;  //To change body of implemented methods use File | Settings | File Templates.
             }
         }, null);
     }

@@ -60,6 +60,7 @@ import org.modeshape.jcr.JcrRepository.RunningState;
 import org.modeshape.jcr.RepositoryConfiguration.Component;
 import org.modeshape.jcr.RepositoryConfiguration.ProjectionConfiguration;
 import org.modeshape.jcr.api.federation.FederationManager;
+import org.modeshape.jcr.cache.AllPathsCache;
 import org.modeshape.jcr.cache.CachedNode;
 import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.ChildReferences;
@@ -558,6 +559,10 @@ public final class Connectors {
         this.snapshot.set(current.withOnlyProjectionConfigurations());
     }
 
+    protected boolean hasReadonlyConnectors() {
+        return snapshot.get().hasReadonlyConnectors();
+    }
+
     /**
      * Returns the connector which is mapped to the given source key.
      * 
@@ -644,6 +649,13 @@ public final class Connectors {
         return this.snapshot.get().getPathMappings(connector);
     }
 
+    protected boolean isReadonlyPath( Path path,
+                                      JcrSession session ) throws RepositoryException {
+        AbstractJcrNode node = session.node(path);
+        Connector connector = getConnectorForSourceKey(node.key().getSourceKey());
+        return connector != null && connector.isReadonly();
+    }
+
     /**
      * An immutable class used internally to provide a consistent (immutable) view of the {@link Connector} instances, along with
      * various cached data to make it easy to find a {@link Connector} instance by projected or external source keys, etc.
@@ -673,7 +685,21 @@ public final class Connectors {
          */
         private final Set<String> projectedInternalNodeKeys;
 
+        /**
+         * A list connectors that have been replaced and are not used anymore
+         */
         private final List<Connector> unusedConnectors = new LinkedList<Connector>();
+
+        /**
+         * The set of path mappings for a given connector. Because the connector instance might change, we key these by the
+         * connector {@link Connector#getSourceName() source name}.
+         */
+        private volatile Map<String, BasicPathMappings> mappingsByConnectorSourceName;
+
+        /**
+         * A flag which is used to track the presence of any readonly connectors
+         */
+        private boolean hasReadonlyConnectors;
 
         protected Snapshot( Collection<Component> components,
                             Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections ) {
@@ -689,6 +715,7 @@ public final class Connectors {
             this.sourceKeyToConnectorMap = new HashMap<String, Connector>(original.sourceKeyToConnectorMap);
             this.preconfiguredProjections = new HashMap<String, List<ProjectionConfiguration>>(original.preconfiguredProjections);
             this.projectedInternalNodeKeys = new HashSet<String>(original.projectedInternalNodeKeys);
+            this.hasReadonlyConnectors = original.hasReadonlyConnectors;
         }
 
         protected synchronized void shutdownUnusedConnectors() {
@@ -705,6 +732,7 @@ public final class Connectors {
                     registerConnector(connector);
                 }
             }
+            checkForReadonlyConnectors();
         }
 
         private String keyFor( Connector connector ) {
@@ -912,6 +940,9 @@ public final class Connectors {
             for (Connector connector : connectors) {
                 if (clone.unregisterConnector(connector)) modified = true;
             }
+            if (modified) {
+                checkForReadonlyConnectors();
+            }
             return modified ? clone : this;
         }
 
@@ -952,12 +983,6 @@ public final class Connectors {
         protected Snapshot withOnlyProjectionConfigurations() {
             return new Snapshot(Collections.<Component>emptyList(), this.preconfiguredProjections);
         }
-
-        /**
-         * The set of path mappings for a given connector. Because the connector instance might change, we key these by the
-         * connector {@link Connector#getSourceName() source name}.
-         */
-        private volatile Map<String, BasicPathMappings> mappingsByConnectorSourceName;
 
         /**
          * Get the immutable mappings from connector-specific external paths to projected, repository paths. The supplied object
@@ -1008,13 +1033,15 @@ public final class Connectors {
                             if (workspaceName == null) continue;
                             try {
                                 WorkspaceCache cache = repositoryCache.getWorkspaceCache(workspaceName);
+                                AllPathsCache allPathsCache = new AllPathsCache(cache, null, pathFactory);
                                 CachedNode node = cache.getNode(projectedKey);
-                                Path internalPath = pathFactory.create(node.getPath(cache), alias);
-
-                                // Then find the path(s) for the external node with the aforementioned key ...
-                                for (String externalPathStr : conn.getDocumentPathsById(externalDocId)) {
-                                    Path externalPath = pathFactory.create(externalPathStr);
-                                    mappings.add(externalPath, internalPath, workspaceName);
+                                for (Path nodePath : allPathsCache.getPaths(node)) {
+                                    Path internalPath = pathFactory.create(nodePath, alias);
+                                    // Then find the path(s) for the external node with the aforementioned key ...
+                                    for (String externalPathStr : conn.getDocumentPathsById(externalDocId)) {
+                                        Path externalPath = pathFactory.create(externalPathStr);
+                                        mappings.add(externalPath, internalPath, workspaceName);
+                                    }
                                 }
                             } catch (WorkspaceNotFoundException e) {
                                 // ignore and continue
@@ -1033,6 +1060,20 @@ public final class Connectors {
             return mappings != null ? mappings : new EmptyPathMappings(connectorSourceName, repository().context()
                                                                                                         .getValueFactories()
                                                                                                         .getPathFactory());
+        }
+
+        private void checkForReadonlyConnectors() {
+            for (Connector connector : sourceKeyToConnectorMap.values()) {
+                if (connector.isReadonly()) {
+                    hasReadonlyConnectors = true;
+                    return;
+                }
+            }
+            hasReadonlyConnectors = false;
+        }
+
+        protected boolean hasReadonlyConnectors() {
+            return hasReadonlyConnectors;
         }
     }
 

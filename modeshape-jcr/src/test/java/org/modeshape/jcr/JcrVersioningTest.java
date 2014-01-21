@@ -33,6 +33,9 @@ import static org.junit.Assert.assertThat;
 import static org.junit.Assert.assertTrue;
 import static org.junit.Assert.fail;
 import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
@@ -896,6 +899,172 @@ public class JcrVersioningTest extends SingleUseAbstractTest {
         } catch (ItemNotFoundException e) {
             //expected
         }
+    }
+
+    @Test
+    @FixFor( "MODE-2089" )
+    public void shouldKeepOrderWhenRestoring() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node parent = session.getRootNode().addNode("parent", "jj:page");
+        parent.addNode("child1", "jj:content");
+        parent.addNode("child2", "jj:content");
+        parent.addNode("child3", "jj:content");
+        parent.addNode("child4", "jj:content");
+        session.save();
+        versionManager.checkpoint(parent.getPath());
+
+        parent = session.getNode("/parent");
+        parent.orderBefore("child4", "child3");
+        parent.orderBefore("child3", "child2");
+        parent.orderBefore("child2", "child1");
+        session.save();
+
+        Version version = versionManager.getBaseVersion(parent.getPath());
+        versionManager.restore(version, true);
+
+        parent = session.getNode("/parent");
+        List<String> children = new ArrayList<String>();
+        NodeIterator nodeIterator = parent.getNodes();
+        while (nodeIterator.hasNext()) {
+            children.add(nodeIterator.nextNode().getPath());
+        }
+        assertEquals(Arrays.asList("/parent/child1", "/parent/child2", "/parent/child3", "/parent/child4"), children);
+    }
+
+    @Test
+    @FixFor( "MODE-2096" )
+    public void shouldRestoreAfterRemovingAndReaddingNodesWithSameName() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node parent = session.getRootNode().addNode("parent", "jj:page");
+        Node child = parent.addNode("child", "jj:content");
+        child.addNode("descendant", "jj:content");
+        child.addNode("descendant", "jj:content");
+        session.save();
+        versionManager.checkpoint(parent.getPath());
+
+        child = session.getNode("/parent/child");
+        NodeIterator childNodes = child.getNodes();
+        while (childNodes.hasNext()) {
+            childNodes.nextNode().remove();
+        }
+        child.addNode("descendant", "jj:content");
+        child.addNode("descendant", "jj:content");
+        session.save();
+
+        Version version = versionManager.getBaseVersion(parent.getPath());
+        versionManager.restore(version, true);
+
+        parent = session.getNode("/parent");
+        assertEquals(Arrays.asList("/parent/child", "/parent/child/descendant", "/parent/child/descendant[2]"), allChildrenPaths(parent));
+    }
+
+    @Test
+    @FixFor( "MODE-2104" )
+    public void shouldRestoreMovedNode() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node parent = session.getRootNode().addNode("parent", "jj:page");
+        parent.addNode("child", "jj:content");
+        session.save();
+
+        versionManager.checkpoint(parent.getPath());
+
+        parent.addNode("_context", "jj:context");
+        // move to a location under a new parent
+        session.move("/parent/child", "/parent/_context/child");
+        session.save();
+
+        // restore
+        versionManager.restore(parent.getPath(), "1.0", true);
+        //the default OPV is COPY, so we expect the restore to have removed _context
+        assertNoNode("/parent/_context");
+        assertNode("/parent/child");
+    }
+
+    @Test
+    @FixFor( "MODE-2096" )
+    public void shouldRestoreToMultipleVersionsWhenEachVersionHasDifferentChild() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        // Add a page node with one child then make a version 1.0
+        Node node = session.getRootNode().addNode("page", "jj:page");
+        node.addNode("child1", "jj:content");
+        session.save();
+        versionManager.checkpoint(node.getPath());
+
+        // add second child then make version 1.1
+        node.addNode("child2", "jj:content");
+        session.save();
+        versionManager.checkpoint(node.getPath());
+        // restore to 1.0
+        versionManager.restore(node.getPath(), "1.0", true);
+        assertNode("/page/child1");
+        assertNoNode("/page/child2");
+        // then restore to 1.1, it will throw the NullPointException
+        versionManager.restore(node.getPath(), "1.1", true);
+        assertNode("/page/child1");
+        assertNode("/page/child2");
+    }
+
+    @Test
+    @FixFor( "MODE-2112" )
+    public void shouldRestoreMovedNode2() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node parent = session.getRootNode().addNode("parent", "jj:page");
+        parent.addNode("_context", "jj:context");
+        parent.addNode("child", "jj:content");
+        session.save();
+
+        versionManager.checkpoint(parent.getPath());
+
+        // move to a location under a new parent
+        session.move("/parent/child", "/parent/_context/child");
+        session.save();
+
+        // restore
+        versionManager.restore(parent.getPath(), "1.0", true);
+        assertNoNode("/parent/_context/child");
+        assertNode("/parent/child");
+    }
+
+    @Test
+    @FixFor( "MODE-2112" )
+    public void shouldRestoreMovedNode3() throws Exception {
+        registerNodeTypes("cnd/jj.cnd");
+
+        Node parent = session.getRootNode().addNode("parent", "jj:page");
+        parent.addNode("child1", "jj:content");
+        parent.addNode("_context", "jj:context");
+        parent.addNode("child2", "jj:content");
+        session.save();
+
+        versionManager.checkpoint(parent.getPath());
+
+        // move to a location under a new parent
+        session.move("/parent/child1", "/parent/_context/child1");
+        session.save();
+
+        // restore
+        versionManager.restore(parent.getPath(), "1.0", true);
+        assertNoNode("/parent/_context/child1");
+        assertNoNode("/parent/_context/child2");
+        assertNode("/parent/child1");
+        assertNode("/parent/child2");
+        assertNode("/parent/_context");
+    }
+
+    private List<String> allChildrenPaths( Node root ) throws Exception {
+        List<String> paths = new ArrayList<String>();
+        NodeIterator nodeIterator = root.getNodes();
+        while (nodeIterator.hasNext()) {
+            Node child = nodeIterator.nextNode();
+            paths.add(child.getPath());
+            paths.addAll(allChildrenPaths(child));
+        }
+        return paths;
     }
 
     private void assertPropertyIsAbsent( Node node,

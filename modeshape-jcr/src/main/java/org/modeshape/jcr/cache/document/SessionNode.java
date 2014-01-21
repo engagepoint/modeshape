@@ -315,7 +315,7 @@ public class SessionNode implements MutableCachedNode {
      * @return the workspace cache's node, or null if this node is new
      */
     protected CachedNode nodeInWorkspace( AbstractSessionCache session ) {
-        return session.getWorkspace().getNode(key);
+        return isNew() ? null : session.getWorkspace().getNode(key);
     }
 
     @Override
@@ -1151,15 +1151,15 @@ public class SessionNode implements MutableCachedNode {
             toBeMoved = appended.remove(key);
         }
 
-        // We need a mutable node in the session for the child, so that we can find changes in the parent ...
-        // cache.mutable(key);
-
         if (toBeMoved == null) {
             // It wasn't appended, so verify it is really a child ...
             toBeMoved = references.getChild(key);
             if (toBeMoved == null) throw new NodeNotFoundException(key);
-            // And mark it as removed ...
-            changedChildren.remove(key);
+            if (changedChildren.inserted(key) == null) {
+                // And mark it as removed only if it doesn't appear as inserted
+                // a node can be transient, not appended but inserted in the case of transient reorderings
+                changedChildren.remove(key);
+            }
         }
 
         if (nextNode == null) {
@@ -1637,6 +1637,12 @@ public class SessionNode implements MutableCachedNode {
         }
 
         @Override
+        public int insertionCount( Name name ) {
+            InsertedChildReferences insertions = this.insertions.get();
+            return insertions == null ? 0 : insertions.size(name);
+        }
+
+        @Override
         public int removalCount() {
             Set<NodeKey> removals = this.removals.get();
             return removals == null ? 0 : removals.size();
@@ -2023,6 +2029,16 @@ public class SessionNode implements MutableCachedNode {
             }
             return sb;
         }
+
+        protected int size( Name name ) {
+            lock.readLock().lock();
+            try {
+                AtomicInteger count = insertedNames.get(name);
+                return count != null ? count.get() : 0;
+            } finally {
+                lock.readLock().unlock();
+            }
+        }
     }
 
     protected static class Insertions implements ChildReferences.ChildInsertions {
@@ -2277,18 +2293,19 @@ public class SessionNode implements MutableCachedNode {
                 copyProperties(targetNode, sourceNode);
             }
 
-            for (ChildReference childReference : sourceNode.getChildReferences(sourceCache)) {
-                NodeKey childKey = childReference.getKey();
+            for (ChildReference sourceChildReference : sourceNode.getChildReferences(sourceCache)) {
+                NodeKey childKey = sourceChildReference.getKey();
                 if (!shouldProcessSourceKey(childKey)) {
                     continue;
                 }
                 // We'll need the parent key in the source ...
                 CachedNode sourceChild = sourceCache.getNode(childKey);
                 NodeKey parentSourceKey = sourceChild.getParentKeyInAnyWorkspace(sourceCache);
+                Name sourceChildName = sourceChildReference.getName();
                 if (sourceKey.equals(parentSourceKey)) {
                     boolean isExternal = !childKey.getSourceKey().equalsIgnoreCase(sourceCache.getRootKey().getSourceKey());
                     MutableCachedNode childCopy = null;
-                    String projectionAlias = childReference.getName().getString();
+                    String projectionAlias = sourceChildName.getString();
                     if (isExternal && connectors.hasExternalProjection(projectionAlias, childKey.toString())) {
                         // the child is a projection, so we need to create the projection in the parent
                         targetNode.addFederatedSegment(childKey.toString(), projectionAlias);
@@ -2297,11 +2314,32 @@ public class SessionNode implements MutableCachedNode {
                         childCopy = targetCache.mutable(childKey);
                     } else {
                         // The child is a normal child of this node ...
-                        String childCopyPreferredKey = documentStore.newDocumentKey(targetKey.toString(),
-                                                                                    childReference.getName(),
-                                                                                    sourceChild.getPrimaryType(sourceCache));
-                        NodeKey newKey = createTargetKeyFor(childKey, targetKey, childCopyPreferredKey);
-                        childCopy = targetNode.createChild(targetCache, newKey, childReference.getName(), null);
+
+                        //check if there is a child with the same segment in the target which was not processed yet
+                        ChildReferences targetNodeChildReferences = targetNode.getChildReferences(targetCache);
+                        ChildReference targetChildSameSegment = targetNodeChildReferences.getChild(sourceChildReference.getSegment());
+                        if (targetChildSameSegment != null &&
+                            !sourceToTargetKeys.containsValue(targetChildSameSegment.getKey())) {
+                            //we found a child of the target node which has the same segment and has not been processed yet
+                            //meaning it was present in the target before the deep copy/clone started (e.g. an autocreated node)
+                            childCopy = targetCache.mutable(targetChildSameSegment.getKey());
+                            if (!isExternal) {
+                                //if the child is not external, we should remove it because the new child needs to be identical
+                                //to the source child
+                                targetNode.removeChild(targetCache, targetChildSameSegment.getKey());
+                                targetCache.destroy(targetChildSameSegment.getKey());
+                                childCopy = null;
+                            }
+                        }
+
+                        if (childCopy == null) {
+                            //we should create a new child in target with a preferred key (different for copy/clone)
+                            String childCopyPreferredKey = documentStore.newDocumentKey(targetKey.toString(),
+                                                                                        sourceChildName,
+                                                                                        sourceChild.getPrimaryType(sourceCache));
+                            NodeKey newKey = createTargetKeyFor(childKey, targetKey, childCopyPreferredKey);
+                            childCopy = targetNode.createChild(targetCache, newKey, sourceChildName, null);
+                        }
                     }
                     doPhase1(childCopy, sourceChild);
                 } else {
@@ -2323,21 +2361,21 @@ public class SessionNode implements MutableCachedNode {
                                 // to create a placeholder (with a new key) ...
                                 NodeKey placeholderKey = createTargetKeyFor(childKey, targetKey, null);
                                 String childCopyPreferredKey = documentStore.newDocumentKey(targetKey.toString(),
-                                                                                            childReference.getName(),
+                                                                                            sourceChildName,
                                                                                             sourceChild.getPrimaryType(sourceCache));
                                 newKey = createTargetKeyFor(childKey, targetKey, childCopyPreferredKey);
                                 sourceToTargetKeys.put(childKey, newKey);
-                                targetNode.createChild(targetCache, placeholderKey, childReference.getName(), null);
+                                targetNode.createChild(targetCache, placeholderKey, sourceChildName, null);
                                 linkedPlaceholdersToOriginal.put(placeholderKey, newKey);
                                 // we don't want to create a link, so we're done with this child (don't copy properties) ...
                                 continue;
                             }
                         }
                     } else {
-                        newKey = childReference.getKey();
+                        newKey = sourceChildReference.getKey();
                     }
                     // The equivalent node already exists, so we can just link to it ...
-                    targetNode.linkChild(targetCache, newKey, childReference.getName());
+                    targetNode.linkChild(targetCache, newKey, sourceChildName);
                 }
             }
         }

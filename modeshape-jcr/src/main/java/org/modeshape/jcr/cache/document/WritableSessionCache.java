@@ -71,6 +71,7 @@ import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeCache;
 import org.modeshape.jcr.cache.NodeKey;
 import org.modeshape.jcr.cache.NodeNotFoundException;
+import org.modeshape.jcr.cache.NodeNotFoundInParentException;
 import org.modeshape.jcr.cache.PathCache;
 import org.modeshape.jcr.cache.ReferentialIntegrityException;
 import org.modeshape.jcr.cache.SessionCache;
@@ -925,8 +926,21 @@ public class WritableSessionCache extends AbstractSessionCache {
                     if (removedNodes == null) {
                         removedNodes = new HashSet<NodeKey>();
                     }
-                    Path path = workspacePaths.getPath(persisted);
-                    changes.nodeRemoved(key, persisted.getParentKey(workspaceCache), path);
+                    try {
+                        Path path = workspacePaths.getPath(persisted);
+                        changes.nodeRemoved(key, persisted.getParentKey(workspaceCache), path);
+                    } catch (NodeNotFoundInParentException e) {
+                        // This is a very rare case where we're removing a node below some other already-removed node.
+                        // This happens when importing nodes with the REMOVE_EXISTING option, but some of the nodes inside
+                        // the imported XML do not all have "jcr:uuid" values. Specifically, the node (B) for which we're not able
+                        // to find the path existed below another node (A) that did have a "jcr:uuid" and was replaced with a
+                        // new node (A') with the same node key as (A). The new node (B') that replaced the problem node (B)
+                        // did not have a "jcr:uuid" property in the import XML document, and thus B' has a different node key
+                        // than B. When we process B here as a removal, it's old parent A had already been processed and updated
+                        // to A', which of course had a child reference to B' (not B). Thus, we're not able to find B inside
+                        // A' and we get this exception. Since B exists below the already-removed A, we don't need to throw any
+                        // events so we can just skip that. See MODE-2123 for details.
+                    }
                     removedNodes.add(key);
 
                     // if there were any referrer changes for the removed nodes, we need to process them
@@ -1082,11 +1096,11 @@ public class WritableSessionCache extends AbstractSessionCache {
                         for (NodeKey removed : changedChildren.getRemovals()) {
                             CachedNode persistent = workspaceCache.getNode(removed);
                             if (persistent != null) {
-                                Path oldPath = workspacePaths.getPath(persistent);
                                 if (appended != null && appended.hasChild(persistent.getKey())) {
                                     // the same node has been both removed and appended => reordered at the end
                                     ChildReference appendedChildRef = node.getChildReferences(this).getChild(persistent.getKey());
                                     newPath = pathFactory().create(sessionPaths.getPath(node), appendedChildRef.getSegment());
+                                    Path oldPath = workspacePaths.getPath(persistent);
                                     changes.nodeReordered(persistent.getKey(), node.getKey(), newPath, oldPath, null);
                                 }
                             }
@@ -1121,28 +1135,38 @@ public class WritableSessionCache extends AbstractSessionCache {
                     for (SessionNode.Insertions insertion : insertionsByBeforeKey.values()) {
                         for (ChildReference insertedRef : insertion.inserted()) {
                             CachedNode insertedNodePersistent = workspaceCache.getNode(insertedRef);
-                            Path nodeOldPath = insertedNodePersistent != null ? workspacePaths.getPath(insertedNodePersistent) : null;
+                            CachedNode insertedNode = getNode(insertedRef.getKey());
+                            Path nodeNewPath = sessionPaths.getPath(insertedNode);
+                            if (insertedNodePersistent != null) {
+                                Path nodeOldPath = workspacePaths.getPath(insertedNodePersistent);
+                                Path insertedBeforePath = null;
+                                CachedNode insertedBeforeNode = workspaceCache.getNode(insertion.insertedBefore());
+                                if (insertedBeforeNode != null) {
+                                    insertedBeforePath = workspacePaths.getPath(insertedBeforeNode);
+                                    boolean isSnsReordering = nodeOldPath.getLastSegment()
+                                                                         .getName()
+                                                                         .equals(insertedBeforePath.getLastSegment().getName());
+                                    if (isSnsReordering) {
+                                        nodeNewPath =  insertedBeforePath;
+                                    }
+                                }
+                                changes.nodeReordered(insertedRef.getKey(),
+                                                      node.getKey(),
+                                                      nodeNewPath,
+                                                      nodeOldPath,
+                                                      insertedBeforePath);
 
-                            CachedNode insertedBeforeNode = workspaceCache.getNode(insertion.insertedBefore());
-                            Path insertedBeforePath = workspacePaths.getPath(insertedBeforeNode);
-
-                            Path nodeNewPath = null;
-                            if (nodeOldPath != null) {
-                                boolean isSnsReordering = nodeOldPath.getLastSegment()
-                                                                     .getName()
-                                                                     .equals(insertedBeforePath.getLastSegment().getName());
-                                nodeNewPath = isSnsReordering ? insertedBeforePath : nodeOldPath;
                             } else {
-                                // there is no old path, which means the node is new and reordered at the same time (most likely
-                                // due to a version restore)
-                                nodeNewPath = sessionPaths.getPath(changedNodes.get(insertedRef.getKey()));
+                                // if the node is new and reordered at the same time (most likely due to either a version restore
+                                // or explicit reordering of transient nodes) there is no "old path"
+                                CachedNode insertedBeforeNode = getNode(insertion.insertedBefore().getKey());
+                                Path insertedBeforePath = sessionPaths.getPath(insertedBeforeNode);
+                                changes.nodeReordered(insertedRef.getKey(),
+                                                      node.getKey(),
+                                                      nodeNewPath,
+                                                      null,
+                                                      insertedBeforePath);
                             }
-
-                            changes.nodeReordered(insertedRef.getKey(),
-                                                  node.getKey(),
-                                                  nodeNewPath,
-                                                  nodeOldPath,
-                                                  insertedBeforePath);
                         }
                     }
                 }
@@ -1233,10 +1257,10 @@ public class WritableSessionCache extends AbstractSessionCache {
                                     monitor.recordRemove(workspaceName, Arrays.asList(persistedNodeAtNewPath.getKey()));
                                 }
                             } // otherwise the parent was not PERSISTED and there's nothing to do
+                            //for each of the children of the node which has the changed path, we need to update the path
+                            //in the indexes
+                            updateIndexesForAllChildren(node, sessionPaths, workspaceName, monitor);
                         }
-                        //for each of the children of the node which has the changed path, we need to update the path
-                        //in the indexes
-                       updateIndexesForAllChildren(node, sessionPaths, workspaceName, monitor);
                     }
 
                     //writable connectors *may* change their data in-place, so the update operation needs to be called only

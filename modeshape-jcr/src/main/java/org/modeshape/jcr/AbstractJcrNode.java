@@ -795,7 +795,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         
         if (relativePath.equals("..")) {
             if (!aclScope) {
-                session().checkPermission(this.getParent().getPath(), ModeShapePermissions.READ);
+                session().checkPermission(this.getParent().path(), ModeShapePermissions.READ);
             }
             return this.getParent();
         }
@@ -817,7 +817,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                 
                 if (path.getLastSegment().isParentReference()) {
                     if (!aclScope) {
-                        session().checkPermission(this.getParent().getPath(), ModeShapePermissions.READ);
+                        session().checkPermission(this.getParent().path(), ModeShapePermissions.READ);
                     }
                     return this.getParent();
                 }
@@ -826,7 +826,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             if (path.size() > 1) {
                 AbstractJcrNode node = session().node(node(), path);
                 if (!aclScope) {
-                    session().checkPermission(node.getPath(), ModeShapePermissions.READ);
+                    session().checkPermission(node.path(), ModeShapePermissions.READ);
                 }
                 return node;
             }
@@ -845,7 +845,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         try {
             AbstractJcrNode node = session().node(ref.getKey(), null, key());
             if (!aclScope) {
-                session().checkPermission(node.getPath(), ModeShapePermissions.READ);
+                session().checkPermission(node.path(), ModeShapePermissions.READ);
             }
             return node;
         } catch (ItemNotFoundException e) {
@@ -1105,7 +1105,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkNodeTypeCanBeModified();
 
         if (!aclScope) {
-            session.checkPermission(getPath(), ModeShapePermissions.ADD_NODE);
+            session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
         }
 
         if (isLocked() && !getLock().isLockOwningSession()) {
@@ -2210,20 +2210,6 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         return propertiesOnOtherNodesReferencingThis(propertyName, PropertyType.WEAKREFERENCE);
     }
 
-    protected PropertyIterator getAllReferences() throws RepositoryException {
-        List<javax.jcr.Property> allReferences = new ArrayList<javax.jcr.Property>();
-
-        for (PropertyIterator strongRefIterator = getReferences(); strongRefIterator.hasNext();) {
-            allReferences.add(strongRefIterator.nextProperty());
-        }
-
-        for (PropertyIterator weakRefIterator = getReferences(); weakRefIterator.hasNext();) {
-            allReferences.add(weakRefIterator.nextProperty());
-        }
-
-        return new JcrPropertyIterator(allReferences);
-    }
-
     /**
      * Find the properties on other nodes that are REFERENCE or WEAKREFERENCE properties (as dictated by the
      * <code>referenceType</code> parameter) to this node.
@@ -3112,7 +3098,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                         Name newNodeName ) throws RepositoryException {
         assert session == shareableNode.session;
 
-        session.checkPermission(getPath(), ModeShapePermissions.ADD_NODE);
+        session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
         if (isLocked() && !getLock().isLockOwningSession()) {
             throw new LockException(JcrI18n.lockTokenNotHeld.text(location()));
         }
@@ -3217,7 +3203,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             path = path();
             session.checkPermission(path, ModeShapePermissions.REMOVE);
             // MODE-1920: check permission to remove child nodes
-            session.checkPermission(parent.getPath(), ModeShapePermissions.REMOVE_CHILD_NODES);
+            session.checkPermission(parent.path(), ModeShapePermissions.REMOVE_CHILD_NODES);
         } catch (NodeNotFoundInParentException e) {
             // expected by the TCK
             throw new InvalidItemStateException(e);

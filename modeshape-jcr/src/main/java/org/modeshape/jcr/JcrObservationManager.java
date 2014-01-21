@@ -624,7 +624,11 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
                         if (destination == null) {
                             destination = " at the end of the children list";
                         }
-                        sb.append(" from ").append(info.get(ORDER_SRC_KEY)).append(" to ").append(destination);
+                        Object source = info.get(ORDER_SRC_KEY);
+                        if (source != null) {
+                            sb.append(" from ").append(source);
+                        }
+                        sb.append(" to ").append(destination);
                     }
                     sb.append(" by ").append(getUserID());
                     return sb.toString();
@@ -771,7 +775,7 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
          * listener wants to handle this event. If <code>null</code> or empty than this listener wants to handle nodes with any
          * UUID.
          */
-        private final String[] uuids;
+        private final Set<String> uuids;
 
         /**
          * @param delegate the JCR listener
@@ -795,9 +799,12 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
             this.eventTypes = eventTypes;
             this.absPath = absPath;
             this.isDeep = isDeep;
-            this.uuids = uuids;
-            if (this.uuids != null) {
-                Arrays.sort(this.uuids);
+            if (uuids == null) {
+                this.uuids = null;
+            } else if (uuids.length == 0) {
+                this.uuids = Collections.emptySet();
+            } else {
+                this.uuids = new HashSet<String>(Arrays.asList(uuids));
             }
             this.nodeTypeNames = nodeTypeNames;
             this.noLocal = noLocal;
@@ -873,7 +880,9 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
                     } else {
                         info.put(ORDER_DEST_KEY, null);
                     }
-                    info.put(ORDER_SRC_KEY, stringFor(oldPath.getLastSegment()));
+                    if (oldPath != null) {
+                        info.put(ORDER_SRC_KEY, stringFor(oldPath.getLastSegment()));
+                    }
                     events.add(new JcrEvent(bundle, Event.NODE_MOVED, stringFor(newPath), nodeId,
                                             Collections.unmodifiableMap(info)));
                 }
@@ -983,8 +992,8 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
         }
 
         private boolean shouldReject( AbstractNodeChange nodeChange ) {
-            return !acceptBasedOnNodeTypeName(nodeChange) || !acceptBasedOnPath(nodeChange) || !acceptBasedOnUuid(nodeChange)
-                   || !acceptBasedOnPermission(nodeChange) || !acceptIfLockChange(nodeChange);
+            return !acceptBasedOnUuid(nodeChange)  || !acceptBasedOnPath(nodeChange) || !acceptBasedOnPermission(nodeChange)
+                   || !acceptIfLockChange(nodeChange)|| !acceptBasedOnNodeTypeName(nodeChange);
         }
 
         /**
@@ -1015,8 +1024,8 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
 
         /**
          * @param nodeChange the change being processed
-         * @return <code>true</code> if the {@link JcrSession#checkPermission(String, String)} returns true for a
-         *         {@link ModeShapePermissions#READ} permission on the node from the change
+         * @return <code>true</code> if the {@link JcrSession#checkPermission(org.modeshape.jcr.value.Path, String...)}
+         * returns true for a {@link ModeShapePermissions#READ} permission on the node from the change
          */
         @SuppressWarnings( "synthetic-access" )
         private boolean acceptBasedOnPermission( AbstractNodeChange nodeChange ) {
@@ -1055,24 +1064,25 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
             if (nodeTypeNames != null && nodeTypeNames.length == 0) {
                 return false;
             }
-
+            String[] mixinStrings = null;
             if (shouldCheckNodeType()) {
                 String primaryTypeName = null;
-                Set<String> mixinTypeNames = null;
                 try {
                     Path parentPath = parentNodePathOfChange(change);
                     AbstractJcrNode parentNode = session.node(parentPath);
 
-                    mixinTypeNames = new HashSet<String>(parentNode.getMixinTypeNames().size());
-                    for (Name mixinName : parentNode.getMixinTypeNames()) {
-                        mixinTypeNames.add(stringFor(mixinName));
+                    Set<Name> parentMixinNames = parentNode.getMixinTypeNames();
+                    mixinStrings = new String[parentMixinNames.size()];
+                    int i = 0;
+                    for (Name mixinName : parentMixinNames) {
+                        mixinStrings[i++] = stringFor(mixinName);
                     }
                     primaryTypeName = stringFor(parentNode.getPrimaryTypeName());
                     return getNodeTypeManager().isDerivedFrom(this.nodeTypeNames,
                                                               primaryTypeName,
-                                                              mixinTypeNames.toArray(new String[mixinTypeNames.size()]));
+                                                              mixinStrings);
                 } catch (RepositoryException e) {
-                    logger.error(e, JcrI18n.cannotPerformNodeTypeCheck, primaryTypeName, mixinTypeNames, this.nodeTypeNames);
+                    logger.error(e, JcrI18n.cannotPerformNodeTypeCheck, primaryTypeName, Arrays.toString(mixinStrings), this.nodeTypeNames);
                     return false;
                 }
             }
@@ -1101,16 +1111,7 @@ class JcrObservationManager implements ObservationManager, ChangeSetListener {
          */
         private boolean acceptBasedOnUuid( AbstractNodeChange change ) {
             // JSR_283#12.5.3.4.2
-            if (this.uuids != null && this.uuids.length == 0) {
-                return false;
-            }
-
-            if ((this.uuids != null) && (this.uuids.length > 0)) {
-                String matchUuidString = nodeIdentifier(change.getKey());
-                return Arrays.binarySearch(this.uuids, matchUuidString) >= 0;
-            }
-
-            return true;
+            return this.uuids == null || (!this.uuids.isEmpty() && this.uuids.contains(nodeIdentifier(change.getKey())));
         }
 
         private Path parentNodePathOfChange( AbstractNodeChange change ) {

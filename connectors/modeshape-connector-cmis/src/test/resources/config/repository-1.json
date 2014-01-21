@@ -27,6 +27,7 @@
             "versioningService": "http://localhost:8090/services/VersioniongService?wsdl",
             "repositoryId": "A1",
             "debug": true,
+            "queryable": false,
             "ignoreEmptyPropertiesOnCreate": false,
             "addRequiredPropertiesOnRead": false,
             "projections": [ "default:/cmis => /" ],

@@ -8,7 +8,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>3.6.25-EP-SNAPSHOT</version>
+    <version>3.7.25-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -207,30 +207,12 @@
               include a 'testResources' fragment in the 'build' section of the
               child project POM to say which files need to be filtered.
           -->
-        <jpaSource.dialect />
-        <jpaSource.driverClassName />
-        <jpaSource.url />
-        <jpaSource.username />
-        <jpaSource.password />
-        <jpaSource.maximumConnectionsInPool>2</jpaSource.maximumConnectionsInPool>
-        <jpaSource.minimumConnectionsInPool>1</jpaSource.minimumConnectionsInPool>
-        <jpaSource.numberOfConnectionsToAcquireAsNeeded>1</jpaSource.numberOfConnectionsToAcquireAsNeeded>
-        <jpaSource.maximumSizeOfStatementCache>100</jpaSource.maximumSizeOfStatementCache>
-        <jpaSource.maximumConnectionIdleTimeInSeconds>10</jpaSource.maximumConnectionIdleTimeInSeconds>
-        <jpaSource.referentialIntegrityEnforced>true</jpaSource.referentialIntegrityEnforced>
-        <jpaSource.largeValueSizeInBytes>150</jpaSource.largeValueSizeInBytes>
-        <jpaSource.autoGenerateSchema>create</jpaSource.autoGenerateSchema>
-        <jpaSource.compressData>true</jpaSource.compressData>
-        <jpaSource.cacheTimeToLiveInMilliseconds />
-        <jpaSource.creatingWorkspacesAllowed />
-        <jpaSource.defaultWorkspaceName />
-        <jpaSource.predefinedWorkspaceNames />
-        <jpaSource.model />
-        <jpaSource.referentialIntegrityEnforced>true</jpaSource.referentialIntegrityEnforced>
-        <jpaSource.retryLimit>3</jpaSource.retryLimit>
-        <jpaSource.rootNodeUuid />
-        <jpaSource.showSql>false</jpaSource.showSql>
-        <metadata.collectorClassName>org.modeshape.connector.meta.jdbc.JdbcMetadataCollector</metadata.collectorClassName>
+        <dataSource.maximumConnectionsInPool>2</dataSource.maximumConnectionsInPool>
+        <dataSource.minimumConnectionsInPool>1</dataSource.minimumConnectionsInPool>
+        <dataSource.numberOfConnectionsToAcquireAsNeeded>1</dataSource.numberOfConnectionsToAcquireAsNeeded>
+        <dataSource.maximumSizeOfStatementCache>100</dataSource.maximumSizeOfStatementCache>
+        <dataSource.maximumConnectionIdleTimeInSeconds>10</dataSource.maximumConnectionIdleTimeInSeconds>
+        <dataSource.retryLimit>0</dataSource.retryLimit>
 
         <!--By default, we use whatever the underlying machine supports. However, certain sub-modules may change this -->
         <preferIpv4>true</preferIpv4>
@@ -332,6 +314,7 @@
 
         <!-- GWT version -->
         <gwt.version>2.5.1</gwt.version>
+        <gwt.maven.plugin.version>${gwt.version}</gwt.maven.plugin.version>
 
         <!-- Smart GWT version -->
         <smartgwt.version>2.4</smartgwt.version>
@@ -381,6 +364,8 @@
         <skipLongRunningTests>true</skipLongRunningTests>
         <cassandra-jdbc-driver>1.2.5</cassandra-jdbc-driver>
         <cassandra-cql-driver>1.0.0</cassandra-cql-driver>
+        <cassandra.all.version>1.2.0</cassandra.all.version>
+        <apache.avro.version>1.4.0</apache.avro.version>
     </properties>
 
     <profiles>
@@ -1362,18 +1347,11 @@
                 <groupId>org.apache.chemistry.opencmis</groupId>
                 <artifactId>chemistry-opencmis-server-bindings</artifactId>
                 <version>${chemistry.version}</version>
-                <classifier>classes</classifier>
             </dependency>
 
             <dependency>
                 <groupId>org.apache.chemistry.opencmis</groupId>
                 <artifactId>chemistry-opencmis-client-impl</artifactId>
-                <version>${chemistry.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>org.apache.chemistry.opencmis</groupId>
-                <artifactId>chemistry-opencmis-client-bindings</artifactId>
                 <version>${chemistry.version}</version>
             </dependency>
 
@@ -2137,13 +2115,13 @@
             <dependency>
                 <groupId>org.apache.cassandra</groupId>
                 <artifactId>cassandra-all</artifactId>
-                <version>1.2.0</version>
+                <version>${cassandra.all.version}</version>
                 <scope>test</scope>
             </dependency>
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.4.0</version>
+                <version>${apache.avro.version}</version>
                 <scope>test</scope>
             </dependency>
 

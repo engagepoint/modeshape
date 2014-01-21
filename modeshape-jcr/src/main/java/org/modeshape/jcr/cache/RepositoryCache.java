@@ -241,7 +241,7 @@ public class RepositoryCache implements Observable {
 
         // If we're not doing the initialization of the repository, block for at most 10 minutes while another process does ...
         if (!initializingRepository) {
-            LOGGER.debug("Waiting for another process in the cluster to initialize the repository '{0}'", name);
+            LOGGER.debug("Waiting at most for 10 minutes while verifying the status of the '{0}' repository", name);
             waitUntil(new Callable<Boolean>() {
                 @Override
                 public Boolean call() {
@@ -254,7 +254,7 @@ public class RepositoryCache implements Observable {
 
         // If we're not doing the upgrade, then block for at most 10 minutes while another process does ...
         if (upgradeRequired && !upgradingRepository) {
-            LOGGER.debug("Waiting for another process in the cluster to upgrade the content in existing repository '{0}'", name);
+            LOGGER.debug("Waiting at most for 10 minutes for another process in the cluster to upgrade the content in existing repository '{0}'", name);
             waitUntil(new Callable<Boolean>() {
                 @Override
                 public Boolean call() {
@@ -559,15 +559,27 @@ public class RepositoryCache implements Observable {
             this.accessControlEnabled.set(enabled);
 
             Property prop = translator.getProperty(doc, name("workspaces"));
-            final Set<String> workspaceNames = new HashSet<String>();
+            final Set<String> persistedWorkspaceNames = new HashSet<String>();
             ValueFactory<String> strings = context.getValueFactories().getStringFactory();
+            boolean workspaceNotYetPersisted = false;
             for (Object value : prop) {
                 String workspaceName = strings.create(value);
-                workspaceNames.add(workspaceName);
+                persistedWorkspaceNames.add(workspaceName);
             }
-            this.workspaceNames.addAll(workspaceNames);
-            this.workspaceNames.retainAll(workspaceNames);
-            return;
+
+            //detect if there are any new workspaces in the configuration which need persisting
+            for (String configuredWorkspaceName : workspaceNames) {
+                if (!persistedWorkspaceNames.contains(configuredWorkspaceName)) {
+                    workspaceNotYetPersisted = true;
+                    break;
+                }
+            }
+            this.workspaceNames.addAll(persistedWorkspaceNames);
+            if (!workspaceNotYetPersisted) {
+                // only exit if there isn't a new workspace present. Otherwise, the config added a new workspace so we need
+                //to make sure the meta-information is updated.
+                return;
+            }
         }
 
         try {
