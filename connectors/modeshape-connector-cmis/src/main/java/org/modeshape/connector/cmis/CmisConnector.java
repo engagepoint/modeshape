@@ -37,6 +37,7 @@ import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
+import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.operations.DocumentProducer;
@@ -141,7 +142,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // required for CmisClient to pick correct ws implementation
     private String clientPortProvider;
     // types customization
-    private TypeCustomMappingList customMapping = new TypeCustomMappingList();
+    TypeCustomMappingList customMapping = new TypeCustomMappingList();
     // to not reset required properties on document create
     private boolean ignoreEmptyPropertiesOnCreate = false;
     // add required properties to a document if not present
@@ -182,6 +183,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     @Override
     public boolean isReadonly() {
         return false;
+    }
+
+    public MappedTypesContainer getMappedTypes() {
+        return localTypeManager.getMappedTypes();
     }
 
     @Override

@@ -69,7 +69,7 @@ public class LocalTypeManager {
         return result;
     }
 
-    public MappedCustomType getDefaultPropertyMappings() {
+    public static MappedCustomType getDefaultPropertyMappings() {
         MappedCustomType result = new MappedCustomType("DEFAULT_MAPPINGS", "DEFAULT_MAPPINGS");
         // mappings
         result.addPropertyMapping("jcr:uuid", "cmis:objectId");
@@ -311,14 +311,9 @@ public class LocalTypeManager {
         }
 
         typeTemplates.add(type);
-//        Name jcrName = getContext().getValueFactories().getNameFactory().create(type.getName());
-//        nodes.addTypeMapping(jcrName, cmisTypeId);
-        // register type
-//        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
-//        typeManager.registerNodeTypes(nodeDefs, true);
 
         Name jcrName = factories.getNameFactory().create(type.getName());
-        MappedCustomType mappedType = mappedTypes.findByExtName(cmisTypeId);
+        MappedCustomType mappedType = mappedTypes.findByExtName(mapping.getExtName());
         // put a duplicate with another variant of JCR name like {namespae}localname
         mappedTypes.addSecondaryJcrKey(jcrName.toString(), mappedType);
     }

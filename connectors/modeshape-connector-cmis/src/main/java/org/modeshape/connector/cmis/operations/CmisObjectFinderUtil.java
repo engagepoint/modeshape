@@ -42,6 +42,7 @@ public class CmisObjectFinderUtil {
                 if (commonIdProp instanceof List && ((List) commonIdProp).size() > 0) {
                     // todo check get list logic
                     return commonIdProp.getValues().get(0).toString(); // todo validate prefix ?
+                    // todo put warning when commonId doesn't start with prefix
                 } else if (commonIdProp.getValueAsString() != null) {
                     return commonIdProp.getValueAsString();
                 }
