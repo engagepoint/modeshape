@@ -4,14 +4,15 @@ import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.enums.UnfileObject;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 
 
 public class CmisDeleteOperation extends CmisOperation {
 
-    public CmisDeleteOperation(Session session, LocalTypeManager localTypeManager) {
-        super(session, localTypeManager);
+    public CmisDeleteOperation(Session session, LocalTypeManager localTypeManager,CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager,finderUtil);
     }
 
     public boolean removeDocument(String id) {
@@ -40,11 +41,11 @@ public class CmisDeleteOperation extends CmisOperation {
         // we can just delete it using original identifier defined in cmis domain.
         CmisObject object = null;
         try {
-            object = session.getObject(objectId.getIdentifier());
+            object = finderUtil.find(objectId.getIdentifier());
             if (object == null) return true;
 
             if (object instanceof Folder) {
-                // don't care about unfile vs delete for now
+                // don't care about unfiling vs delete for now
                 ((Folder) object).deleteTree(true, UnfileObject.DELETE, false);
             } else {
                 // delete document
@@ -69,7 +70,7 @@ public class CmisDeleteOperation extends CmisOperation {
 
         org.apache.chemistry.opencmis.client.api.Document doc = null;
         try {
-            doc = CmisOperationCommons.asDocument(session.getObject(cmisId));
+            doc = CmisOperationCommons.asDocument(finderUtil.find(cmisId));
         } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
             return true;
         }
@@ -89,7 +90,7 @@ public class CmisDeleteOperation extends CmisOperation {
         } else {
             try {
                 // let's getObject once again just before delete as it may not exist by the moment any more
-                doc = CmisOperationCommons.asDocument(session.getObject(cmisId));
+                doc = CmisOperationCommons.asDocument(finderUtil.find(cmisId));
                 if (doc != null) doc.deleteContentStream();
             } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
                 return true;

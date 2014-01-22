@@ -71,6 +71,7 @@ public class MappedCustomType {
             return null;
 
         String result = indexExtProperties.get(cmisName);
+        if (result != null ) return result;
 
         if (defaultsDelegate != null)
             return defaultsDelegate.toJcrProperty(cmisName);
@@ -80,6 +81,7 @@ public class MappedCustomType {
 
     public String toExtProperty(String jcrName) {
         String result = indexJcrProperties.get(jcrName);
+        if (result != null ) return result;
 
         if (defaultsDelegate != null)
             return defaultsDelegate.toExtProperty(jcrName);

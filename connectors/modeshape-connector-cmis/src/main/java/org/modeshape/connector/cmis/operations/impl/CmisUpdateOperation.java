@@ -6,6 +6,7 @@ import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
@@ -25,8 +26,8 @@ public class CmisUpdateOperation extends CmisOperation {
 
     private boolean ignoreEmptyPropertiesOnCreate;
 
-    public CmisUpdateOperation(Session session, LocalTypeManager localTypeManager, boolean ignoreEmptyPropertiesOnCreate) {
-        super(session, localTypeManager);
+    public CmisUpdateOperation(Session session, LocalTypeManager localTypeManager, boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager,finderUtil);
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
     }
 
@@ -49,7 +50,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 String cmisId = objectId.getIdentifier();
 
                 // now let's get the reference to this object
-                CmisObject cmisObject = session.getObject(cmisId);
+                CmisObject cmisObject = finderUtil.find(cmisId);
 
                 if (cmisObject == null) {
                     throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + cmisId);
@@ -80,7 +81,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
-                cmisObject = session.getObject(objectId.getIdentifier());
+                cmisObject = finderUtil.find(objectId.getIdentifier());
                 changes    = delta.getPropertyChanges();
 
 
@@ -91,7 +92,7 @@ public class CmisUpdateOperation extends CmisOperation {
                     for (Map.Entry<String, Name> entry : delta.getChildrenChanges().getRenamed().entrySet()) {
                         debug("Child renamed", entry.getKey(), " = ", entry.getValue().toString());
 
-                        CmisObject childCmisObject = session.getObject(entry.getKey());
+                        CmisObject childCmisObject = finderUtil.find(entry.getKey());
                         Map<String, Object> updProperties = new HashMap<String, Object>();
 
                         updProperties.put("cmis:name", entry.getValue().getLocalName());

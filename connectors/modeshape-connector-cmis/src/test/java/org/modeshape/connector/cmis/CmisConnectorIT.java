@@ -23,36 +23,32 @@
  */
 package org.modeshape.connector.cmis;
 
-import static junit.framework.Assert.assertNotNull;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-
-import java.io.*;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
-import javax.jcr.*;
-import javax.jcr.lock.LockException;
-import javax.jcr.nodetype.*;
-import javax.jcr.version.VersionException;
-
+import junit.framework.Assert;
+import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.api.Session;
-import org.apache.chemistry.opencmis.client.api.SessionFactory;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
-import org.apache.chemistry.opencmis.client.util.FileUtils;
+import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
-import org.apache.commons.compress.utils.IOUtils;
 import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.Workspace;
+
+import javax.jcr.*;
+import javax.jcr.Property;
+import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeIterator;
+import javax.jcr.nodetype.NodeTypeManager;
+import javax.jcr.nodetype.PropertyDefinition;
+import java.io.*;
+import java.util.*;
+
+import static junit.framework.Assert.assertNotNull;
+import static org.junit.Assert.*;
 
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
@@ -68,7 +64,9 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
      * This OpenCMIS InMemory server instance should be started by maven cargo plugin at pre integration stage.
      */
     private static final String CMIS_URL = "http://localhost:8090/";
+    public static final String DEFAULT_BINARY_CONTENT = "Hello World";
     private static Logger logger = Logger.getLogger(CmisConnectorIT.class);
+    private static Session cmisDirectSession;
 
     @BeforeClass
     public static void beforeAll() throws Exception {
@@ -90,7 +88,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         logger.info("Waiting for CMIS repository...");
         do {
             try {
-                testDirectChemistryConnect();
+                cmisDirectSession = testDirectChemistryConnect();
                 isReady = true;
             } catch (Exception e) {
                 Thread.sleep(timeQuant);
@@ -110,7 +108,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         MultiUseAbstractTest.afterAll();
     }
 
-    public static void testDirectChemistryConnect() {
+    public static Session testDirectChemistryConnect() {
         // default factory implementation
         SessionFactory factory = SessionFactoryImpl.newInstance();
         Map<String, String> parameter = new HashMap<String, String>();
@@ -132,6 +130,7 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         // create session
         final Session session = factory.createSession(parameter);
         assertTrue("Chemistry session should exists.", session != null);
+        return session;
     }
 
     @Test 
@@ -746,5 +745,26 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         Node folder = session.getNode("/cmis/My_Folder-0-X");
         assertNotNull(folder);
         assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
+    }
+
+    @Test
+    public void shouldCreateEmptyDocument() throws Exception {
+        Node root = getSession().getNode("/cmis");
+        String fileName = "testFile_cp_emptyFile";
+        System.out.println("creating " + fileName);
+        Node targetNode = root.addNode("folderWithEmptyFile", "nt:folder");
+        Node node1 = targetNode.addNode(fileName, "nt:file");
+        node1.addMixin("mix:referenceable");
+
+//        byte[] content = "Hello World".getBytes();
+//        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+//        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+//        contentNode.addMixin("mix:referenceable");
+//        Binary binary = session.getValueFactory().createBinary(bin);
+//        contentNode.setProperty("jcr:data", binary);
+//        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        System.out.println("empty created");
     }
 }

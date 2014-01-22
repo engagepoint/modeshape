@@ -86,7 +86,7 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
 
-    public String getMappedUnfiledPath(){
+    public String getMappedUnfiledPath() {
         return mappedUnfiledPath;
     }
 
@@ -160,6 +160,7 @@ public class FederatedDocumentStore implements DocumentStore {
             EditableDocument editableDocument = replaceNodeKeysWithDocumentIds(document);
             connector.storeDocument(editableDocument);
         }
+
         return null;
     }
 
@@ -338,7 +339,7 @@ public class FederatedDocumentStore implements DocumentStore {
     private Connector getUnfiledConnectorForType(Name type) {
         if (type == null) return null;
         for (Connector connector : unfiledSupportConnectors) {
-            if (((UnfiledSupportConnector)connector).getApplicableUnfiledTypes().contains(type))
+            if (((UnfiledSupportConnector) connector).getApplicableUnfiledTypes().contains(type))
                 return connector;
         }
 
@@ -477,7 +478,6 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
     private boolean isSystemUnfiled(String key) {
-        // todo OVERRIDE this to return actual unfiled path
         return (key.contains("jcr:unfiled"));
     }
 
@@ -490,8 +490,8 @@ public class FederatedDocumentStore implements DocumentStore {
         return documentIdToNodeKey(sourceName, documentId).toString();
     }
 
-    static NodeKey documentIdToNodeKey( String sourceName,
-                                        String documentId ) {
+    static NodeKey documentIdToNodeKey(String sourceName,
+                                       String documentId) {
         String sourceKey = NodeKey.keyForSourceName(sourceName);
         return new NodeKey(sourceKey, FEDERATED_WORKSPACE_KEY, documentId);
     }

@@ -32,6 +32,7 @@ import org.modeshape.jcr.*;
  * @author: valeriy.shtanko
  * created: 2013-12-06 18:39
  */
+@Ignore
 public class CmisConnectorConfigurationTestIT extends MultiUseAbstractTest {
     @BeforeClass
     public static void beforeAll() throws Exception {
