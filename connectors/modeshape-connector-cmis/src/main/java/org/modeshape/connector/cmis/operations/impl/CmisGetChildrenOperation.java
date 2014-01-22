@@ -1,16 +1,13 @@
 package org.modeshape.connector.cmis.operations.impl;
 
-import org.apache.chemistry.opencmis.client.api.CmisObject;
-import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.ItemIterable;
-import org.apache.chemistry.opencmis.client.api.Session;
+import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
-import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
+import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 
@@ -18,11 +15,14 @@ import java.util.Iterator;
 
 public class CmisGetChildrenOperation extends CmisOperation {
 
-    String remoteUnfiledNodeId;
+    private String remoteUnfiledNodeId;
+    private String commonIdPropertyName;
 
-    public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId) {
-        super(session, localTypeManager);
+    public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
+                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
+        this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
     }
 
     /**
@@ -46,7 +46,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
         if (ObjectId.isUnfiledStorage(parentId)) {
             children = getUnfiledDocuments(pageKey);
         } else {
-            Folder parent = (Folder) session.getObject(parentId);
+            Folder parent = (Folder) finderUtil.find(parentId);
             children = parent.getChildren();
         }
 
@@ -57,9 +57,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
         Iterator<CmisObject> pageIterator = page.iterator();
         for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
             CmisObject next = page.iterator().next();
-            String childId = (CmisOperationCommons.isDocument(next) && CmisOperationCommons.isVersioned(next))
-                    ? CmisOperationCommons.asDocument(next).getVersionSeriesId()
-                    : next.getId();
+            String childId = finderUtil.getObjectMappingId(next);
+
             writer.addChild(childId, next.getName());
         }
 

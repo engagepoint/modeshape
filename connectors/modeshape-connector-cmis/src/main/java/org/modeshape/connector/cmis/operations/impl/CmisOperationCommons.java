@@ -17,6 +17,18 @@ import java.util.Map;
 
 public class CmisOperationCommons {
 
+    /*
+     *  connectors do not support versioning, so make document be referenced with versionSeriesId (if exists)
+     *  in this case we always get latest version when query document
+     *
+     *  if external document type is not versionable then regular objectId is used
+     */
+    public static String getMappingId(CmisObject cmisObject) {
+        return (CmisOperationCommons.isDocument(cmisObject) && CmisOperationCommons.isVersioned(cmisObject))
+                ? CmisOperationCommons.asDocument(cmisObject).getVersionSeriesId()
+                : cmisObject.getId();
+    }
+
     public static String updateVersionedDoc(Session session, CmisObject cmisObject, Map<String, ?> properties, ContentStream contentStream) {
         org.apache.chemistry.opencmis.client.api.Document pwc = checkout(session, cmisObject);
         return checkin(pwc, properties, contentStream);
@@ -35,6 +47,9 @@ public class CmisOperationCommons {
         return (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
     }
 
+    /*
+    * checks versionable setting of the object's type
+    */
     public static boolean isVersioned(CmisObject cmisObject) {
         ObjectType objectType = cmisObject.getType();
         if (objectType instanceof DocumentTypeDefinition) {
@@ -59,7 +74,6 @@ public class CmisOperationCommons {
             pwc.cancelCheckOut();
             throw new CmisRuntimeException(e.getMessage(), e);
         }
-//        return pwc.getId();
     }
 
 

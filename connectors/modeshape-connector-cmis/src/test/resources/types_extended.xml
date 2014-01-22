@@ -2512,4 +2512,165 @@
         </propertyStringDefinition>
     </cmisra:type>
 
+
+
+    <!--single version testing-->
+    <!--single version parent type-->
+
+    <cmisra:type xsi:type="cmisTypeDocumentDefinitionType">
+        <id>custom:singleVersionBaseType</id>
+        <localName>SingleVersionBaseType</localName>
+        <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+        <parentId>cmis:document</parentId>
+        <displayName>Versionable type for Single Version</displayName>
+        <queryName>custom:singleVersionBaseType</queryName>
+        <description>SingleVersionBaseType</description>
+        <baseId>cmis:document</baseId>
+        <creatable>true</creatable>
+        <fileable>false</fileable>
+        <queryable>true</queryable>
+        <fulltextIndexed>true</fulltextIndexed>
+        <includedInSupertypeQuery>true</includedInSupertypeQuery>
+        <controllablePolicy>false</controllablePolicy>
+        <controllableACL>true</controllableACL>
+        <TypeMutability>
+            <create>true</create>
+            <update>true</update>
+            <delete>true</delete>
+        </TypeMutability>
+        <versionable>true</versionable>
+        <contentStreamAllowed>allowed</contentStreamAllowed>
+        <propertyStringDefinition>
+            <id>custom:artist</id>
+            <localName>artist</localName>
+            <displayName>Artist</displayName>
+            <queryName>custom:artist</queryName>
+            <description>Artist</description>
+            <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>single</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyStringDefinition>
+        <propertyStringDefinition>
+            <id>custom:album</id>
+            <localName>album</localName>
+            <displayName>Album</displayName>
+            <queryName>custom:album</queryName>
+            <description>title</description>
+            <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>single</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyStringDefinition>
+        <propertyStringDefinition>
+            <id>custom:commonId</id>
+            <localName>commonId</localName>
+            <displayName>commonId</displayName>
+            <queryName>custom:commonId</queryName>
+            <description>commonId</description>
+            <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>multi</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyStringDefinition>
+    </cmisra:type>
+
+    <cmisra:type xsi:type="cmisTypeDocumentDefinitionType">
+        <id>custom:singleVersionTypeOne</id>
+        <localName>SingleVersionTypeOne</localName>
+        <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+        <parentId>custom:singleVersionBaseType</parentId>
+        <displayName>Single Version One</displayName>
+        <queryName>custom:singleVersionTypeOne</queryName>
+        <description>SingleVersionTypeOne</description>
+        <baseId>cmis:document</baseId>
+        <creatable>true</creatable>
+        <fileable>true</fileable>
+        <queryable>true</queryable>
+        <fulltextIndexed>true</fulltextIndexed>
+        <includedInSupertypeQuery>true</includedInSupertypeQuery>
+        <controllablePolicy>false</controllablePolicy>
+        <controllableACL>true</controllableACL>
+        <TypeMutability>
+            <create>true</create>
+            <update>true</update>
+            <delete>true</delete>
+        </TypeMutability>
+        <versionable>true</versionable>
+        <contentStreamAllowed>allowed</contentStreamAllowed>
+        <propertyStringDefinition>
+            <id>custom:artistOne</id>
+            <localName>artistOne</localName>
+            <displayName>artistOne</displayName>
+            <queryName>custom:artistOne</queryName>
+            <description>artistOne</description>
+            <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>single</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyStringDefinition>
+    </cmisra:type>
+
+    <cmisra:type xsi:type="cmisTypeDocumentDefinitionType">
+        <id>custom:singleVersionTypeTwo</id>
+        <localName>singleVersionTypeTwo</localName>
+        <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+        <parentId>custom:singleVersionBaseType</parentId>
+        <displayName>Single Version Two</displayName>
+        <queryName>custom:singleVersionTypeTwo</queryName>
+        <description>singleVersionTypeTwo</description>
+        <baseId>cmis:document</baseId>
+        <creatable>true</creatable>
+        <fileable>true</fileable>
+        <queryable>true</queryable>
+        <fulltextIndexed>true</fulltextIndexed>
+        <includedInSupertypeQuery>true</includedInSupertypeQuery>
+        <controllablePolicy>false</controllablePolicy>
+        <controllableACL>true</controllableACL>
+        <TypeMutability>
+            <create>true</create>
+            <update>true</update>
+            <delete>true</delete>
+        </TypeMutability>
+        <versionable>true</versionable>
+        <contentStreamAllowed>allowed</contentStreamAllowed>
+        <propertyStringDefinition>
+            <id>custom:artistTwo</id>
+            <localName>artistTwo</localName>
+            <displayName>artistTwo</displayName>
+            <queryName>custom:artistTwo</queryName>
+            <description>artistTwo</description>
+            <localNamespace>http://org.modeshape/custom/sv</localNamespace>
+            <propertyType>string</propertyType>
+            <cardinality>single</cardinality>
+            <updatability>readwrite</updatability>
+            <inherited>false</inherited>
+            <required>false</required>
+            <queryable>true</queryable>
+            <orderable>true</orderable>
+            <openChoice>false</openChoice>
+        </propertyStringDefinition>
+    </cmisra:type>
+
+
 </chem:typeDefinitions>
