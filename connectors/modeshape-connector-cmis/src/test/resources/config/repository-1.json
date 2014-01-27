@@ -44,7 +44,8 @@
                 "commonIdTypeName": "custom:singleVersionBaseType",
                 "commonIdQuery": "SELECT * FROM %1$s where '%3$s' =  ANY %2$s",
                 "singleVersionTypes": ["custom:singleVersionTypeOne", "custom:singleVersionTypeTwoMapped"],
-                "singleVersionGUIDPrefix": "FAKE_CID_"
+
+                "commonIdProcessorClass" : "org.modeshape.connector.cmis.DummyCommonIdProcessor"
             },
             "customMapping": {
                 "namespaces": {
