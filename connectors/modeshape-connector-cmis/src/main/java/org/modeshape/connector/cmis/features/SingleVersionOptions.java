@@ -40,8 +40,10 @@ public class SingleVersionOptions {
         }
 
         // !?
-        Class<?> aClass = this.getClass().getClassLoader().loadClass(commonIdProcessorClass);
-        commonIdProcessorInstance = (SecondaryIdProcessor) aClass.newInstance();
+        if (commonIdProcessorClass != null ){
+            Class<?> aClass = this.getClass().getClassLoader().loadClass(commonIdProcessorClass);
+            commonIdProcessorInstance = (SecondaryIdProcessor) aClass.newInstance();
+        }
 
         configured = StringUtils.isNotEmpty(commonIdPropertyName)
                     && StringUtils.isNotEmpty(commonIdTypeName)
