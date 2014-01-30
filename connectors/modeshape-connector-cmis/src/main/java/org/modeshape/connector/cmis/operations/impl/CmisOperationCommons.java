@@ -3,16 +3,22 @@ package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
+import org.apache.chemistry.opencmis.client.api.QueryResult;
 import org.apache.chemistry.opencmis.client.api.Session;
+import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
+import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
+import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisBaseException;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisInvalidArgumentException;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
+import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 
 import java.util.Collections;
+import java.util.List;
 import java.util.Map;
 
 public class CmisOperationCommons {
@@ -27,6 +33,21 @@ public class CmisOperationCommons {
         return (CmisOperationCommons.isDocument(cmisObject) && CmisOperationCommons.isVersioned(cmisObject))
                 ? CmisOperationCommons.asDocument(cmisObject).getVersionSeriesId()
                 : cmisObject.getId();
+    }
+
+    public static String getMappingId(Session session, QueryResult result, LocalTypeManager localTypeManager) {
+        String objectTypeId = result.getPropertyValueById(PropertyIds.OBJECT_TYPE_ID).toString();
+        ObjectType typeDefinition = localTypeManager.getTypeDefinition(session, objectTypeId);
+
+        boolean document = typeDefinition.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT;
+
+        boolean versioned = (document)
+                ? ((DocumentTypeDefinition) typeDefinition).isVersionable()
+                : false;
+
+        return document && versioned
+                ? result.getPropertyValueById(PropertyIds.VERSION_SERIES_ID).toString()
+                : result.getPropertyValueById(PropertyIds.OBJECT_ID).toString();
     }
 
     public static String updateVersionedDoc(Session session, CmisObject cmisObject, Map<String, ?> properties, ContentStream contentStream) {

@@ -36,9 +36,9 @@ public class CmisObjectFinderUtil {
     *
     * there is another option that might be applied while read objects is to process all the descendants of commonIdType
     */
-    public boolean doAsSingleVersion(CmisObject cmisObject) {
+    public boolean doAsSingleVersion(String cmisTypeId) {
         // need to resolve jcr name to prefixed/humanReadable
-        String cmisTypeId = cmisObject.getPropertyValue(PropertyIds.OBJECT_TYPE_ID).toString();
+//        String cmisTypeId = cmisObject.getPropertyValue(PropertyIds.OBJECT_TYPE_ID).toString();
         boolean doAsSingleVersion = singleVersionOptions.getSingleVersionExternalTypeNames().contains(cmisTypeId);
         ObjectType typeDefinition = localTypeManager.getTypeDefinition(session, cmisTypeId);
 
@@ -50,21 +50,46 @@ public class CmisObjectFinderUtil {
     * complete logic for id extraction for cmisObject
     */
     public String getObjectMappingId(CmisObject cmisObject) {
-
         if (singleVersionOptions.getCommonIdPropertyName() != null) {
-            // use common ID instead
+
+            String cmisTypeId = cmisObject.getPropertyValue(PropertyIds.OBJECT_TYPE_ID).toString();
             Property<Object> commonIdProp = cmisObject.getProperty(singleVersionOptions.getCommonIdPropertyName());
 
-            if (doAsSingleVersion(cmisObject) && commonIdProp != null) {
-                if (commonIdProp instanceof List && ((List) commonIdProp).size() > 0) {
-                    return commonIdProp.getValues().get(0).toString();
-                } else if (commonIdProp.getValueAsString() != null) {
-                    return commonIdProp.getValueAsString();
-                }
-            }
+            String objectMappingId = getObjectMappingId(cmisTypeId, commonIdProp);
+
+            if (objectMappingId != null)
+                return objectMappingId;
         }
+
         // standard logic
         return CmisOperationCommons.getMappingId(cmisObject);
+    }
+
+    public String getObjectMappingId(String cmisTypeId, PropertyData<Object> commonIdProp) {
+        if (doAsSingleVersion(cmisTypeId) && commonIdProp != null) {
+            if (commonIdProp instanceof List && ((List) commonIdProp).size() > 0) {
+                return commonIdProp.getValues().get(0).toString();
+            } else if (commonIdProp.getFirstValue() != null) {
+                return commonIdProp.getFirstValue().toString();
+            }
+        }
+
+        return null;
+    }
+
+    public String getObjectMappingId(QueryResult queryResult) {
+        if (singleVersionOptions.getCommonIdPropertyName() != null) {
+
+            String cmisTypeId = queryResult.getPropertyValueById(PropertyIds.OBJECT_TYPE_ID).toString();
+            PropertyData<Object> commonIdProp = queryResult.getPropertyById(singleVersionOptions.getCommonIdPropertyName());
+
+            String objectMappingId = getObjectMappingId(cmisTypeId, commonIdProp);
+            if (objectMappingId != null)
+                return objectMappingId;
+        }
+
+        // standard logic
+        return CmisOperationCommons.getMappingId(session, queryResult, localTypeManager);
     }
 
     public CmisObject find(String suggestedId) {

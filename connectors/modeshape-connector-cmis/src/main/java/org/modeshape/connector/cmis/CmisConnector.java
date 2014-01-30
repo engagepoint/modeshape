@@ -176,6 +176,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return localTypeManager.getApplicableTypesInstance();
     }
 
+    public String getObjectMappedId(QueryResult queryResult) {
+        return cmisObjectFinderUtil.getObjectMappingId(queryResult);
+    }
+
     // required by the custom query processor
     public Session getSession() {
         return session;
