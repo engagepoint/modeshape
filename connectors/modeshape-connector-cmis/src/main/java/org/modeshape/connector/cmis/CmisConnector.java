@@ -23,7 +23,11 @@
  */
 package org.modeshape.connector.cmis;
 
+import org.apache.chemistry.opencmis.client.api.CmisObject;
+
+
 import org.apache.chemistry.opencmis.client.api.*;
+
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -35,6 +39,7 @@ import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
@@ -137,6 +142,8 @@ import static org.modeshape.connector.cmis.util.CompareTypeDefinitionsUtil.compa
  */
 public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector, SelfCheckConnector {
 
+    // path and id for the repository node
+    private Session session;
     // -----  json settings -------------
     // binding parameters
     private String aclService;
@@ -397,7 +404,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     @Override
     public Collection<String> getDocumentPathsById(String id) {
         CmisObject obj = runtimeSnapshot.getSession().getObject(id);
-
         if (obj instanceof Folder) {
             return Collections.singletonList(((Folder) obj).getPath());
         }
@@ -409,10 +415,40 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 paths.add(parent.getPath() + "/" + doc.getName());
             }
             return paths;
+
         }
+
 
         return Collections.emptyList();
     }
+
+    /**
+     * Utility method for checking if CMIS object exists at defined path
+     * @param path path for object
+     * @return <code>true</code> if exists, <code>false</code> otherwise
+     */
+    private boolean isExistCmisObject(String path) {
+        try {
+            session.getObjectByPath(path);
+            return true;
+        }
+        catch (CmisObjectNotFoundException e) {
+            return false;
+        }
+    }
+
+    /**
+     * Utility method for renaming CMIS object
+     * @param object CMIS object to rename
+     * @param name new name
+     */
+    private void rename(CmisObject object, String name){
+        Map<String, Object> newName = new HashMap<String, Object>();
+        newName.put("cmis:name", name);
+
+        object.updateProperties(newName);
+    }
+
 
 
     // -------------------  CRUD implementation ------------------
