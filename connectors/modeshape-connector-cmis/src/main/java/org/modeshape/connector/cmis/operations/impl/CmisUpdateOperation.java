@@ -1,10 +1,14 @@
 package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.CmisObject;
+import org.apache.chemistry.opencmis.client.api.FileableCmisObject;
+import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
+import org.apache.chemistry.opencmis.commons.spi.Holder;
+import org.apache.chemistry.opencmis.commons.spi.ObjectService;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
@@ -83,6 +87,36 @@ public class CmisUpdateOperation extends CmisOperation {
                 // modifying cmis:folders and cmis:documents
                 cmisObject = finderUtil.find(objectId.getIdentifier());
                 changes    = delta.getPropertyChanges();
+
+				Map<String, Name> map = delta.getChildrenChanges().getAppended();
+				if (map.size() > 0)
+				{
+					System.out.println("-----------------------------------------------------------------------------");
+
+					CmisObject child;
+					String before, after;
+					for (Map.Entry<String, Name> entry : map.entrySet())
+					{
+						child = finderUtil.find(entry.getKey());
+						before = child.getName();
+						after = entry.getValue().getLocalName();
+
+						System.out.println(before + "\t<=>\t" + after);
+
+						if (!after.equals(before))
+						{
+							Map<String, Object> updProperties = new HashMap<String, Object>();
+
+							updProperties.put("cmis:name", entry.getValue().getLocalName());
+
+							if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
+								CmisOperationCommons.updateVersionedDoc(session, child, updProperties, null);
+							} else {
+								child.updateProperties(updProperties);
+							}
+						}
+					}
+				}
 
 
                 // process children changes TODO TODO
@@ -203,10 +237,24 @@ public class CmisUpdateOperation extends CmisOperation {
                     }
                 }
 
+
+				// MOVE:
+				if (delta.getParentChanges().hasNewPrimaryParent()) move(cmisObject, delta);
+
                 break;
         }
         debug("end of update story -----------------------------");
 
     }
 
+	private void move(CmisObject object, DocumentChanges delta)
+	{
+		FileableCmisObject target = (FileableCmisObject) object;
+		CmisObject src = target.getParents().get(0);
+		String dst = delta.getParentChanges().getNewPrimaryParent();
+
+		if (src.getId().equals(dst)) return;
+
+		target.move(src, finderUtil.find(dst));
+	}
 }
