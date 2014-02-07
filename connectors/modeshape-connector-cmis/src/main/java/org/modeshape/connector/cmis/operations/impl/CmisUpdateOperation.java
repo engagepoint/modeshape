@@ -35,6 +35,28 @@ public class CmisUpdateOperation extends CmisOperation {
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
     }
 
+	private String mapProperty(MappedCustomType mapping, Name name)
+	{
+		// prefix
+		debug("name.getNamespaceUri()", name.getNamespaceUri());
+		String prefix = localTypeManager.getPrefixes().value(name.getNamespaceUri());
+		debug("prefix", prefix);
+
+		// prefixed name of the property in jcr domain is
+		String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
+		debug("jcrName", jcrPropertyName);
+
+		// the name of this property in cmis domain is
+		String cmisPropertyName = localTypeManager.getPropertyUtils().findCmisName(jcrPropertyName);
+		debug("cmisName", cmisPropertyName);
+
+		// correct. AAA!!!
+		cmisPropertyName = mapping.toExtProperty(cmisPropertyName);
+		debug("cmis replaced name", cmisPropertyName);
+
+		return cmisPropertyName;
+	}
+
     public void updateDocument(DocumentChanges delta, BinaryContentProducerInterface binaryProducer) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
@@ -45,7 +67,6 @@ public class CmisUpdateOperation extends CmisOperation {
             case REPOSITORY_INFO:
                 // repository node is read only
                 break;
-
             case CONTENT:
                 // in the jcr domain content is represented by child node of
                 // the nt:file node while in cmis domain it is a property of
@@ -82,16 +103,23 @@ public class CmisUpdateOperation extends CmisOperation {
                     }
                 }
                 break;
-
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
                 cmisObject = finderUtil.find(objectId.getIdentifier());
-                changes    = delta.getPropertyChanges();
 
-				Map<String, Name> map = delta.getChildrenChanges().getAppended();
+				// checking that object exists
+				if (cmisObject == null) throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
+
+                changes = delta.getPropertyChanges();
+
+				// process children changes
+				Map<String, Name> map = new HashMap<String, Name>();
+				map.putAll(delta.getChildrenChanges().getRenamed());
+				map.putAll(delta.getChildrenChanges().getAppended());
+
 				if (map.size() > 0)
 				{
-					System.out.println("-----------------------------------------------------------------------------");
+					debug("Children changes: renamed and appended", Integer.toString(map.size()));
 
 					CmisObject child;
 					String before, after;
@@ -101,50 +129,21 @@ public class CmisUpdateOperation extends CmisOperation {
 						before = child.getName();
 						after = entry.getValue().getLocalName();
 
-						System.out.println(before + "\t<=>\t" + after);
+						if (after.equals(before)) continue;
 
-						if (!after.equals(before))
+						debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+
+						Map<String, Object> properties = new HashMap<String, Object>();
+						properties.put("cmis:name", after);
+
+						if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject))
 						{
-							Map<String, Object> updProperties = new HashMap<String, Object>();
-
-							updProperties.put("cmis:name", entry.getValue().getLocalName());
-
-							if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
-								CmisOperationCommons.updateVersionedDoc(session, child, updProperties, null);
-							} else {
-								child.updateProperties(updProperties);
-							}
+							CmisOperationCommons.updateVersionedDoc(session, child, properties, null);
 						}
+						else child.updateProperties(properties);
 					}
 				}
-
-
-                // process children changes TODO TODO
-                if (delta.getChildrenChanges().getRenamed().size() > 0) {
-                    debug("Children changes: renamed", Integer.toString(delta.getChildrenChanges().getRenamed().size()));
-
-                    for (Map.Entry<String, Name> entry : delta.getChildrenChanges().getRenamed().entrySet()) {
-                        debug("Child renamed", entry.getKey(), " = ", entry.getValue().toString());
-
-                        CmisObject childCmisObject = finderUtil.find(entry.getKey());
-                        Map<String, Object> updProperties = new HashMap<String, Object>();
-
-                        updProperties.put("cmis:name", entry.getValue().getLocalName());
-
-                        if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
-                            CmisOperationCommons.updateVersionedDoc(session, childCmisObject, updProperties, null);
-                        } else {
-                            childCmisObject.updateProperties(updProperties);
-                        }
-                    }
-                }
-
                 Document props = delta.getDocument().getDocument("properties");
-
-                // checking that object exists
-                if (cmisObject == null) {
-                    throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
-                }
 
                 // Prepare store for the cmis properties
                 Map<String, Object> updateProperties = new HashMap<String, Object>();
@@ -163,22 +162,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 // convert names and values
                 for (Name name : modifications) {
-                    // prefix
-                    debug("name.getNamespaceUri()", name.getNamespaceUri());
-                    String prefix = localTypeManager.getPrefixes().value(name.getNamespaceUri());
-                    debug("prefix", prefix);
-
-                    // prefixed name of the property in jcr domain is
-                    String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
-                    debug("jcrPName", jcrPropertyName);
-
-                    // the name of this property in cmis domain is
-                    String cmisPropertyName = localTypeManager.getPropertyUtils().findCmisName(jcrPropertyName);
-                    debug("cmisName", cmisPropertyName);
-
-                    // correct. AAA!!!
-                    cmisPropertyName = mapping.toExtProperty(cmisPropertyName);
-                    debug("cmis replaced name", cmisPropertyName);
+					String cmisPropertyName = mapProperty(mapping, name);
 
                     // in cmis domain this property is defined as
                     PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
@@ -205,26 +189,18 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 // step #2: nullify removed properties
                 for (Name name : changes.getRemoved()) {
-                    String prefix = localTypeManager.getPrefixes().value(name.getNamespaceUri());
+					String cmisPropertyName = mapProperty(mapping, name);
 
-                    // prefixed name of the property in jcr domain is
-                    String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
-                    // the name of this property in cmis domain is
-                    String cmisPropertyName = localTypeManager.getPropertyUtils().findCmisName(jcrPropertyName);
+					// in cmis domain this property is defined as
+					PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
 
-                    // correlate with mapping
-                    cmisPropertyName = mapping.toExtProperty(cmisPropertyName);
+					// unknown property? - ignore
+					if (pdef == null) {
+						debug(cmisPropertyName, "unknown property - ignore ..");
+						continue;
+					}
 
-                    // in cmis domain this property is defined as
-                    PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
-
-                    // unknown property? - ignore
-                    if (pdef == null) {
-                        debug(cmisPropertyName, "unknown property - ignore ..");
-                        continue;
-                    }
-
-                    updateProperties.put(cmisPropertyName, null);
+					updateProperties.put(cmisPropertyName, null);
                 }
 
                 // run update action
