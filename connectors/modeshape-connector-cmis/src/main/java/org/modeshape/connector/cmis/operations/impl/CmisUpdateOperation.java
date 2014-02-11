@@ -133,14 +133,13 @@ public class CmisUpdateOperation extends CmisOperation {
 
 						debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
 
-						Map<String, Object> properties = new HashMap<String, Object>();
-						properties.put("cmis:name", after);
+                        // determine if in child's parent already exists a child with same name
+                        if (isExistCmisObject(((FileableCmisObject) child).getParents().get(0).getPath() + "/" + after)) {
+                            // already exists, so generates a temporary name
+                            after += "-temp";
+                        }
 
-						if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject))
-						{
-							CmisOperationCommons.updateVersionedDoc(session, child, properties, null);
-						}
-						else child.updateProperties(properties);
+                        rename(child, after);
 					}
 				}
                 Document props = delta.getDocument().getDocument("properties");
@@ -215,7 +214,16 @@ public class CmisUpdateOperation extends CmisOperation {
 
 
 				// MOVE:
-				if (delta.getParentChanges().hasNewPrimaryParent()) move(cmisObject, delta);
+				if (delta.getParentChanges().hasNewPrimaryParent())
+                {
+                    move(cmisObject, delta);
+
+                    // rename temporary name to a original
+                    String name = cmisObject.getName();
+                    if (name.endsWith("-temp")) {
+                        rename(cmisObject, name.replace("-temp", ""));
+                    }
+                }
 
                 break;
         }
@@ -223,6 +231,48 @@ public class CmisUpdateOperation extends CmisOperation {
 
     }
 
+    /**
+     * Utility method for checking if CMIS object exists at defined path
+     * @param path path for object
+     * @return <code>true</code> if exists, <code>false</code> otherwise
+     */
+    private boolean isExistCmisObject(String path)
+    {
+        try
+        {
+            session.getObjectByPath(path);
+            return true;
+        }
+        catch (CmisObjectNotFoundException e)
+        {
+            return false;
+        }
+    }
+
+    /**
+     * Utility method for renaming CMIS object
+     * @param object CMIS object to rename
+     * @param name new name
+     */
+    private void rename(CmisObject object, String name)
+    {
+        Map<String, Object> properties = new HashMap<String, Object>();
+        properties.put("cmis:name", name);
+
+        CmisObject parent = ((FileableCmisObject)object).getParents().get(0);
+
+        if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object))
+        {
+            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+        }
+        else object.updateProperties(properties);
+    }
+
+    /**
+     * Utility method for moving CMIS object
+     * @param object CMIS object to move
+     * @param delta changes for determining of destination CMIS object
+     */
 	private void move(CmisObject object, DocumentChanges delta)
 	{
 		FileableCmisObject target = (FileableCmisObject) object;
