@@ -64,16 +64,6 @@
                 <groupId>org.codehaus.cargo</groupId>
                 <artifactId>cargo-maven2-plugin</artifactId>
                 <configuration>
-					<configuration>
-						<properties>
-							<cargo.jvmargs>
-								-Xdebug
-								-Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=18000
-								-Xnoagent
-								-Djava.compiler=NONE
-							</cargo.jvmargs>
-						</properties>
-					</configuration>
                     <deployables>
                         <deployable>
                             <groupId>org.apache.chemistry.opencmis</groupId>
@@ -135,11 +125,6 @@
                                     <name>InMemoryServer.TypeDefinitionsFile</name>
                                     <value>types_extended.xml</value>
                                 </modify>
-
-								<!--<modify>-->
-									<!--<name>RepositoryFiller.Enable</name>-->
-									<!--<value>false</value>-->
-								<!--</modify>-->
                             </rules>
                         </transformation>
                     </transformations>
