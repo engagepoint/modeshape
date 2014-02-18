@@ -3,10 +3,14 @@ package org.modeshape.connector.cmis.operations;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
+import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.infinispan.schematic.internal.delta.SetValueOperation;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
+import org.modeshape.connector.cmis.mapping.LocalTypeManager;
+import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
+import org.modeshape.jcr.value.Name;
 
 import java.util.List;
 
@@ -16,16 +20,29 @@ import java.util.List;
  */
 public class CmisObjectFinderUtil {
 
-    private String commonIdPropertyName;
-    private String commonIdTypeName;
-    private String commonIdQuery;
     private Session session;
+    private SingleVersionOptions singleVersionOptions;
+    private LocalTypeManager localTypeManager;
 
-    public CmisObjectFinderUtil(Session session, SingleVersionOptions singleVersionOptions) {
-        this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
-        this.commonIdTypeName = singleVersionOptions.getCommonIdTypeName();
-        this.commonIdQuery = singleVersionOptions.getCommonIdQuery();
+    public CmisObjectFinderUtil(Session session, LocalTypeManager localTypeManager, SingleVersionOptions singleVersionOptions) {
         this.session = session;
+        this.singleVersionOptions = singleVersionOptions;
+        this.localTypeManager = localTypeManager;
+    }
+
+    /*
+    * tests target type to define whether it has to be saved as singleVersion
+    * criteria: type must be listed in SingleVersionOptions.singleVersionExternalTypesIndex + must be a descendant of cmis:document
+    *
+    * there is another option that might be applied while read objects is to process all the descendants of commonIdType
+    */
+    public boolean doAsSingleVersion(String cmisTypeId) {
+        // need to resolve jcr name to prefixed/humanReadable
+//        String cmisTypeId = cmisObject.getPropertyValue(PropertyIds.OBJECT_TYPE_ID).toString();
+        boolean doAsSingleVersion = singleVersionOptions.getSingleVersionExternalTypeNames().contains(cmisTypeId);
+        ObjectType typeDefinition = localTypeManager.getTypeDefinition(session, cmisTypeId);
+
+        return doAsSingleVersion && typeDefinition.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT;
     }
 
 
@@ -33,23 +50,46 @@ public class CmisObjectFinderUtil {
     * complete logic for id extraction for cmisObject
     */
     public String getObjectMappingId(CmisObject cmisObject) {
+        if (singleVersionOptions.getCommonIdPropertyName() != null) {
 
-        if (commonIdPropertyName != null) {
-            // use common ID instead
-            Property<Object> commonIdProp = cmisObject.getProperty(commonIdPropertyName);
+            String cmisTypeId = cmisObject.getPropertyValue(PropertyIds.OBJECT_TYPE_ID).toString();
+            Property<Object> commonIdProp = cmisObject.getProperty(singleVersionOptions.getCommonIdPropertyName());
 
-            if (commonIdProp != null) {
-                if (commonIdProp instanceof List && ((List) commonIdProp).size() > 0) {
-                    // todo check get list logic
-                    return commonIdProp.getValues().get(0).toString(); // todo validate prefix ?
-                    // todo put warning when commonId doesn't start with prefix
-                } else if (commonIdProp.getValueAsString() != null) {
-                    return commonIdProp.getValueAsString();
-                }
-            }
+            String objectMappingId = getObjectMappingId(cmisTypeId, commonIdProp);
+
+            if (objectMappingId != null)
+                return objectMappingId;
         }
+
         // standard logic
         return CmisOperationCommons.getMappingId(cmisObject);
+    }
+
+    public String getObjectMappingId(String cmisTypeId, PropertyData<Object> commonIdProp) {
+        if (doAsSingleVersion(cmisTypeId) && commonIdProp != null) {
+            if (commonIdProp instanceof List && ((List) commonIdProp).size() > 0) {
+                return commonIdProp.getValues().get(0).toString();
+            } else if (commonIdProp.getFirstValue() != null) {
+                return commonIdProp.getFirstValue().toString();
+            }
+        }
+
+        return null;
+    }
+
+    public String getObjectMappingId(QueryResult queryResult) {
+        if (singleVersionOptions.getCommonIdPropertyName() != null) {
+
+            String cmisTypeId = queryResult.getPropertyValueById(PropertyIds.OBJECT_TYPE_ID).toString();
+            PropertyData<Object> commonIdProp = queryResult.getPropertyById(singleVersionOptions.getCommonIdPropertyName());
+
+            String objectMappingId = getObjectMappingId(cmisTypeId, commonIdProp);
+            if (objectMappingId != null)
+                return objectMappingId;
+        }
+
+        // standard logic
+        return CmisOperationCommons.getMappingId(session, queryResult, localTypeManager);
     }
 
     public CmisObject find(String suggestedId) {
@@ -61,10 +101,15 @@ public class CmisObjectFinderUtil {
     }
 
     private CmisObject findByCommonId(String id) {
-        if (commonIdPropertyName == null || commonIdTypeName == null || commonIdQuery == null)
+        if (!singleVersionOptions.isConfigured())
             return null;
 
-        String query = String.format(commonIdQuery, commonIdTypeName, commonIdPropertyName,/* id.replace("-","")*/ id);
+        String searchValue = singleVersionOptions.commonIdValuePreProcess(id);
+        String query = String.format(
+                singleVersionOptions.getCommonIdQuery(),
+                singleVersionOptions.getCommonIdTypeName(),
+                singleVersionOptions.getCommonIdPropertyName(),
+                searchValue);
         System.out.println("Trying to find object using query <" + query + ">");
         ItemIterable<QueryResult> queryResult = session.query(query, false);
 
@@ -81,7 +126,7 @@ public class CmisObjectFinderUtil {
             System.out.println("gettting object by id: " + cmisObjectId.getFirstValue().toString());
             return session.getObject(cmisObjectId.getFirstValue().toString());
         } catch (CmisObjectNotFoundException nfe) {
-            System.out.println("Failed to find object by " + commonIdPropertyName + " = " + id.replace("-", ""));
+            System.out.println("Failed to find object by " + singleVersionOptions.getCommonIdPropertyName() + " = " + searchValue);
             return null;
         }
     }

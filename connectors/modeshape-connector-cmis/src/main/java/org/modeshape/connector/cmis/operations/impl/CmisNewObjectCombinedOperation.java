@@ -19,10 +19,7 @@ import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 import org.modeshape.jcr.value.Name;
 
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 public class CmisNewObjectCombinedOperation extends CmisOperation {
 
@@ -147,9 +144,13 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
             ObjectId objectId = ObjectId.valueOf(document.getString("key"));
             PropertyDefinition<?> sidDefinition = objectType.getPropertyDefinitions().get(secondaryIdPropertyName);
             String identifier = objectId.getIdentifier();
-//            String identifier = objectId.getIdentifier().replace("-", "_");
             if (sidDefinition.getCardinality() == Cardinality.MULTI) {
-                cmisProperties.put(secondaryIdPropertyName, Collections.singletonList(identifier));
+                List<String> secondaryIds = new ArrayList<String>();
+                secondaryIds.add(identifier);
+                if (cmisProperties.get(secondaryIdPropertyName) != null ) {
+                    secondaryIds.addAll((List<String>) cmisProperties.get(secondaryIdPropertyName));
+                }
+                cmisProperties.put(secondaryIdPropertyName, secondaryIds);
             } else {
                 cmisProperties.put(secondaryIdPropertyName, identifier);
             }

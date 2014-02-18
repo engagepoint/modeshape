@@ -11,8 +11,8 @@ import org.modeshape.connector.cmis.ObjectId;
 
 public class CmisDeleteOperation extends CmisOperation {
 
-    public CmisDeleteOperation(Session session, LocalTypeManager localTypeManager,CmisObjectFinderUtil finderUtil) {
-        super(session, localTypeManager,finderUtil);
+    public CmisDeleteOperation(Session session, LocalTypeManager localTypeManager, CmisObjectFinderUtil finderUtil) {
+        super(session, localTypeManager, finderUtil);
     }
 
     public boolean removeDocument(String id) {
@@ -68,30 +68,32 @@ public class CmisDeleteOperation extends CmisOperation {
         // to restore identifier of the original cmis:document. it is easy
         String cmisId = objectId.getIdentifier();
 
-        org.apache.chemistry.opencmis.client.api.Document doc = null;
+        CmisObject cmisObject = null;
         try {
-            doc = CmisOperationCommons.asDocument(finderUtil.find(cmisId));
+            cmisObject = finderUtil.find(cmisId);
         } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
             return true;
         }
 
         // object exists?
-        if (doc == null) {
+        if (cmisObject == null) {
             // object does not exist. probably was deleted by from cmis domain
             // we don't know how to handle such case yet, thus TODO
             return false;
         }
 
         // delete content stream
-        if (CmisOperationCommons.isVersioned(doc)) {
+        if (CmisOperationCommons.isVersioned(CmisOperationCommons.asDocument(cmisObject))) {
             // ignore deletion of content stream. lets rely on delete document then
             // may be called before document deletion. in this case may not be necessary
 //                    deleteStreamVersioned(doc); ???
+            // checkout -> deleteContentStream -> ??
+
         } else {
             try {
                 // let's getObject once again just before delete as it may not exist by the moment any more
-                doc = CmisOperationCommons.asDocument(finderUtil.find(cmisId));
-                if (doc != null) doc.deleteContentStream();
+                cmisObject = finderUtil.find(cmisId);
+                if (cmisObject != null) CmisOperationCommons.asDocument(cmisObject).deleteContentStream();
             } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
                 return true;
             }

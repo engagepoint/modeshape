@@ -49,6 +49,7 @@ import java.util.*;
 
 import static junit.framework.Assert.assertNotNull;
 import static org.junit.Assert.*;
+import static org.junit.Assert.assertEquals;
 
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
@@ -737,8 +738,8 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
     @Test
     public void shouldBeAbleToMoveExternalNodes() throws Exception {
         assertNotNull(session.getNode("/cmis/My_Folder-0-0/My_Document-1-0"));
-        ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0/My_Document-1-0", "/cmis/My_Folder-0-0/My_Document-1-X");
-        Node file = session.getNode("/cmis/My_Folder-0-0/My_Document-1-X");
+        ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0/My_Document-1-0", "/cmis/My_Folder-0-1/My_Document-1-X");
+        Node file = session.getNode("/cmis/My_Folder-0-1/My_Document-1-X");
         assertNotNull(file);
         assertNotNull(session.getNode("/cmis/My_Folder-0-0"));
         ((Workspace) session.getWorkspace()).move("/cmis/My_Folder-0-0", "/cmis/My_Folder-0-X");
@@ -746,6 +747,23 @@ public class CmisConnectorIT extends MultiUseAbstractTest {
         assertNotNull(folder);
         assertEquals("nt:folder", folder.getPrimaryNodeType().getName());
     }
+
+//	@Test
+//	public void test() throws Exception
+//	{
+//		Node base = session.getNode("/cmis");
+//
+//		Node folder1 = base.addNode("Folder1", "nt:folder");
+//		Node folder2 = base.addNode("Folder2", "nt:folder");
+//
+//		Node document = folder1.addNode("Document", "nt:file");
+//		Node content = document.addNode("jcr:content", "nt:resource");
+//		content.setProperty("jcr:data", "hello");
+//
+//		session.save();
+//
+//		((Workspace) session.getWorkspace()).move("/cmis/Folder1/Document", "/cmis/Folder2/Document");
+//	}
 
     @Test
     public void shouldCreateEmptyDocument() throws Exception {

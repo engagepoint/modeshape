@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.6.26.1008-EP-SNAPSHOT</version>
+        <version>3.7.27-EP-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-web-cmis-war</artifactId>
@@ -45,8 +45,6 @@
         <dependency>
             <groupId>org.apache.chemistry.opencmis</groupId>
             <artifactId>chemistry-opencmis-server-bindings</artifactId>
-            <version>${chemistry.version}</version>
-            <!--<classifier>classes</classifier>-->
         </dependency>
 
         <dependency>

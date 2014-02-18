@@ -168,7 +168,7 @@ public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
         Assert.assertNotNull(fileNodeAfter);
 
         String identifier = fileNode.getIdentifier();
-        identifier = identifier.substring(identifier.indexOf("FAKE")); // remove connector's key prefix
+        identifier = getExternalId(identifier); // remove connector's key prefix
         String query = String.format(commonIdQueryTemplate, commonIdTypeName, commonIdPropertyName, identifier);
         System.out.println("executing query from test: " + query);
         ItemIterable<QueryResult> queryResults = cmisDirectSession.query(query, false);
@@ -192,6 +192,12 @@ public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
         Assert.assertEquals(1, allVersions.size());
     }
 
+    private String getExternalId(String identifier) {
+        return  identifier.indexOf("FAKE") > 0
+                ? identifier.substring(identifier.indexOf("FAKE"))
+                : identifier.substring(14); //drop connector key - 9fe71cdeaa9871
+    }
+
     @Test
     public void shouldCreateCompleteMappedDocumentAsSingleVersion() throws Exception {
         Node root = getSession().getNode("/cmis");
@@ -213,7 +219,7 @@ public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
         Assert.assertNotNull(fileNodeAfter);
 
         String identifier = fileNode.getIdentifier();
-        identifier = identifier.substring(identifier.indexOf("FAKE"));
+        identifier = getExternalId(identifier);
         String query = String.format(commonIdQueryTemplate, commonIdTypeName, commonIdPropertyName, identifier);
         System.out.println("executing query from test: " + query);
         ItemIterable<QueryResult> queryResults = cmisDirectSession.query(query, false);
@@ -257,7 +263,7 @@ public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
         Assert.assertNotNull(fileNodeAfter);
 
         String identifier = fileNode.getIdentifier();
-        identifier = identifier.substring(identifier.indexOf("FAKE"));
+        identifier = getExternalId(identifier);
         String query = String.format(commonIdQueryTemplate, commonIdTypeName, commonIdPropertyName, identifier);
         System.out.println("executing query from test: " + query);
         ItemIterable<QueryResult> queryResults = cmisDirectSession.query(query, false);
@@ -332,7 +338,7 @@ public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
         Assert.assertNotNull(fileNodeAfter);
 
         String identifier = fileNode.getIdentifier();
-        identifier = identifier.substring(identifier.indexOf("FAKE")); // remove connector's key prefix
+        identifier = getExternalId(identifier); // remove connector's key prefix
         String query = String.format(commonIdQueryTemplate, commonIdTypeName, commonIdPropertyName, identifier);
         System.out.println("executing query from test: " + query);
         ItemIterable<QueryResult> queryResults = cmisDirectSession.query(query, false);

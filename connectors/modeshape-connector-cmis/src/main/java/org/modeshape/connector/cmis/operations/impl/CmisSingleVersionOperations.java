@@ -122,7 +122,8 @@ public class CmisSingleVersionOperations extends CmisOperation {
                                 Name name,
                                 Name primaryType) {
 
-        String resultGuid = singleVersionOptions.getSingleVersionGUIDPrefix() + UUID.randomUUID().toString();
+        String newGUID = singleVersionOptions.getSingleVersionGUIDPrefix() + UUID.randomUUID().toString();
+        String resultGuid = singleVersionOptions.commonIdValuePreProcess(newGUID);
         TempDocument value = new TempDocument(parentId, name, primaryType);
         singleVersionCache.put(resultGuid, value);
         // parent

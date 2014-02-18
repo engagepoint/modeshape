@@ -176,6 +176,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return localTypeManager.getApplicableTypesInstance();
     }
 
+    public String getObjectMappedId(QueryResult queryResult) {
+        return cmisObjectFinderUtil.getObjectMappingId(queryResult);
+    }
+
     // required by the custom query processor
     public Session getSession() {
         return session;
@@ -204,9 +208,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         // register external types into JCR
         localTypeManager.initialize(session, applicableUnfiledTypes);
         // Single version saving feature
-        singleVersionOptions.initialize(factories(), nodeTypeManager);
+        try {
+            singleVersionOptions.initialize(factories(), localTypeManager);
+        } catch (Exception e) {
+            throw new RepositoryException(e);
+        }
         // extended getObject logic
-        cmisObjectFinderUtil = new CmisObjectFinderUtil(session, singleVersionOptions);
+        cmisObjectFinderUtil = new CmisObjectFinderUtil(session, localTypeManager, singleVersionOptions);
     }
 
 
