@@ -35,6 +35,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     private String remoteUnfiledNodeId;
     private String commonIdPropertyName;
     private SingleVersionOptions singleVersionOptions;
+    boolean usePagingForRegularFolders;
 
     public CmisGetObjectOperation(Session session, LocalTypeManager localTypeManager,
                                   boolean addRequiredPropertiesOnRead, boolean hideRootFolderReference,
@@ -42,7 +43,8 @@ public class CmisGetObjectOperation extends CmisOperation {
                                   String remoteUnfiledNodeId,
                                   SingleVersionOptions singleVersionOptions,
                                   DocumentProducer documentProducer,
-                                  CmisObjectFinderUtil finderUtil) {
+                                  CmisObjectFinderUtil finderUtil,
+                                  boolean usePagingForRegularFolders) {
         super(session, localTypeManager, finderUtil);
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.hideRootFolderReference = hideRootFolderReference;
@@ -51,6 +53,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
         this.singleVersionOptions = singleVersionOptions;
+        this.usePagingForRegularFolders= usePagingForRegularFolders;
     }
 
 
@@ -63,7 +66,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
         CmisGetChildrenOperation childrenOperation =
                 new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                        singleVersionOptions, finderUtil);
+                        singleVersionOptions, finderUtil, usePagingForRegularFolders);
 
         Folder folder = (Folder) cmisObject;
         DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
@@ -206,7 +209,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
                     new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                            singleVersionOptions, finderUtil);
+                            singleVersionOptions, finderUtil, usePagingForRegularFolders);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, Constants.DEFAULT_PAGE_SIZE, PageWriter.UNKNOWN_TOTAL_SIZE);

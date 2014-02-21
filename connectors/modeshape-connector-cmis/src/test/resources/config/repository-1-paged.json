@@ -1,0 +1,84 @@
+{
+    "name": "Persisted-Repository",
+    "workspaces": {
+        "predefined": ["otherWorkspace"],
+        "default": "default",
+        "allowCreation": true
+    },
+
+    "security": {
+        "anonymous": {
+            "roles": ["readonly", "readwrite", "admin"],
+            "useOnFailedLogin": false
+        }
+    },
+
+    "storage": {
+        "cacheName": "persistentRepository",
+        "cacheConfiguration": "config/infinispan-federation-persistent.xml"
+    },
+
+    "externalSources": {
+        "cmis": {
+            "classname": "org.modeshape.connector.cmis.CmisConnector",
+            "cacheTtlSeconds": 5,
+            "aclService": "http://localhost:8090/services/ACLService?wsdl",
+            "discoveryService": "http://localhost:8090/services/DiscoveryService?wsdl",
+            "multifilingService": "http://localhost:8090/services/MultiFilingService?wsdl",
+            "navigationService": "http://localhost:8090/services/NavigationService?wsdl",
+            "objectService": "http://localhost:8090/services/ObjectService?wsdl",
+            "policyService": "http://localhost:8090/services/PolicyService?wsdl",
+            "relationshipService": "http://localhost:8090/services/RelationshipService?wsdl",
+            "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
+            "versioningService": "http://localhost:8090/services/VersioningService?wsdl",
+            "repositoryId": "A1",
+            "user" : "dummyuser",
+            "password" : "4963D4E2B0808DDCA0EE478F32EB98A9",
+            "debug": true,
+            "usePagingForRegularFolders" : true,
+            "queryable": false,
+            "ignoreEmptyPropertiesOnCreate": false,
+            "addRequiredPropertiesOnRead": false,
+            "projections": [ "default:/cmis => /" ],
+            "singleVersionOptions": {
+                "commonIdPropertyName": "custom:commonId",
+                "commonIdTypeName": "custom:singleVersionBaseType",
+                "commonIdQuery": "SELECT * FROM %1$s where '%3$s' =  ANY %2$s",
+                "singleVersionTypes": ["custom:singleVersionTypeOne", "custom:singleVersionTypeTwoMapped"],
+
+                "commonIdProcessorClass" : "org.modeshape.connector.cmis.DummyCommonIdProcessor"
+            },
+            "customMapping": {
+                "namespaces": {
+                    "testing": "http://org.modeshape/testing",
+                    "custom": "http://org.modeshape/custom/sv"
+                },
+                "types": [
+                    {
+                        "jcrName": "MyDocType2.8_remapped",
+                        "extName": "MyDocType2.8"
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/testing",
+                        "jcrName": "testing:ViDeoFiLe",
+                        "extName": "videoFile",
+
+                        "propertyMappings": {
+                            "testing:Title_": "title",
+                            "TrAcK_": "track"
+                        }
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/custom/sv",
+                        "jcrName": "custom:singleVersionTypeTwoMapped",
+                        "extName": "custom:singleVersionTypeTwo",
+
+                        "propertyMappings": {
+                            "custom:artistTwoMapped": "custom:artistTwo"
+                        }
+                    }
+                ]
+            }
+        }
+    }
+}

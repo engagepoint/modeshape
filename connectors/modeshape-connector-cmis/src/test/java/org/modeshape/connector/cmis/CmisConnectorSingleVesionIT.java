@@ -33,6 +33,7 @@ import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
@@ -57,6 +58,7 @@ import static org.junit.Assert.*;
  * @author Nick Knysh
  * @version 1.0 2/20/2013
  */
+@Ignore
 public class CmisConnectorSingleVesionIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.

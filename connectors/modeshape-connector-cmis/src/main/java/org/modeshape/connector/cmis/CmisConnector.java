@@ -155,6 +155,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String remoteUnfiledNodeId;
     // debug
     private boolean debug = false;
+
+    boolean usePagingForRegularFolders = false;
     // single version && commonId logic
     private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
 
@@ -461,7 +463,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
-        return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions, cmisObjectFinderUtil);
+        return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions,
+                cmisObjectFinderUtil, usePagingForRegularFolders);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
@@ -493,7 +496,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 caughtProjectedId,
                 remoteUnfiledNodeId,
                 singleVersionOptions,
-                getDocumentProducer(), cmisObjectFinderUtil
+                getDocumentProducer(), cmisObjectFinderUtil, usePagingForRegularFolders
         );
     }
 

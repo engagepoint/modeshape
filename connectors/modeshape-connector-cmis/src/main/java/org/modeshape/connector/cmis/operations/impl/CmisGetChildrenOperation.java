@@ -12,17 +12,21 @@ import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class CmisGetChildrenOperation extends CmisOperation {
 
     private String remoteUnfiledNodeId;
     private String commonIdPropertyName;
+    private boolean usePagingForRegularFolders = false;
 
     public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
-                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil) {
+                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil,
+                                    boolean usePagingForRegularFolders) {
         super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
+        this.usePagingForRegularFolders = usePagingForRegularFolders;
     }
 
     /**
@@ -32,7 +36,29 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
-        getChildren(new PageKey(folder.getId(), "0", Constants.DEFAULT_PAGE_SIZE), writer);
+        String parentId = folder.getId();
+        if (usePagingForRegularFolders || ObjectId.isUnfiledStorage(parentId)) {
+            getChildren(new PageKey(parentId, "0", Constants.DEFAULT_PAGE_SIZE), writer);
+        } else {
+            Folder parent = (Folder) finderUtil.find(parentId);
+            ItemIterable<CmisObject> children = parent.getChildren();
+            Iterator<CmisObject> iterator = children.iterator();
+            // try to use next right away in order to save time for hasNext call
+            CmisObject item = getNext(iterator);
+            while (item != null) {
+                String childId = finderUtil.getObjectMappingId(item);
+                writer.addChild(childId, item.getName());
+                item = getNext(iterator);
+            }
+        }
+    }
+
+    private CmisObject getNext(Iterator<CmisObject> iterator) {
+        try {
+            return iterator.next();
+        } catch (NoSuchElementException nse) {
+            return null;
+        }
     }
 
     /*
