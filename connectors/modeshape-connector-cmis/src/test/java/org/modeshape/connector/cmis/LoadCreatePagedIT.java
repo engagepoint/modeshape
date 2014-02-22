@@ -31,6 +31,7 @@ import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
@@ -52,6 +53,7 @@ import static org.junit.Assert.assertTrue;
  * @author Nick Knysh
  * @version 1.0 2/20/2013
  */
+//@Ignore
 public class LoadCreatePagedIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.
@@ -155,32 +157,11 @@ public class LoadCreatePagedIT extends MultiUseAbstractTest {
             contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
 
             getSession().save();
-            System.out.print(" <|| load paged: creation time: " + ((new Date().getTime()) - start) + " ||> ");
+            System.out.println(" <|| load paged: creation time: " + ((new Date().getTime()) - start) + " |" + (i+1) + "|> ");
         }
 //        System.out.println("Test: checking result");
         root.remove();
 
     }
 
-
-    //    @Test
-    public void shouldCreateEmptyDocument() throws Exception {
-        Node root = getSession().getNode("/cmis");
-        String fileName = "testFile_cp_emptyFile";
-        System.out.println("creating " + fileName);
-        Node targetNode = root.addNode("folderWithEmptyFile", "nt:folder");
-        Node node1 = targetNode.addNode(fileName, "nt:file");
-        node1.addMixin("mix:referenceable");
-
-//        byte[] content = "Hello World".getBytes();
-//        ByteArrayInputStream bin = new ByteArrayInputStream(content);
-//        bin.reset();
-
-        Node contentNode = node1.addNode("jcr:content", "nt:resource");
-//        contentNode.addMixin("mix:referenceable");
-//        Binary binary = session.getValueFactory().createBinary(bin);
-//        contentNode.setProperty("jcr:data", binary);
-//        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
-        System.out.println("empty created");
-    }
 }

@@ -36,6 +36,7 @@
             "password" : "4963D4E2B0808DDCA0EE478F32EB98A9",
             "debug": true,
             "queryable": false,
+            "pageSize" : "-1",
             "ignoreEmptyPropertiesOnCreate": false,
             "addRequiredPropertiesOnRead": false,
             "projections": [ "default:/cmis => /" ],

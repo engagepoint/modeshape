@@ -35,21 +35,17 @@ import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.jcr.MultiUseAbstractTest;
 import org.modeshape.jcr.RepositoryConfiguration;
-import org.modeshape.jcr.api.Workspace;
 
-import javax.jcr.*;
-import javax.jcr.nodetype.NodeType;
-import javax.jcr.nodetype.NodeTypeIterator;
-import javax.jcr.nodetype.NodeTypeManager;
-import javax.jcr.nodetype.PropertyDefinition;
-import java.io.*;
+import javax.jcr.Binary;
+import javax.jcr.Node;
+import javax.jcr.NodeIterator;
+import java.io.ByteArrayInputStream;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 
-import static junit.framework.Assert.assertNotNull;
-import static org.junit.Assert.*;
+import static org.junit.Assert.assertTrue;
 
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
@@ -59,7 +55,7 @@ import static org.junit.Assert.*;
  * @version 1.0 2/20/2013
  */
 @Ignore
-public class LoadCreateIT extends MultiUseAbstractTest {
+public class LoadCreateUnfiledIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.
      * <p/>
@@ -67,12 +63,12 @@ public class LoadCreateIT extends MultiUseAbstractTest {
      */
     private static final String CMIS_URL = "http://localhost:8090/";
     public static final String DEFAULT_BINARY_CONTENT = "Hello World";
-    private static Logger logger = Logger.getLogger(LoadCreateIT.class);
+    private static Logger logger = Logger.getLogger(LoadCreateUnfiledIT.class);
     private static Session cmisDirectSession;
 
     @BeforeClass
     public static void beforeAll() throws Exception {
-        RepositoryConfiguration config = RepositoryConfiguration.read("config/repository-1.json");
+        RepositoryConfiguration config = RepositoryConfiguration.read("config/repository-1-paged.json");
         startRepository(config);
 
         // waiting when CMIS repository will be ready
@@ -139,17 +135,23 @@ public class LoadCreateIT extends MultiUseAbstractTest {
     @Test
     public void shouldCreateFolderAndDocument() throws Exception {
         Node root = getSession().getNode("/cmis");
+        NodeIterator nodes = root.getNodes();
+        while (nodes.hasNext()) {
+            Node node = nodes.nextNode();
 
-        String name = "loadTstCreate" + System.currentTimeMillis();
+            System.out.println(node.getIdentifier() + " / " + node.getName() + " / " + node.getPrimaryNodeType().toString());
+        }
+        String name = "loadTstCreate-paged" + System.currentTimeMillis();
         Node node = root.addNode(name, "nt:folder");
         getSession().save();
         assertTrue(name.equals(node.getName()));
         // node.setProperty("name", "test-name");
-        root = getSession().getNode("/cmis/" + name);
+        root = getSession().getNodeByIdentifier("jcr:unfiled");
+
 
         for (int i = 0; i < 500; i++) {
             long start = new Date().getTime();
-            Node node1 = root.addNode("test-p_"+ new Date().getTime(), "nt:file");
+            Node node1 = root.addNode("test-1_" + new Date().getTime(), "MyDocType2.8_remapped");
             // System.out.println("Test: creating binary content");
             byte[] content = "Hello World".getBytes();
             ByteArrayInputStream bin = new ByteArrayInputStream(content);
@@ -162,10 +164,35 @@ public class LoadCreateIT extends MultiUseAbstractTest {
             contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
 
             getSession().save();
-            System.out.println(" <|| load: creation time: " + ((new Date().getTime()) - start) + " |" + (i+1) + "|> |> ");
+//            System.out.println(node1.getIdentifier() + " << node identity");
+            Node nodeByIdentifier = getSession().getNodeByIdentifier("9fe71cdeaa9871" + Integer.toString(i + 137));
+            System.out.println(nodeByIdentifier.getName() + " << found prevNode");
+            System.out.println(" <|| load paged: creation time: " + ((new Date().getTime()) - start) + " |" + (i + 1) + "|> ");
         }
-        // System.out.println("Test: checking result");
+//        System.out.println("Test: checking result");
         root.remove();
+
     }
 
+
+    //    @Test
+    public void shouldCreateEmptyDocument() throws Exception {
+        Node root = getSession().getNode("/cmis");
+        String fileName = "testFile_cp_emptyFile";
+        System.out.println("creating " + fileName);
+        Node targetNode = root.addNode("folderWithEmptyFile", "nt:folder");
+        Node node1 = targetNode.addNode(fileName, "nt:file");
+        node1.addMixin("mix:referenceable");
+
+//        byte[] content = "Hello World".getBytes();
+//        ByteArrayInputStream bin = new ByteArrayInputStream(content);
+//        bin.reset();
+
+        Node contentNode = node1.addNode("jcr:content", "nt:resource");
+//        contentNode.addMixin("mix:referenceable");
+//        Binary binary = session.getValueFactory().createBinary(bin);
+//        contentNode.setProperty("jcr:data", binary);
+//        contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
+        System.out.println("empty created");
+    }
 }
