@@ -157,7 +157,7 @@ public class LoadCreatePagedIT extends MultiUseAbstractTest {
             contentNode.setProperty("jcr:lastModified", Calendar.getInstance());
 
             getSession().save();
-            System.out.println(" <|| load paged: creation time: " + ((new Date().getTime()) - start) + " |" + (i+1) + "|> ");
+            System.out.println(" <|"+ node1.getIdentifier() +"| load paged: creation time: " + ((new Date().getTime()) - start) + " |" + (i+1) + "|> ");
         }
 //        System.out.println("Test: checking result");
         root.remove();
