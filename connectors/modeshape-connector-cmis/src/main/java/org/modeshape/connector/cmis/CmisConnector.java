@@ -157,7 +157,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private boolean debug = false;
 
     long pageSize = Constants.DEFAULT_PAGE_SIZE;
-    // single version && commonId logic
+    // single version && commonId  logic
     private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
 
     // -----  runtime variables -------------
