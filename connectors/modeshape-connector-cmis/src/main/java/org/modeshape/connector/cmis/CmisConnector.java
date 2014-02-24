@@ -155,7 +155,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String remoteUnfiledNodeId;
     // debug
     private boolean debug = false;
-    // single version && commonId logic
+
+    long pageSize = Constants.DEFAULT_PAGE_SIZE;
+    // single version && commonId  logic
     private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
 
     // -----  runtime variables -------------
@@ -436,7 +438,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                                       String childKey) {
         debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
         CmisObject object = cmisObjectFinderUtil.find(childKey);
-        return newChildReference(object.getId(), object.getName());
+        String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
+        if (!childKey.equals(mappedId))
+            System.out.println("getting reference childKey ["+childKey+"] is not equal to actual mapped id ["+mappedId+"]!!");
+        return newChildReference(childKey, object.getName());
     }
 
     @Override
@@ -461,7 +466,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
-        return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions, cmisObjectFinderUtil);
+        return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions,
+                cmisObjectFinderUtil, pageSize);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
@@ -493,7 +499,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 caughtProjectedId,
                 remoteUnfiledNodeId,
                 singleVersionOptions,
-                getDocumentProducer(), cmisObjectFinderUtil
+                getDocumentProducer(), cmisObjectFinderUtil, pageSize
         );
     }
 
@@ -536,6 +542,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         parameter.put(SessionParameter.WEBSERVICES_REPOSITORY_SERVICE, repositoryService);
         parameter.put(SessionParameter.WEBSERVICES_VERSIONING_SERVICE, versioningService);
         parameter.put(SessionParameter.REPOSITORY_ID, repositoryId);
+
+//        parameter.put(SessionParameter.CACHE_SIZE_OBJECTS, "700");
+//        parameter.put(SessionParameter.CACHE_TTL_OBJECTS, "10000");
+
         if (StringUtils.isNotEmpty(clientPortProvider))
             parameter.put(SessionParameter.WEBSERVICES_JAXWS_IMPL, clientPortProvider);
 

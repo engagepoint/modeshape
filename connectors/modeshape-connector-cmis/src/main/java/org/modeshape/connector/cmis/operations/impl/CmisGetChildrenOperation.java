@@ -10,19 +10,24 @@ import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
+import org.modeshape.jcr.federation.spi.PageWriter;
 
 import java.util.Iterator;
+import java.util.NoSuchElementException;
 
 public class CmisGetChildrenOperation extends CmisOperation {
 
     private String remoteUnfiledNodeId;
     private String commonIdPropertyName;
+    private long pageSize;
 
     public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
-                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil) {
+                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil,
+                                    long pageSize) {
         super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
+        this.pageSize = pageSize;
     }
 
     /**
@@ -32,7 +37,29 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
-        getChildren(new PageKey(folder.getId(), "0", Constants.DEFAULT_PAGE_SIZE), writer);
+        String parentId = folder.getId();
+        if (pageSize != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
+            getChildren(new PageKey(parentId, "0", pageSize), writer);
+        } else {
+            Folder parent = (Folder) finderUtil.find(parentId);
+            ItemIterable<CmisObject> children = parent.getChildren();
+            Iterator<CmisObject> iterator = children.iterator();
+            // try to use next right away in order to save time for hasNext call
+            CmisObject item = getNext(iterator);
+            while (item != null) {
+                String childId = finderUtil.getObjectMappingId(item);
+                writer.addChild(childId, item.getName());
+                item = getNext(iterator);
+            }
+        }
+    }
+
+    private CmisObject getNext(Iterator<CmisObject> iterator) {
+        try {
+            return iterator.next();
+        } catch (NoSuchElementException nse) {
+            return null;
+        }
     }
 
     /*
@@ -42,28 +69,38 @@ public class CmisGetChildrenOperation extends CmisOperation {
 
         String parentId = pageKey.getParentId();
         ItemIterable<CmisObject> children;
+        int blockSize = (int) pageKey.getBlockSize();
+        int offset = pageKey.getOffsetInt();
 
         if (ObjectId.isUnfiledStorage(parentId)) {
             children = getUnfiledDocuments(pageKey);
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
-            children = parent.getChildren();
+            OperationContext ctx = session.createOperationContext();
+            ctx.setMaxItemsPerPage(blockSize);
+//            ctx.setOrderBy("cmis:creationDate DESC");
+//            ctx.setCacheEnabled(true);
+            children = parent.getChildren(ctx);
         }
 
-        int blockSize = (int) pageKey.getBlockSize();
-        int offset = pageKey.getOffsetInt();
         ItemIterable<CmisObject> page = children.skipTo(offset);
 
         Iterator<CmisObject> pageIterator = page.iterator();
+        debug("adding children for pageKey = " + pageKey);
         for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
             CmisObject next = page.iterator().next();
             String childId = finderUtil.getObjectMappingId(next);
-
+            debug("adding child", next.getName(), childId);
             writer.addChild(childId, next.getName());
         }
 
-        if (pageIterator.hasNext())
-            writer.addPage(parentId, offset + 1, blockSize, children.getTotalNumItems());
+
+        if (pageIterator.hasNext()) {
+            int nextPageOffset = offset + blockSize;
+            long unknownTotalSize = PageWriter.UNKNOWN_TOTAL_SIZE;
+            debug("adding follower page " + nextPageOffset + "#" + blockSize + " " + unknownTotalSize);
+            writer.addPage(parentId, nextPageOffset, blockSize, unknownTotalSize);
+        }
 
         return writer;
     }
@@ -81,7 +118,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
             unfiledCondition.append("NOT (");
 
             ItemIterable<CmisObject> children = session.getRootFolder().getChildren();
-            if (children.getTotalNumItems() > 0) {
+            if (children != null) {
                 for (CmisObject child : children) {
                     if (child.getBaseTypeId().equals(BaseTypeId.CMIS_FOLDER)) {
                         unfiledCondition.append(" IN_TREE('").append(child.getId()).append("') AND ");
