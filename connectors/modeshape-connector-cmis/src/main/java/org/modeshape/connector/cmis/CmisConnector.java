@@ -143,7 +143,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // required for CmisClient to pick correct ws implementation
     private String clientPortProvider;
     // types customization
-    TypeCustomMappingList customMapping = new TypeCustomMappingList();
+    public TypeCustomMappingList customMapping = new TypeCustomMappingList();
     // to not reset required properties on document create
     private boolean ignoreEmptyPropertiesOnCreate = false;
     // add required properties to a document if not present
@@ -171,6 +171,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     public CmisConnector() {
         super();
+    }
+
+    public TypeCustomMappingList getCustomMapping() {
+        return customMapping;
     }
 
     @Override
