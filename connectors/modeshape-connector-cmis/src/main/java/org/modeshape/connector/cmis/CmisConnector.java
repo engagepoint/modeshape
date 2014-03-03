@@ -173,9 +173,16 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         super();
     }
 
+    // external usage --------
     public TypeCustomMappingList getCustomMapping() {
         return customMapping;
     }
+
+    public SingleVersionOptions getSingleVersionOptions() {
+        return singleVersionOptions;
+    }
+
+    // -------------------
 
     @Override
     public Collection<Name> getApplicableUnfiledTypes() {
