@@ -10,17 +10,23 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.infinispan.util.FastCopyHashMap;
 import org.modeshape.connector.cmis.CmisLexicon;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
+import org.modeshape.jcr.ExecutionContext;
+import org.modeshape.jcr.JcrValueFactory;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.value.Name;
+import org.modeshape.jcr.value.PropertyType;
 import org.modeshape.jcr.value.ValueFactories;
+import org.modeshape.jcr.value.ValueFactory;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import javax.jcr.Value;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
 import javax.jcr.nodetype.NodeDefinitionTemplate;
 import javax.jcr.nodetype.NodeType;
@@ -308,6 +314,27 @@ public class LocalTypeManager {
             }
 
             if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
+        }
+
+        // todo add check if already added
+        if ("notifications:hixDocument".equals(mapping.getJcrName())) {
+            PropertyDefinitionTemplate jcrExtId = typeManager.createPropertyDefinitionTemplate();
+            jcrExtId.setName("notifications:extId");
+
+            jcrExtId.setMandatory(false);
+            jcrExtId.setAutoCreated(true);
+
+//            Object val = factories.getValueFactory(PropertyType.STRING).create("none");
+//            Value[] values = {new Value(factories, PropertyType.STRING, val)};
+
+//            jcrExtId.setDefaultValues(values);
+
+
+            jcrExtId.setRequiredType(javax.jcr.PropertyType.STRING);
+            jcrExtId.setMultiple(false);
+            jcrExtId.setProtected(false);
+            jcrExtId.setAvailableQueryOperators(new String[]{});
+            type.getPropertyDefinitionTemplates().add(jcrExtId);
         }
 
         typeTemplates.add(type);
