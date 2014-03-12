@@ -418,6 +418,10 @@ public abstract class Connector {
         return null;
     }
 
+    public Document getChildReference( String parentKey, Name childName, int snsIndex ) {
+        return null;
+    }
+
     /**
      * Returns a binary value which is connector specific and which is never stored by ModeShape. Connectors who need this feature
      * must return an object that is an instance of a subclasses of {@link ExternalBinaryValue}, either {@link UrlBinaryValue} or

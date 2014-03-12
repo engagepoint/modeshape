@@ -9,7 +9,7 @@ public abstract class CmisOperation {
 
     protected Session session;
     protected LocalTypeManager localTypeManager;
-    private boolean debug = false;
+    private boolean debug = true;
     CmisObjectFinderUtil finderUtil;
 
     protected CmisOperation(Session session, LocalTypeManager localTypeManager, CmisObjectFinderUtil fUtil) {

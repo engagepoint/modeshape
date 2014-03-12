@@ -891,7 +891,7 @@ public class DocumentTranslator implements DocumentConstants {
             ChildReferences internalChildRefs = ImmutableChildReferences.create(internalChildRefsList);
             ChildReferences externalChildRefs = ImmutableChildReferences.create(externalChildRefsList);
 
-            return ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache);
+            return ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
         }
         if (externalSegments != null) {
             // There is no segmenting, so just add the federated references at the end
@@ -977,7 +977,8 @@ public class DocumentTranslator implements DocumentConstants {
         }
     }
 
-    protected ChildReference childReferenceFrom( Object value ) {
+    // todo ! this access has been changed to accessable to document store
+    public ChildReference childReferenceFrom( Object value ) {
         if (value instanceof Document) {
             Document doc = (Document)value;
             String keyStr = doc.getString(KEY);

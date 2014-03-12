@@ -118,7 +118,7 @@ import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector {
+public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector {
 
     private CmisObjectFinderUtil cmisObjectFinderUtil;
     // -----  json settings -------------
@@ -445,23 +445,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return writer.document();
     }
 
-    public Document getChildReference(String parentKey,
-                                      String childKey) {
-        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
-        CmisObject object = cmisObjectFinderUtil.find(childKey);
-        String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
-        if (!childKey.equals(mappedId))
-            System.out.println("getting reference childKey ["+childKey+"] is not equal to actual mapped id ["+mappedId+"]!!");
-        return newChildReference(childKey, object.getName());
-    }
-
-    @Override
-    public Document getChildren(PageKey pageKey) {
-        CmisGetChildrenOperation cmisGetChildrenOperation =
-                getCmisGetChildrenOperation();
-        DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
-        return writer.document();
-    }
 
     // -------------------------------- AUXILIARIES -------------------------
 
@@ -645,5 +628,48 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             return newDocument(id);
         }
 
+    }
+
+    public Document getChildReference(String parentKey,
+                                      String childKey) {
+        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
+        CmisObject object = cmisObjectFinderUtil.find(childKey);
+        String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
+        if (!childKey.equals(mappedId))
+            System.out.println("getting reference childKey [" + childKey + "] is not equal to actual mapped id [" + mappedId + "]!!");
+        return newChildReference(childKey, object.getName());
+    }
+
+    public Document getChildReference(String parentKey, Name childName, int snsIndex) {
+        String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", childName.getLocalName());
+        System.out.println(query + "<<<< ");
+        ItemIterable<QueryResult> result = session.query(query, false);
+
+        if (snsIndex > 1)
+            result.skipTo(snsIndex - 1);
+        System.out.println(String.format("And I've found <%s> sns Items", result.getTotalNumItems()));
+
+        QueryResult next = result.iterator().next();
+        String mappedId = cmisObjectFinderUtil.getObjectMappingId(next);
+        return newChildReference(mappedId, childName.getLocalName());
+    }
+
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", name.getLocalName());
+        System.out.println(query + "<<<<    I've been called!!!!!! ");
+        ItemIterable<QueryResult> query1 = session.query(query, false);
+
+        long totalNumItems = query1.getTotalNumItems();
+        System.out.println(String.format("And I've found <%s> sns Items", totalNumItems));
+        return (int) totalNumItems;
+    }
+
+    @Override
+    public Document getChildren(PageKey pageKey) {
+        CmisGetChildrenOperation cmisGetChildrenOperation =
+                getCmisGetChildrenOperation();
+        DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
+        return writer.document();
     }
 }

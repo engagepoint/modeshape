@@ -316,7 +316,7 @@ public class LocalTypeManager {
             if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
         }
 
-        // todo add check if already added
+        /*// todo add check if already added
         if ("notifications:hixDocument".equals(mapping.getJcrName())) {
             PropertyDefinitionTemplate jcrExtId = typeManager.createPropertyDefinitionTemplate();
             jcrExtId.setName("notifications:extId");
@@ -335,7 +335,7 @@ public class LocalTypeManager {
             jcrExtId.setProtected(false);
             jcrExtId.setAvailableQueryOperators(new String[]{});
             type.getPropertyDefinitionTemplates().add(jcrExtId);
-        }
+        }*/
 
         typeTemplates.add(type);
 

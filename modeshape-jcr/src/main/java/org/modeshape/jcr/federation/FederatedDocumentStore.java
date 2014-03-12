@@ -34,6 +34,7 @@ import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
 import org.modeshape.jcr.JcrI18n;
 import org.modeshape.jcr.RepositoryConfiguration;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeKey;
 import org.modeshape.jcr.cache.document.DocumentStore;
@@ -459,6 +460,35 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
     @Override
+    public ChildReference getChildReferenceAsRef(String parentKey,
+                                      String childKey) {
+        Document childReferenceDoc = getChildReference(parentKey, childKey);
+        return (childReferenceDoc != null)
+                ? translator.childReferenceFrom(childReferenceDoc)
+                : null;
+    }
+
+    @Override
+    public ChildReference getChildReferenceAsRef(String parentKey, Name childName, int snsIndex) {
+        if (isLocalSource(parentKey)) {
+            return localStore().getChildReferenceAsRef( parentKey,  childName,  snsIndex);
+        }
+        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        if (connector != null) {
+            parentKey = documentIdFromNodeKey(parentKey);
+//            childKey = documentIdFromNodeKey(childKey);
+            Document doc = connector.getChildReference(parentKey, childName, snsIndex);
+            if (doc != null) {
+                String key = doc.getString(DocumentTranslator.KEY);
+                key = documentIdToNodeKeyString(connector.getSourceName(), key);
+                doc = doc.with(DocumentTranslator.KEY, key);
+            }
+            return translator.childReferenceFrom(doc);
+        }
+        return null;
+    }
+
+    @Override
     public ExternalBinaryValue getExternalBinary(String sourceName,
                                                  String id) {
 
@@ -647,5 +677,20 @@ public class FederatedDocumentStore implements DocumentStore {
                     FEDERATED_WORKSPACE_KEY,
                     "/" + "jcr:unfiled").toString();
         return "jcr:unfiled";
+    }
+
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        if (isLocalSource(parentKey)) {
+            return localStore().getChildCount(parentKey, name);
+        }
+        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        if (connector != null && connector instanceof EnhancedConnector) {
+            parentKey = documentIdFromNodeKey(parentKey);
+            int childCount = ((EnhancedConnector) connector).getChildCount(parentKey, name);
+
+            return childCount;
+        }
+        return -1;
     }
 }
