@@ -62,10 +62,15 @@ public class CmisGetChildrenOperation extends CmisOperation {
         }
     }
 
+    public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer) {
+        return getChildren(pageKey, writer, (int) pageKey.getBlockSize());
+    }
+
+
     /*
     * get children for the page specified and add reference to new page if has mode children
     */
-    public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer) {
+    public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer, int nextBlockSize) {
 
         String parentId = pageKey.getParentId();
         ItemIterable<CmisObject> children;
@@ -73,7 +78,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
         int offset = pageKey.getOffsetInt();
 
         if (ObjectId.isUnfiledStorage(parentId)) {
-            children = getUnfiledDocuments(pageKey);
+            children = getUnfiledDocuments(pageKey.getOffsetInt(), blockSize);
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
@@ -98,8 +103,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
         if (pageIterator.hasNext()) {
             int nextPageOffset = offset + blockSize;
             long unknownTotalSize = PageWriter.UNKNOWN_TOTAL_SIZE;
-            debug("adding follower page " + nextPageOffset + "#" + blockSize + " " + unknownTotalSize);
-            writer.addPage(parentId, nextPageOffset, blockSize, unknownTotalSize);
+            debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + unknownTotalSize);
+            writer.addPage(parentId, nextPageOffset, nextBlockSize, unknownTotalSize);
         }
 
         return writer;
@@ -109,7 +114,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
     /*
     * utilise CMIS query to get unfiled documents
     */
-    private ItemIterable<CmisObject> getUnfiledDocuments(PageKey pageKey) {
+    private ItemIterable<CmisObject> getUnfiledDocuments(int skipTo, int pageSize) {
         StringBuilder unfiledCondition = new StringBuilder();
 
         if (remoteUnfiledNodeId != null) {
@@ -131,8 +136,9 @@ public class CmisGetChildrenOperation extends CmisOperation {
         debug("Unfiled where statement -- " + unfiledCondition.toString());
 
         OperationContextImpl context = new OperationContextImpl();
+        context.setMaxItemsPerPage(pageSize);
         ItemIterable<CmisObject> cmisObjects = session.queryObjects("cmis:document", unfiledCondition.toString(), false, context);
         debug("Got " + cmisObjects.getTotalNumItems() + " documents in the result");
-        return cmisObjects.skipTo(pageKey.getOffsetInt());
+        return cmisObjects.skipTo(skipTo);
     }
 }

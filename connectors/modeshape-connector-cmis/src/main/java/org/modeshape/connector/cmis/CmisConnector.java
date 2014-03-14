@@ -30,6 +30,7 @@ import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
+import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
@@ -155,6 +156,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String remoteUnfiledNodeId;
     // debug
     private boolean debug = false;
+
+    // sns index for optimization
+    // -1 will calculate real value
+    private int snsCommonIndex = 0; /*-1*/
+    ;
 
     long pageSize = Constants.DEFAULT_PAGE_SIZE;
     // single version && commonId  logic
@@ -634,16 +640,49 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                                       String childKey) {
         debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
         CmisObject object = cmisObjectFinderUtil.find(childKey);
+        if (object == null && ObjectId.isUnfiledStorage(childKey) && parentKey.equals(caughtProjectedId)) {
+            return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());
+        }
         String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
         if (!childKey.equals(mappedId))
             System.out.println("getting reference childKey [" + childKey + "] is not equal to actual mapped id [" + mappedId + "]!!");
         return newChildReference(childKey, object.getName());
     }
 
+    private static Set<String> PROP_MIN_SET = new TreeSet<String>(Collections.singletonList("cmis:objectId"));
+
+    private OperationContext getChildrenQueryOperationContext() {
+        return session.createOperationContext(PROP_MIN_SET, false, false, false, IncludeRelationships.NONE, null, false, "cmis:creationDate ASC" /* ?? */, true, Integer.MAX_VALUE);
+    }
+
+    private String unfiledQueryTemplate = null;
+
+    private String getUnfiledQueryTemplate() {
+        if (unfiledQueryTemplate == null) {
+            unfiledQueryTemplate = (StringUtils.isNotEmpty(remoteUnfiledNodeId))
+                    ? "select cmis:objectId, cmis:versionSeriesId from cmis:document where " +
+                    "IN_FOLDER('" + remoteUnfiledNodeId + "') AND cmis:name='%s'"
+                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId from cmis:document doc " +
+                    "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
+                    "WHERE rcr.Head is NULL AND doc.cmis:name='%s'";
+        }
+
+        return unfiledQueryTemplate;
+    }
+
     public Document getChildReference(String parentKey, Name childName, int snsIndex) {
-        String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", childName.getLocalName());
+        String query = (ObjectId.isUnfiledStorage(parentKey))
+                ? String.format(getUnfiledQueryTemplate(), childName.getLocalName())
+                : String.format("select cmis:objectId from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
+                parentKey,
+                childName.getLocalName());
+
         System.out.println(query + "<<<< ");
-        ItemIterable<QueryResult> result = session.query(query, false);
+
+        OperationContext ctx = getChildrenQueryOperationContext();
+        ctx.setMaxItemsPerPage(snsIndex);
+
+        ItemIterable<QueryResult> result = session.query(query, false, ctx);
 
         if (snsIndex > 1)
             result.skipTo(snsIndex - 1);
@@ -656,10 +695,21 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public int getChildCount(String parentKey, Name name) {
-        String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", name.getLocalName());
-        System.out.println(query + "<<<<    I've been called!!!!!! ");
-        ItemIterable<QueryResult> query1 = session.query(query, false);
+        if (snsCommonIndex > -1)
+            return snsCommonIndex;
 
+        String query = (ObjectId.isUnfiledStorage(parentKey))
+                ? String.format(getUnfiledQueryTemplate(), name.getLocalName())
+                : String.format("select cmis:objectId from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
+                parentKey,
+                name.getLocalName());
+
+        //String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", name.getLocalName());
+        System.out.println(query + "<<<<    I've been called!!!!!! ");
+
+        OperationContext ctx = getChildrenQueryOperationContext();
+
+        ItemIterable<QueryResult> query1 = session.query(query, false, ctx);
         long totalNumItems = query1.getTotalNumItems();
         System.out.println(String.format("And I've found <%s> sns Items", totalNumItems));
         return (int) totalNumItems;
