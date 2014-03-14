@@ -37,6 +37,7 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
+import org.modeshape.connector.cmis.features.TempDocument;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
@@ -160,7 +161,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // sns index for optimization
     // -1 will calculate real value
     private int snsCommonIndex = 0; /*-1*/
-    ;
+
+    //
+    private boolean folderSetUnknownChildren = false;
 
     long pageSize = Constants.DEFAULT_PAGE_SIZE;
     // single version && commonId  logic
@@ -467,7 +470,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
         return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions,
-                cmisObjectFinderUtil, pageSize);
+                cmisObjectFinderUtil, pageSize, folderSetUnknownChildren);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
@@ -499,8 +502,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 caughtProjectedId,
                 remoteUnfiledNodeId,
                 singleVersionOptions,
-                getDocumentProducer(), cmisObjectFinderUtil, pageSize
-        );
+                getDocumentProducer(), cmisObjectFinderUtil, pageSize,
+                folderSetUnknownChildren);
     }
 
 
@@ -639,6 +642,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Document getChildReference(String parentKey,
                                       String childKey) {
         debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
+        CmisSingleVersionOperations singleVersionOps = getCmisSingleVersionOperations(); // todo optimize mr
+
+        if (singleVersionCache.containsKey(childKey) && (singleVersionCache.containsReferences(parentKey) || ObjectId.isUnfiledStorage(parentKey))) {
+            TempDocument tempDocument = singleVersionCache.get(childKey);
+            return newChildReference(childKey, tempDocument.getName().getLocalName());
+        }
+
         CmisObject object = cmisObjectFinderUtil.find(childKey);
         if (object == null && ObjectId.isUnfiledStorage(childKey) && parentKey.equals(caughtProjectedId)) {
             return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());

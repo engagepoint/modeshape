@@ -20,14 +20,16 @@ public class CmisGetChildrenOperation extends CmisOperation {
     private String remoteUnfiledNodeId;
     private String commonIdPropertyName;
     private long pageSize;
+    private boolean folderSetUnknownChildren;
 
     public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
                                     SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil,
-                                    long pageSize) {
+                                    long pageSize, boolean folderSetUnknownChildren) {
         super(session, localTypeManager, finderUtil);
         this.remoteUnfiledNodeId = remoteUnfiledNodeId;
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
         this.pageSize = pageSize;
+        this.folderSetUnknownChildren = folderSetUnknownChildren;
     }
 
     /**
@@ -77,7 +79,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
         int blockSize = (int) pageKey.getBlockSize();
         int offset = pageKey.getOffsetInt();
 
-        if (ObjectId.isUnfiledStorage(parentId)) {
+        boolean unfiledStorage = ObjectId.isUnfiledStorage(parentId);
+        if (unfiledStorage) {
             children = getUnfiledDocuments(pageKey.getOffsetInt(), blockSize);
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
@@ -102,9 +105,11 @@ public class CmisGetChildrenOperation extends CmisOperation {
 
         if (pageIterator.hasNext()) {
             int nextPageOffset = offset + blockSize;
-            long unknownTotalSize = PageWriter.UNKNOWN_TOTAL_SIZE;
-            debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + unknownTotalSize);
-            writer.addPage(parentId, nextPageOffset, nextBlockSize, unknownTotalSize);
+            long totalSize = (!unfiledStorage && folderSetUnknownChildren)
+                    ? PageWriter.UNKNOWN_TOTAL_SIZE
+                    : children.getTotalNumItems();
+            debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + totalSize);
+            writer.addPage(parentId, nextPageOffset, nextBlockSize, totalSize);
         }
 
         return writer;

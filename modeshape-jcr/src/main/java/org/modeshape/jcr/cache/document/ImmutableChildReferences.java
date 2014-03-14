@@ -415,10 +415,13 @@ public class ImmutableChildReferences {
 
         @Override
         public int getChildCount( Name name ) {
+
             // enhanced logic
-            DocumentStore documentStore = cache.documentStore();
-            int childCount = documentStore.getChildCount(nodeKey, name);
-            if (childCount >= 0 ) return childCount;
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                DocumentStore documentStore = cache.documentStore();
+                int childCount = documentStore.getChildCount(nodeKey, name);
+                if (childCount >= 0 ) return childCount;
+            }
 
             // default logic
             int result = 0;
@@ -435,9 +438,11 @@ public class ImmutableChildReferences {
                                         int snsIndex,
                                         Context context ) {
 
-            ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, name, snsIndex);
-            if (childReference != null)
-                return childReference;
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, name, snsIndex);
+                if (childReference != null)
+                    return childReference;
+            }
 
             ChildReference result = null;
             Segment segment = this.firstSegment;
@@ -471,9 +476,12 @@ public class ImmutableChildReferences {
         @Override
         public ChildReference getChild( NodeKey key,
                                         Context context ) {
-            ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, key.toString());
-            if (childReference != null)
-                return childReference;
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, key.toString());
+                if (childReference != null)
+                    return childReference;
+            }
 
             ChildReference result = null;
             Segment segment = this.firstSegment;
