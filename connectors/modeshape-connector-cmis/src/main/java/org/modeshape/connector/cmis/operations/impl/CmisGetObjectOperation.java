@@ -37,6 +37,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     private SingleVersionOptions singleVersionOptions;
     long pageSize;
     private boolean folderSetUnknownChildren;
+    private String unfiledQueryTemplate;
 
     public CmisGetObjectOperation(Session session, LocalTypeManager localTypeManager,
                                   boolean addRequiredPropertiesOnRead, boolean hideRootFolderReference,
@@ -45,7 +46,8 @@ public class CmisGetObjectOperation extends CmisOperation {
                                   SingleVersionOptions singleVersionOptions,
                                   DocumentProducer documentProducer,
                                   CmisObjectFinderUtil finderUtil,
-                                  long pageSize, boolean folderSetUnknownChildren) {
+                                  long pageSize, boolean folderSetUnknownChildren,
+                                  String unfiledQueryTemplate) {
         super(session, localTypeManager, finderUtil);
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.hideRootFolderReference = hideRootFolderReference;
@@ -55,7 +57,8 @@ public class CmisGetObjectOperation extends CmisOperation {
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
         this.singleVersionOptions = singleVersionOptions;
         this.pageSize= pageSize;
-        this.folderSetUnknownChildren = this.folderSetUnknownChildren;
+        this.folderSetUnknownChildren = folderSetUnknownChildren;
+        this.unfiledQueryTemplate = unfiledQueryTemplate;
     }
 
 
@@ -68,7 +71,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
         CmisGetChildrenOperation childrenOperation =
                 new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                        singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren);
+                        singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
 
         Folder folder = (Folder) cmisObject;
         DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
@@ -211,7 +214,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
                     new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                            singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren);
+                            singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, pageSize, PageWriter.UNKNOWN_TOTAL_SIZE);

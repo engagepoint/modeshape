@@ -470,7 +470,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
         return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions,
-                cmisObjectFinderUtil, pageSize, folderSetUnknownChildren);
+                cmisObjectFinderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
@@ -503,7 +503,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 remoteUnfiledNodeId,
                 singleVersionOptions,
                 getDocumentProducer(), cmisObjectFinderUtil, pageSize,
-                folderSetUnknownChildren);
+                folderSetUnknownChildren, unfiledQueryTemplate);
     }
 
 
