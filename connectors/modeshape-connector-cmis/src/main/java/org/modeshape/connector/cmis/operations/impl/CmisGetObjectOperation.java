@@ -238,6 +238,27 @@ public class CmisGetObjectOperation extends CmisOperation {
 
         Set<String> propertyDefinitions = new LinkedHashSet<String>(type.getPropertyDefinitions().keySet());
 
+        Map<String, Object[]> propMap = processProperties(cmisProperties, type, typeMapping, propertyDefinitions);
+        for (Map.Entry<String, Object[]> entry : propMap.entrySet()) {
+            writer.addProperty(entry.getKey(), entry.getValue());
+        }
+
+
+        // error protection
+        if (addRequiredPropertiesOnRead) {
+            for (String requiredExtProperty : propertyDefinitions) {
+                PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
+                if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(Constants.CMIS_PREFIX)) {
+                    String pname = localTypeManager.getPropertyUtils().findJcrName(requiredExtProperty);
+                    String propertyTargetName = typeMapping.toJcrProperty(pname);
+                    writer.addProperty(propertyTargetName, CmisOperationCommons.getRequiredPropertyValue(propertyDefinition));
+                }
+            }
+        }
+    }
+
+    public Map<String, Object[]> processProperties(List<Property<?>> cmisProperties, TypeDefinition type, MappedCustomType typeMapping, Set<String> propertyDefinitions) {
+        Map<String, Object[]> result = new LinkedHashMap<String, Object[]>(cmisProperties.size());
         for (Property<?> cmisProperty : cmisProperties) {
             // pop item prom list
             propertyDefinitions.remove(cmisProperty.getId());
@@ -252,20 +273,10 @@ public class CmisGetObjectOperation extends CmisOperation {
 
             // now handle -> it is our custom property or basic jcr one
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
-            writer.addProperty(jcrPropertyName, values);
+            result.put(jcrPropertyName, values);
         }
 
-        // error protection
-        if (addRequiredPropertiesOnRead) {
-            for (String requiredExtProperty : propertyDefinitions) {
-                PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
-                if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(Constants.CMIS_PREFIX)) {
-                    String pname = localTypeManager.getPropertyUtils().findJcrName(requiredExtProperty);
-                    String propertyTargetName = typeMapping.toJcrProperty(pname);
-                    writer.addProperty(propertyTargetName, CmisOperationCommons.getRequiredPropertyValue(propertyDefinition));
-                }
-            }
-        }
+        return result;
     }
 
     /*

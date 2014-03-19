@@ -191,6 +191,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return singleVersionOptions;
     }
 
+    public Map<String, ObjectType> getCachedTypeDefinitions() {
+        Map<String, ObjectType> cachedTypeDefinitions = localTypeManager.getCachedTypeDefinitions();
+        return cachedTypeDefinitions;
+    }
+
     // -------------------
 
     @Override
@@ -494,7 +499,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /*
     * new instance of cmis getObjectOperation
     */
-    private CmisGetObjectOperation getCmisGetOperation() {
+    public CmisGetObjectOperation getCmisGetOperation() {
         return new CmisGetObjectOperation(
                 session, localTypeManager,
                 addRequiredPropertiesOnRead,
