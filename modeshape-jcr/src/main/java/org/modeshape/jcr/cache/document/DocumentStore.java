@@ -29,6 +29,7 @@ import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.DocumentStoreException;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
@@ -192,6 +193,13 @@ public interface DocumentStore {
     public Document getChildReference( String parentKey,
                                        String childKey );
 
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                       String childKey );
+
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  Name childName,
+                                                  int snsIndex);
+
     /**
      * Retrieves a binary value which has the given id and which is not stored by ModeShape.
      *
@@ -203,4 +211,7 @@ public interface DocumentStore {
                                                   String id );
 
     public String getUnfiledStorageKey(Name primaryType, String workspaceName);
+
+
+    public int getChildCount(String parentKey, Name name);
 }

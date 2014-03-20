@@ -77,7 +77,8 @@
                             "custom:artistTwoMapped": "custom:artistTwo"
                         }
                     }
-                ]
+                ],
+                "globalIgnoredExtProperties" : ["title"]
             }
         }
     }

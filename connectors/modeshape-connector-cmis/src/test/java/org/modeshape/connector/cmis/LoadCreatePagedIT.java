@@ -53,7 +53,7 @@ import static org.junit.Assert.assertTrue;
  * @author Nick Knysh
  * @version 1.0 2/20/2013
  */
-//@Ignore
+@Ignore
 public class LoadCreatePagedIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.

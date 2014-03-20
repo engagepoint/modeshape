@@ -63,16 +63,18 @@ public class ImmutableChildReferences {
 
     public static ChildReferences create( ChildReferences first,
                                           ChildReferencesInfo segmentingInfo,
-                                          WorkspaceCache cache ) {
-        return new Segmented(cache, first, segmentingInfo);
+                                          WorkspaceCache cache,
+                                          String nodeKey) {
+        return new Segmented(nodeKey, cache, first, segmentingInfo);
     }
 
     public static ChildReferences create( ChildReferences first,
                                           ChildReferencesInfo segmentingInfo,
                                           ChildReferences externalReferences,
-                                          WorkspaceCache cache ) {
+                                          WorkspaceCache cache,
+                                          String nodeKey) {
         if (segmentingInfo.nextKey == null && externalReferences.isEmpty()) return first;
-        Segmented segmentedReferences = new Segmented(cache, first, segmentingInfo);
+        Segmented segmentedReferences = new Segmented(nodeKey, cache, first, segmentingInfo);
         return !externalReferences.isEmpty() ? new FederatedReferences(segmentedReferences, externalReferences) : segmentedReferences;
     }
 
@@ -389,10 +391,13 @@ public class ImmutableChildReferences {
         protected final WorkspaceCache cache;
         protected final long totalSize;
         private Segment firstSegment;
+        private String nodeKey;
 
-        public Segmented( WorkspaceCache cache,
+        public Segmented( String nodeKey,
+                          WorkspaceCache cache,
                           ChildReferences firstSegment,
                           ChildReferencesInfo info ) {
+            this.nodeKey = nodeKey;
             this.cache = cache;
             this.totalSize = info.totalSize;
             this.firstSegment = new Segment(firstSegment, info.nextKey);
@@ -410,6 +415,15 @@ public class ImmutableChildReferences {
 
         @Override
         public int getChildCount( Name name ) {
+
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                DocumentStore documentStore = cache.documentStore();
+                int childCount = documentStore.getChildCount(nodeKey, name);
+                if (childCount >= 0 ) return childCount;
+            }
+
+            // default logic
             int result = 0;
             Segment segment = this.firstSegment;
             while (segment != null) {
@@ -423,6 +437,13 @@ public class ImmutableChildReferences {
         public ChildReference getChild( Name name,
                                         int snsIndex,
                                         Context context ) {
+
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, name, snsIndex);
+                if (childReference != null)
+                    return childReference;
+            }
+
             ChildReference result = null;
             Segment segment = this.firstSegment;
             while (segment != null) {
@@ -455,6 +476,13 @@ public class ImmutableChildReferences {
         @Override
         public ChildReference getChild( NodeKey key,
                                         Context context ) {
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, key.toString());
+                if (childReference != null)
+                    return childReference;
+            }
+
             ChildReference result = null;
             Segment segment = this.firstSegment;
             while (segment != null) {

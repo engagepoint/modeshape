@@ -30,12 +30,14 @@ import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
+import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
+import org.modeshape.connector.cmis.features.TempDocument;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
@@ -118,7 +120,7 @@ import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector {
+public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector {
 
     private CmisObjectFinderUtil cmisObjectFinderUtil;
     // -----  json settings -------------
@@ -156,6 +158,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // debug
     private boolean debug = false;
 
+    // sns index for optimization
+    // -1 will calculate real value
+    private int snsCommonIndex = 0; /*-1*/
+
+    //
+    private boolean folderSetUnknownChildren = false;
+
     long pageSize = Constants.DEFAULT_PAGE_SIZE;
     // single version && commonId  logic
     private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
@@ -182,6 +191,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return singleVersionOptions;
     }
 
+    public Map<String, ObjectType> getCachedTypeDefinitions() {
+        Map<String, ObjectType> cachedTypeDefinitions = localTypeManager.getCachedTypeDefinitions();
+        return cachedTypeDefinitions;
+    }
+
     // -------------------
 
     @Override
@@ -205,6 +219,15 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     public MappedTypesContainer getMappedTypes() {
         return localTypeManager.getMappedTypes();
+    }
+
+    /**
+     * Map of all registered properties, where key is "external name"
+     * and value is "jcr name".
+     * @return Map of registered properties.
+     */
+    public Map<String, String> getRegisteredProperties(){
+        return localTypeManager.getRegisteredProperties();
     }
 
     @Override
@@ -445,23 +468,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return writer.document();
     }
 
-    public Document getChildReference(String parentKey,
-                                      String childKey) {
-        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
-        CmisObject object = cmisObjectFinderUtil.find(childKey);
-        String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
-        if (!childKey.equals(mappedId))
-            System.out.println("getting reference childKey ["+childKey+"] is not equal to actual mapped id ["+mappedId+"]!!");
-        return newChildReference(childKey, object.getName());
-    }
-
-    @Override
-    public Document getChildren(PageKey pageKey) {
-        CmisGetChildrenOperation cmisGetChildrenOperation =
-                getCmisGetChildrenOperation();
-        DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
-        return writer.document();
-    }
 
     // -------------------------------- AUXILIARIES -------------------------
 
@@ -478,7 +484,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
         return new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId, singleVersionOptions,
-                cmisObjectFinderUtil, pageSize);
+                cmisObjectFinderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
@@ -502,7 +508,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /*
     * new instance of cmis getObjectOperation
     */
-    private CmisGetObjectOperation getCmisGetOperation() {
+    public CmisGetObjectOperation getCmisGetOperation() {
         return new CmisGetObjectOperation(
                 session, localTypeManager,
                 addRequiredPropertiesOnRead,
@@ -510,8 +516,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 caughtProjectedId,
                 remoteUnfiledNodeId,
                 singleVersionOptions,
-                getDocumentProducer(), cmisObjectFinderUtil, pageSize
-        );
+                getDocumentProducer(), cmisObjectFinderUtil, pageSize,
+                folderSetUnknownChildren, unfiledQueryTemplate);
     }
 
 
@@ -645,5 +651,99 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             return newDocument(id);
         }
 
+    }
+
+    public Document getChildReference(String parentKey,
+                                      String childKey) {
+        debug("Looking for the reference within parent : <" + parentKey + "> and child = <" + childKey + " > ...");
+        CmisSingleVersionOperations singleVersionOps = getCmisSingleVersionOperations(); // todo optimize mr
+
+        if (singleVersionCache.containsKey(childKey) && (singleVersionCache.containsReferences(parentKey) || ObjectId.isUnfiledStorage(parentKey))) {
+            TempDocument tempDocument = singleVersionCache.get(childKey);
+            return newChildReference(childKey, tempDocument.getName().getLocalName());
+        }
+
+        CmisObject object = cmisObjectFinderUtil.find(childKey);
+        if (object == null && ObjectId.isUnfiledStorage(childKey) && parentKey.equals(caughtProjectedId)) {
+            return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());
+        }
+        String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
+        if (!childKey.equals(mappedId))
+            System.out.println("getting reference childKey [" + childKey + "] is not equal to actual mapped id [" + mappedId + "]!!");
+        return newChildReference(childKey, object.getName());
+    }
+
+    private static Set<String> PROP_MIN_SET = new TreeSet<String>(Collections.singletonList("cmis:objectId"));
+
+    private OperationContext getChildrenQueryOperationContext() {
+        return session.createOperationContext(PROP_MIN_SET, false, false, false, IncludeRelationships.NONE, null, false, "cmis:creationDate ASC" /* ?? */, true, Integer.MAX_VALUE);
+    }
+
+    private String unfiledQueryTemplate = null;
+
+    private String getUnfiledQueryTemplate() {
+        if (unfiledQueryTemplate == null) {
+            unfiledQueryTemplate = (StringUtils.isNotEmpty(remoteUnfiledNodeId))
+                    ? "select cmis:objectId, cmis:versionSeriesId from cmis:document where " +
+                    "IN_FOLDER('" + remoteUnfiledNodeId + "') AND cmis:name='%s'"
+                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId from cmis:document doc " +
+                    "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
+                    "WHERE rcr.Head is NULL AND doc.cmis:name='%s'";
+        }
+
+        return unfiledQueryTemplate;
+    }
+
+    public Document getChildReference(String parentKey, Name childName, int snsIndex) {
+        String query = (ObjectId.isUnfiledStorage(parentKey))
+                ? String.format(getUnfiledQueryTemplate(), childName.getLocalName())
+                : String.format("select cmis:objectId from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
+                parentKey,
+                childName.getLocalName());
+
+        System.out.println(query + "<<<< ");
+
+        OperationContext ctx = getChildrenQueryOperationContext();
+        ctx.setMaxItemsPerPage(snsIndex);
+
+        ItemIterable<QueryResult> result = session.query(query, false, ctx);
+
+        if (snsIndex > 1)
+            result.skipTo(snsIndex - 1);
+        System.out.println(String.format("And I've found <%s> sns Items", result.getTotalNumItems()));
+
+        QueryResult next = result.iterator().next();
+        String mappedId = cmisObjectFinderUtil.getObjectMappingId(next);
+        return newChildReference(mappedId, childName.getLocalName());
+    }
+
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        if (snsCommonIndex > -1)
+            return snsCommonIndex;
+
+        String query = (ObjectId.isUnfiledStorage(parentKey))
+                ? String.format(getUnfiledQueryTemplate(), name.getLocalName())
+                : String.format("select cmis:objectId from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
+                parentKey,
+                name.getLocalName());
+
+        //String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", name.getLocalName());
+        System.out.println(query + "<<<<    I've been called!!!!!! ");
+
+        OperationContext ctx = getChildrenQueryOperationContext();
+
+        ItemIterable<QueryResult> query1 = session.query(query, false, ctx);
+        long totalNumItems = query1.getTotalNumItems();
+        System.out.println(String.format("And I've found <%s> sns Items", totalNumItems));
+        return (int) totalNumItems;
+    }
+
+    @Override
+    public Document getChildren(PageKey pageKey) {
+        CmisGetChildrenOperation cmisGetChildrenOperation =
+                getCmisGetChildrenOperation();
+        DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
+        return writer.document();
     }
 }

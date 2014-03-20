@@ -3,7 +3,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-embedded</artifactId>
-    <version>3.7.28-EP-SNAPSHOT</version>
+    <version>3.7.29-EP-CR-SNAPSHOT</version>
 
     <name>ModeShape BOM for embedded usage</name>
 
@@ -21,7 +21,7 @@
         <license>
             <name>GNU Lesser General Public License</name>
             <url>http://repository.jboss.org/licenses/lgpl-2.1.txt</url>
-            <!--url>http://www.gnu.org/licenses/lgpl.html</url-->
+            <!--url>http://www.gnu.org/licenses/lgpl.html </url-->
             <distribution>repo</distribution>
             <comments>A business-friendly OSS license</comments>
         </license>

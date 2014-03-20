@@ -10,30 +10,33 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.infinispan.util.FastCopyHashMap;
 import org.modeshape.connector.cmis.CmisLexicon;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
-import org.modeshape.jcr.ExecutionContext;
-import org.modeshape.jcr.JcrValueFactory;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.value.Name;
-import org.modeshape.jcr.value.PropertyType;
 import org.modeshape.jcr.value.ValueFactories;
-import org.modeshape.jcr.value.ValueFactory;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
-import javax.jcr.Value;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
 import javax.jcr.nodetype.NodeDefinitionTemplate;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.nodetype.NodeTypeDefinition;
 import javax.jcr.nodetype.NodeTypeTemplate;
 import javax.jcr.nodetype.PropertyDefinitionTemplate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 
 public class LocalTypeManager {
@@ -49,6 +52,16 @@ public class LocalTypeManager {
     private NodeTypeManager nodeTypeManager;
     private NamespaceRegistry registry;
     private boolean debug = true;
+    /**
+     * Map of all registered properties, where key is "external name"
+     * and value is "jcr name".
+     */
+    private Map<String, String> registeredProperties;
+    /**
+     * Set of propertyNames(External names) which will be ignored
+     * on query result processing.
+     */
+    private Set<String> globalIgnoredExtProperties = new HashSet<String>(10);
 
     public LocalTypeManager(ValueFactories factories,
                             NamespaceRegistry registry,
@@ -59,9 +72,15 @@ public class LocalTypeManager {
         this.nodes = new Nodes();
         this.nodeTypeManager = nodeTypeManager;
         this.registry = registry;
+        this.registeredProperties = new HashMap<String, String>(100);
         this.mappedTypes = getCompleteMappings(customMapping);
         if (customMapping != null && customMapping.getNamespaces() != null)
             this.mappedNamespaces.putAll(customMapping.getNamespaces());
+        if (customMapping.getGlobalIgnoredExtProperties() != null) {
+            this.globalIgnoredExtProperties
+                    .addAll(customMapping.getGlobalIgnoredExtProperties());
+        }
+
     }
 
     public MappedTypesContainer getCompleteMappings(TypeCustomMappingList customMapping) {
@@ -313,10 +332,18 @@ public class LocalTypeManager {
                 jcrProp.setValueConstraints(choices.toArray(new String[choices.size()]));
             }
 
-            if (!jcrProp.isProtected()) type.getPropertyDefinitionTemplates().add(jcrProp);
+            if (!jcrProp.isProtected()) {
+                final String extPropertyName = mapping.toExtProperty(jcrProp.getName());
+                final boolean globalIgnored = globalIgnoredExtProperties.contains(extPropertyName);
+                final boolean ignoredByType = mapping.isIgnoredExtProperty(jcrProp.getName());
+                if (mapping!=null && !globalIgnored && !ignoredByType) {
+                    registeredProperties.put(extPropertyName, jcrProp.getName());
+                    type.getPropertyDefinitionTemplates().add(jcrProp);
+                }
+            }
         }
 
-        // todo add check if already added
+        /*// todo add check if already added
         if ("notifications:hixDocument".equals(mapping.getJcrName())) {
             PropertyDefinitionTemplate jcrExtId = typeManager.createPropertyDefinitionTemplate();
             jcrExtId.setName("notifications:extId");
@@ -335,7 +362,7 @@ public class LocalTypeManager {
             jcrExtId.setProtected(false);
             jcrExtId.setAvailableQueryOperators(new String[]{});
             type.getPropertyDefinitionTemplates().add(jcrExtId);
-        }
+        }*/
 
         typeTemplates.add(type);
 
@@ -561,4 +588,8 @@ public class LocalTypeManager {
 
     }
 
+
+    public Map<String, String> getRegisteredProperties() {
+        return registeredProperties;
+    }
 }

@@ -39,7 +39,7 @@
             "pageSize" : "20",
             "ignoreEmptyPropertiesOnCreate": false,
             "addRequiredPropertiesOnRead": false,
-            "projections": [ "default:/cmis => /" ],
+            "projections": [ "default:/cmis => /My_Folder-0-0" ],
             "applicableUnfiledTypes" : ["MyDocType2.8_remapped"],
             "singleVersionOptions": {
                 "commonIdPropertyName": "custom:commonId",

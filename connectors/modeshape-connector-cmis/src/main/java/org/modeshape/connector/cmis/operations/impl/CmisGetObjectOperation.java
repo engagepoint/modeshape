@@ -36,6 +36,8 @@ public class CmisGetObjectOperation extends CmisOperation {
     private String commonIdPropertyName;
     private SingleVersionOptions singleVersionOptions;
     long pageSize;
+    private boolean folderSetUnknownChildren;
+    private String unfiledQueryTemplate;
 
     public CmisGetObjectOperation(Session session, LocalTypeManager localTypeManager,
                                   boolean addRequiredPropertiesOnRead, boolean hideRootFolderReference,
@@ -44,7 +46,8 @@ public class CmisGetObjectOperation extends CmisOperation {
                                   SingleVersionOptions singleVersionOptions,
                                   DocumentProducer documentProducer,
                                   CmisObjectFinderUtil finderUtil,
-                                  long pageSize) {
+                                  long pageSize, boolean folderSetUnknownChildren,
+                                  String unfiledQueryTemplate) {
         super(session, localTypeManager, finderUtil);
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.hideRootFolderReference = hideRootFolderReference;
@@ -54,6 +57,8 @@ public class CmisGetObjectOperation extends CmisOperation {
         this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
         this.singleVersionOptions = singleVersionOptions;
         this.pageSize= pageSize;
+        this.folderSetUnknownChildren = folderSetUnknownChildren;
+        this.unfiledQueryTemplate = unfiledQueryTemplate;
     }
 
 
@@ -66,7 +71,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
         CmisGetChildrenOperation childrenOperation =
                 new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                        singleVersionOptions, finderUtil, pageSize);
+                        singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
 
         Folder folder = (Folder) cmisObject;
         DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
@@ -209,7 +214,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
                     new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                            singleVersionOptions, finderUtil, pageSize);
+                            singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, pageSize, PageWriter.UNKNOWN_TOTAL_SIZE);
@@ -233,6 +238,27 @@ public class CmisGetObjectOperation extends CmisOperation {
 
         Set<String> propertyDefinitions = new LinkedHashSet<String>(type.getPropertyDefinitions().keySet());
 
+        Map<String, Object[]> propMap = processProperties(cmisProperties, type, typeMapping, propertyDefinitions);
+        for (Map.Entry<String, Object[]> entry : propMap.entrySet()) {
+            writer.addProperty(entry.getKey(), entry.getValue());
+        }
+
+
+        // error protection
+        if (addRequiredPropertiesOnRead) {
+            for (String requiredExtProperty : propertyDefinitions) {
+                PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
+                if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(Constants.CMIS_PREFIX)) {
+                    String pname = localTypeManager.getPropertyUtils().findJcrName(requiredExtProperty);
+                    String propertyTargetName = typeMapping.toJcrProperty(pname);
+                    writer.addProperty(propertyTargetName, CmisOperationCommons.getRequiredPropertyValue(propertyDefinition));
+                }
+            }
+        }
+    }
+
+    public Map<String, Object[]> processProperties(List<Property<?>> cmisProperties, TypeDefinition type, MappedCustomType typeMapping, Set<String> propertyDefinitions) {
+        Map<String, Object[]> result = new LinkedHashMap<String, Object[]>(cmisProperties.size());
         for (Property<?> cmisProperty : cmisProperties) {
             // pop item prom list
             propertyDefinitions.remove(cmisProperty.getId());
@@ -247,20 +273,10 @@ public class CmisGetObjectOperation extends CmisOperation {
 
             // now handle -> it is our custom property or basic jcr one
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
-            writer.addProperty(jcrPropertyName, values);
+            result.put(jcrPropertyName, values);
         }
 
-        // error protection
-        if (addRequiredPropertiesOnRead) {
-            for (String requiredExtProperty : propertyDefinitions) {
-                PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
-                if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(Constants.CMIS_PREFIX)) {
-                    String pname = localTypeManager.getPropertyUtils().findJcrName(requiredExtProperty);
-                    String propertyTargetName = typeMapping.toJcrProperty(pname);
-                    writer.addProperty(propertyTargetName, CmisOperationCommons.getRequiredPropertyValue(propertyDefinition));
-                }
-            }
-        }
+        return result;
     }
 
     /*
