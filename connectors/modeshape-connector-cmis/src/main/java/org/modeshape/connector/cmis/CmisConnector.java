@@ -258,6 +258,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Document getDocumentById(String id) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
+        System.out.println("GET-DOCUMENT-BY-ID : "+ id);
         ObjectId objectId = ObjectId.valueOf(id);
 
         CmisGetObjectOperation cmisGetObjectOperation = getCmisGetOperation();
@@ -330,6 +331,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public String getDocumentId(String path) {
+        System.out.println("GET-DOCUMENT-BY-PATH : "+ path);
         // establish relation between path and object identifier
         String id = session.getObjectByPath(path).getId();
         // try to catch and save first projection's folderId to stick unfiled to it..
@@ -664,7 +666,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
 
         CmisObject object = cmisObjectFinderUtil.find(childKey);
-        if (object == null && ObjectId.isUnfiledStorage(childKey) && parentKey.equals(caughtProjectedId)) {
+        if (parentKey == null) {
+            System.out.println("you got problem :: getChildReference -> parentKey == null");
+        }
+        if (object == null && ObjectId.isUnfiledStorage(childKey) && (parentKey == null || "[root]".equals(parentKey))) {
             return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());
         }
         String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);

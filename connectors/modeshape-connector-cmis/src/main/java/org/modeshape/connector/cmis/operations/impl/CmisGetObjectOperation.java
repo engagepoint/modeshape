@@ -88,7 +88,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (folder.isRootFolder() && !hideRootFolderReference) {
             writer.addChild(ObjectId.toString(ObjectId.Type.REPOSITORY_INFO, ""), Constants.REPOSITORY_INFO_NODE_NAME);
         }
-        if (cmisObject.getId().equals(projectedNodeId)) {
+        if (cmisObject.getId().equals(projectedNodeId) || cmisObject.getId().equals("[root]")) {
             writer.addChild(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), ObjectId.Type.UNFILED_STORAGE.getValue());
         }
         // mandatory mixins
@@ -200,7 +200,12 @@ public class CmisGetObjectOperation extends CmisOperation {
         Folder root = session.getRootFolder();
 
         writer.setPrimaryType(NodeType.NT_FOLDER);
-        writer.setParent(caughtProjectedId);
+        if (caughtProjectedId == null) {
+            // replace with logger lately
+            System.out.println("Caught ROOT node as NULL when filling Unfiled node!!..!!");
+        }
+//        writer.setParent(caughtProjectedId);
+        writer.setParent("[root]");
 
         writer.addMixinType(NodeType.MIX_REFERENCEABLE);
         writer.addProperty(JcrLexicon.UUID, ObjectId.Type.UNFILED_STORAGE.getValue());

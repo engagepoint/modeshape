@@ -80,6 +80,12 @@ public class CmisGetChildrenOperation extends CmisOperation {
     public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer, int nextBlockSize) {
 
         String parentId = pageKey.getParentId();
+
+        if (parentId.equals("[root]")) {
+             writer.addChild(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), ObjectId.Type.UNFILED_STORAGE.getValue());
+            return writer;
+        }
+
         ItemIterable<?> children;
         int blockSize = (int) pageKey.getBlockSize();
         int offset = pageKey.getOffsetInt();

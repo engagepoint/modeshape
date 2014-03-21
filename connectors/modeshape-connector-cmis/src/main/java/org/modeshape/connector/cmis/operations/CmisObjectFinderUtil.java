@@ -113,8 +113,13 @@ public class CmisObjectFinderUtil {
         System.out.println("Trying to find object using query <" + query + ">");
         ItemIterable<QueryResult> queryResult = session.query(query, false);
 
-        if (queryResult == null || queryResult.getTotalNumItems() <= 0 || queryResult.getTotalNumItems() > 1) {
+        if (queryResult == null) {
             System.out.println("query result is empty");
+        }
+
+        long totalNumItems = queryResult.getTotalNumItems();
+
+        if (totalNumItems <= 0 || totalNumItems > 1) {
             return null;
         }
 
