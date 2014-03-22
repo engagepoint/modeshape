@@ -46,6 +46,7 @@ import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.connector.cmis.operations.impl.*;
 import org.modeshape.connector.cmis.util.CryptoUtils;
 import org.modeshape.jcr.JcrLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.*;
 import org.modeshape.jcr.value.BinaryValue;
@@ -177,6 +178,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
     // local document producer instance
     private ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
+    // projections for unfiled node
+    private Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections;
 
     public CmisConnector() {
         super();
@@ -224,9 +227,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /**
      * Map of all registered properties, where key is "external name"
      * and value is "jcr name".
+     *
      * @return Map of registered properties.
      */
-    public Map<String, String> getRegisteredProperties(){
+    public Map<String, String> getRegisteredProperties() {
         return localTypeManager.getRegisteredProperties();
     }
 
@@ -258,7 +262,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Document getDocumentById(String id) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
-        System.out.println("GET-DOCUMENT-BY-ID : "+ id);
+        System.out.println("GET-DOCUMENT-BY-ID : " + id);
         ObjectId objectId = ObjectId.valueOf(id);
 
         CmisGetObjectOperation cmisGetObjectOperation = getCmisGetOperation();
@@ -275,7 +279,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return cmisRepository();
             case UNFILED_STORAGE:
                 // unfiled storage node
-                return cmisGetObjectOperation.jcrUnfiled(id, caughtProjectedId);
+                return cmisGetObjectOperation.jcrUnfiled(id, getUnfiledParentId());
             case CONTENT:
                 // in the jcr domain content is represented by child node of
                 // the nt:file node while in cmis domain it is a property of
@@ -331,11 +335,11 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public String getDocumentId(String path) {
-        System.out.println("GET-DOCUMENT-BY-PATH : "+ path);
+        System.out.println("GET-DOCUMENT-BY-PATH : " + path);
         // establish relation between path and object identifier
         String id = session.getObjectByPath(path).getId();
         // try to catch and save first projection's folderId to stick unfiled to it..
-        if (caughtProjectedId == null) caughtProjectedId = id;
+//        if (caughtProjectedId == null) caughtProjectedId = id;
         // what if 1st projection is not up but second is ok ?? will we get there to get Id of the first one ?
 
         return id;
@@ -515,7 +519,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 session, localTypeManager,
                 addRequiredPropertiesOnRead,
                 hideRootFolderReference,
-                caughtProjectedId,
+                getUnfiledParentId(),
                 remoteUnfiledNodeId,
                 singleVersionOptions,
                 getDocumentProducer(), cmisObjectFinderUtil, pageSize,
@@ -669,7 +673,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         if (parentKey == null) {
             System.out.println("you got problem :: getChildReference -> parentKey == null");
         }
-        if (object == null && ObjectId.isUnfiledStorage(childKey) && (parentKey == null || "[root]".equals(parentKey))) {
+        if (object == null && ObjectId.isUnfiledStorage(childKey) && (StringUtils.equals(parentKey, getUnfiledParentId()))) {
             return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());
         }
         String mappedId = cmisObjectFinderUtil.getObjectMappingId(object);
@@ -750,5 +754,31 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 getCmisGetChildrenOperation();
         DocumentWriter writer = cmisGetChildrenOperation.getChildren(pageKey, newDocument(pageKey.getParentId()));
         return writer.document();
+    }
+
+    private String getUnfiledParentId() {
+        if (caughtProjectedId == null) {
+
+            if (preconfiguredProjections == null)
+                throw new RuntimeException("Projections are null!!");
+
+            System.out.print("preconfiguredProjections  ");
+            System.out.println(preconfiguredProjections);
+
+            List<RepositoryConfiguration.ProjectionConfiguration> projectionConfigurations = preconfiguredProjections.values().iterator().next();
+            System.out.print("projectionConfigurations  ");
+            System.out.println(projectionConfigurations);
+
+            RepositoryConfiguration.ProjectionConfiguration projectionConfiguration = projectionConfigurations.get(0);
+
+
+            String externalPath = projectionConfiguration.getExternalPath();
+            String documentId = getDocumentId(externalPath);
+
+            caughtProjectedId = documentId;
+        }
+
+//        return "[root]";
+        return caughtProjectedId;
     }
 }

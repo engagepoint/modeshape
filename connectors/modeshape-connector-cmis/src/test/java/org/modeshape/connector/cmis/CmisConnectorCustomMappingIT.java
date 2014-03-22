@@ -28,6 +28,7 @@ import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.jcr.Connectors;
@@ -51,6 +52,7 @@ import static org.junit.Assert.assertTrue;
  * @version 1.0 2/20/2013
  */
 
+@Ignore
 public class CmisConnectorCustomMappingIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.

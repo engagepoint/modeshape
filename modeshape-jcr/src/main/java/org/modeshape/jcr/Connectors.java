@@ -518,6 +518,11 @@ public final class Connectors {
 
         connector.initialize(registry, nodeTypeManager);
 
+        // possible problem with config to workspace
+        // this is a temporary fix -> available only for the case with a single workspace and projection
+        Map<String, List<ProjectionConfiguration>> preconfiguredProjections = getPreconfiguredProjections();
+        ReflectionUtil.setValue(connector, "preconfiguredProjections", preconfiguredProjections);
+
         // If successful, call the 'postInitialize' method reflectively (due to inability to call directly) ...
         Method postInitialize = ReflectionUtil.findMethod(Connector.class, "postInitialize");
         ReflectionUtil.invokeAccessibly(connector, postInitialize, new Object[] {});
