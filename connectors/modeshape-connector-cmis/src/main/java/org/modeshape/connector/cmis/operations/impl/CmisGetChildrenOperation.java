@@ -116,7 +116,10 @@ public class CmisGetChildrenOperation extends CmisOperation {
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
-            ctx.setMaxItemsPerPage(blockSize);
+            // ? why this doesn't work for page size ??
+            // return totalNumItem = pageSize instead of real total num items
+            ctx.setMaxItemsPerPage(Integer.MAX_VALUE); // check if it affects performance
+//            ctx.setMaxItemsPerPage(blockSize);
 //            ctx.setOrderBy("cmis:creationDate DESC");
 //            ctx.setCacheEnabled(true);
             children = parent.getChildren(ctx);
