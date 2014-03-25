@@ -107,9 +107,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
 
             if (pageIterator.hasNext()) {
                 int nextPageOffset = offset + blockSize;
-                long totalSize = (!unfiledStorage && folderSetUnknownChildren)
-                        ? PageWriter.UNKNOWN_TOTAL_SIZE
-                        : children.getTotalNumItems();
+                long totalSize = PageWriter.UNKNOWN_TOTAL_SIZE;
                 debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + totalSize);
                 writer.addPage(parentId, nextPageOffset, nextBlockSize, totalSize);
             }
@@ -118,17 +116,18 @@ public class CmisGetChildrenOperation extends CmisOperation {
             OperationContext ctx = session.createOperationContext();
             // ? why this doesn't work for page size ??
             // return totalNumItem = pageSize instead of real total num items
-            ctx.setMaxItemsPerPage(Integer.MAX_VALUE); // check if it affects performance
+            ctx.setMaxItemsPerPage(1000); // check if it affects performance
 //            ctx.setMaxItemsPerPage(blockSize);
 //            ctx.setOrderBy("cmis:creationDate DESC");
 //            ctx.setCacheEnabled(true);
             children = parent.getChildren(ctx);
 
             ItemIterable<?> page = children.skipTo(offset);
+//            page = page.getPage(blockSize);
             Iterator<?> pageIterator = page.iterator();
             debug("adding children for pageKey = " + pageKey);
             for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
-                CmisObject next = (CmisObject) page.iterator().next();
+                CmisObject next = (CmisObject) pageIterator.next();
                 String childId = finderUtil.getObjectMappingId(next);
                 debug("adding child", next.getName(), childId);
                 writer.addChild(childId, next.getName());
@@ -136,7 +135,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
 
             if (pageIterator.hasNext()) {
                 int nextPageOffset = offset + blockSize;
-                long totalSize = (!unfiledStorage && folderSetUnknownChildren)
+                long totalSize = (folderSetUnknownChildren)
                         ? PageWriter.UNKNOWN_TOTAL_SIZE
                         : children.getTotalNumItems();
                 debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + totalSize);

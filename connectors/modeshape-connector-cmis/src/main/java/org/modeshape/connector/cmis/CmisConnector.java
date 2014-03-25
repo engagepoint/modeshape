@@ -26,6 +26,7 @@ package org.modeshape.connector.cmis;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
+import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
@@ -693,7 +694,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String getUnfiledQueryTemplate() {
         if (unfiledQueryTemplate == null) {
             unfiledQueryTemplate = (StringUtils.isNotEmpty(remoteUnfiledNodeId))
-                    ? "select cmis:objectId, cmis:versionSeriesId from cmis:document where " +
+                    ? "select * from cmis:document where " +
                     "IN_FOLDER('" + remoteUnfiledNodeId + "') AND cmis:name='%s'"
                     : "select doc.cmis:objectId, doc.cmis:versionSeriesId from cmis:document doc " +
                     "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
@@ -703,16 +704,34 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return unfiledQueryTemplate;
     }
 
+
+    private Set<String> mappedIdsQueryFilter = null;
+
+    private Set<String> getIDsFilter() {
+        if (mappedIdsQueryFilter == null) {
+            mappedIdsQueryFilter = new TreeSet<String>();
+
+            mappedIdsQueryFilter.add(PropertyIds.OBJECT_ID);
+            mappedIdsQueryFilter.add(PropertyIds.VERSION_SERIES_ID);
+            mappedIdsQueryFilter.add(PropertyIds.OBJECT_TYPE_ID);
+            if (StringUtils.isNotEmpty(singleVersionOptions.getCommonIdPropertyName()))
+                mappedIdsQueryFilter.add(singleVersionOptions.getCommonIdPropertyName());
+        }
+
+        return mappedIdsQueryFilter;
+    }
+
     public Document getChildReference(String parentKey, Name childName, int snsIndex) {
         String query = (ObjectId.isUnfiledStorage(parentKey))
                 ? String.format(getUnfiledQueryTemplate(), childName.getLocalName())
-                : String.format("select cmis:objectId from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
+                : String.format("select * from cmis:document where IN_FOLDER('%s') AND cmis:name='%s'",
                 parentKey,
                 childName.getLocalName());
 
         System.out.println(query + "<<<< ");
 
         OperationContext ctx = getChildrenQueryOperationContext();
+        ctx.setFilter(getIDsFilter());
         ctx.setMaxItemsPerPage(snsIndex);
 
         ItemIterable<QueryResult> result = session.query(query, false, ctx);
