@@ -31,10 +31,11 @@ public class CmisGetChildrenOperation extends CmisOperation {
     public void cmisChildren(Folder folder, DocumentWriter writer) {
         String parentId = folder.getId();
         if (config.getPageSize() != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
-            long pageSize = ObjectId.isUnfiledStorage(parentId)
-                    ? config.getPageSizeUnfiled()
-                    : config.getPageSize();
-            getChildren(new PageKey(parentId, "0", pageSize), writer, 0);
+            if (ObjectId.isUnfiledStorage(parentId)) {
+                getChildren(new PageKey(parentId, "0", config.getPageSizeUnfiled()), writer, 0);
+            } else {
+                getChildren(new PageKey(parentId, "0", config.getPageSize()), writer);
+            }
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
             ItemIterable<CmisObject> children = parent.getChildren();
