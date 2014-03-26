@@ -173,6 +173,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
             System.out.println("Return cached document by init params:: " + document);
             return document;
         } else if (suggestedObjectId.getType() == ObjectId.Type.CONTENT) {
+            System.out.println("Return cached document content as NULL (SV)");
             return null;
                 /*String contentId = ObjectId.toString(ObjectId.Type.CONTENT, objectId.getIdentifier());
                 DocumentWriter writer = newDocument(contentId);

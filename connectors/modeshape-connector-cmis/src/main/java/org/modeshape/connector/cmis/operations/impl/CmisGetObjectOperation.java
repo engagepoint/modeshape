@@ -195,10 +195,15 @@ public class CmisGetObjectOperation extends CmisOperation {
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
                     new CmisGetChildrenOperation(snapshot, config);
-            childrenOperation.getChildren(new PageKey(originalId), writer);
+            PageKey pageKey = new PageKey(originalId);
+            if (pageKey.getBlockSize() == 0) {
+                childrenOperation.getChildren(new PageKey(pageKey.getParentId(), pageKey.getOffsetString(), config.getPageSizeUnfiled()), writer, 0);
+            } else {
+                childrenOperation.getChildren(pageKey, writer);
+            }
+
         } else {
-            writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0,
-                    config.getPageSize(), PageWriter.UNKNOWN_TOTAL_SIZE);
+            writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, 0, PageWriter.UNKNOWN_TOTAL_SIZE);
         }
 
         return writer.document();
