@@ -8,6 +8,8 @@ import org.apache.chemistry.opencmis.commons.definitions.TypeDefinition;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
@@ -28,37 +30,13 @@ import java.util.*;
 
 public class CmisGetObjectOperation extends CmisOperation {
 
-    private boolean addRequiredPropertiesOnRead;
-    private boolean hideRootFolderReference;
-    private DocumentProducer documentProducer;
-    private String projectedNodeId;
-    private String remoteUnfiledNodeId;
-    private String commonIdPropertyName;
-    private SingleVersionOptions singleVersionOptions;
-    long pageSize;
-    private boolean folderSetUnknownChildren;
-    private String unfiledQueryTemplate;
+    String projectedNodeId;
 
-    public CmisGetObjectOperation(Session session, LocalTypeManager localTypeManager,
-                                  boolean addRequiredPropertiesOnRead, boolean hideRootFolderReference,
-                                  String projectedNodeId,
-                                  String remoteUnfiledNodeId,
-                                  SingleVersionOptions singleVersionOptions,
-                                  DocumentProducer documentProducer,
-                                  CmisObjectFinderUtil finderUtil,
-                                  long pageSize, boolean folderSetUnknownChildren,
-                                  String unfiledQueryTemplate) {
-        super(session, localTypeManager, finderUtil);
-        this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
-        this.hideRootFolderReference = hideRootFolderReference;
-        this.documentProducer = documentProducer;
+    public CmisGetObjectOperation(RuntimeSnapshot snapshot,
+                                  CmisConnectorConfiguration config,
+                                  String projectedNodeId) {
+        super(snapshot, config);
         this.projectedNodeId = projectedNodeId;
-        this.remoteUnfiledNodeId = remoteUnfiledNodeId;
-        this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
-        this.singleVersionOptions = singleVersionOptions;
-        this.pageSize= pageSize;
-        this.folderSetUnknownChildren = folderSetUnknownChildren;
-        this.unfiledQueryTemplate = unfiledQueryTemplate;
     }
 
 
@@ -69,12 +47,10 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
-        CmisGetChildrenOperation childrenOperation =
-                new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                        singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
+        CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(snapshot, config);
 
         Folder folder = (Folder) cmisObject;
-        DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
+        DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, folder.getId()));
         // set correct type
         writer.setPrimaryType(localTypeManager.cmisTypeToJcr(cmisObject.getType().getId()).getJcrName());
         // parent
@@ -85,7 +61,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         childrenOperation.cmisChildren(folder, writer);
 
         // append repository information to the root node
-        if (folder.isRootFolder() && !hideRootFolderReference) {
+        if (folder.isRootFolder() && !config.isHideRootFolderReference()) {
             writer.addChild(ObjectId.toString(ObjectId.Type.REPOSITORY_INFO, ""), Constants.REPOSITORY_INFO_NODE_NAME);
         }
         if (cmisObject.getId().equals(projectedNodeId) || cmisObject.getId().equals(projectedNodeId)) {
@@ -115,7 +91,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(cmisObject);
 
         // document and internalId
-        DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, incomingId));
+        DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, incomingId));
 
         // set correct type
         writer.setPrimaryType(localTypeManager.cmisTypeToJcr(cmisObject.getType().getId()).getJcrName());
@@ -158,7 +134,7 @@ public class CmisGetObjectOperation extends CmisOperation {
      */
     public Document cmisContent(String id) {
         String contentId = ObjectId.toString(ObjectId.Type.CONTENT, id);
-        DocumentWriter writer = documentProducer.getNewDocument(contentId);
+        DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(contentId);
 
         org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(finderUtil.find(id));
         writer.setPrimaryType(NodeType.NT_RESOURCE);
@@ -196,7 +172,7 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return node document.
      */
     public Document jcrUnfiled(String originalId, String caughtProjectedId) {
-        DocumentWriter writer = documentProducer.getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, ObjectId.Type.UNFILED_STORAGE.getValue()));
+        DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, ObjectId.Type.UNFILED_STORAGE.getValue()));
         Folder root = session.getRootFolder();
 
         writer.setPrimaryType(NodeType.NT_FOLDER);
@@ -218,11 +194,11 @@ public class CmisGetObjectOperation extends CmisOperation {
 
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =
-                    new CmisGetChildrenOperation(session, localTypeManager, remoteUnfiledNodeId,
-                            singleVersionOptions, finderUtil, pageSize, folderSetUnknownChildren, unfiledQueryTemplate);
+                    new CmisGetChildrenOperation(snapshot, config);
             childrenOperation.getChildren(new PageKey(originalId), writer);
         } else {
-            writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, pageSize, PageWriter.UNKNOWN_TOTAL_SIZE);
+            writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0,
+                    config.getPageSize(), PageWriter.UNKNOWN_TOTAL_SIZE);
         }
 
         return writer.document();
@@ -250,7 +226,7 @@ public class CmisGetObjectOperation extends CmisOperation {
 
 
         // error protection
-        if (addRequiredPropertiesOnRead) {
+        if (config.isAddRequiredPropertiesOnRead()) {
             for (String requiredExtProperty : propertyDefinitions) {
                 PropertyDefinition<?> propertyDefinition = type.getPropertyDefinitions().get(requiredExtProperty);
                 if (propertyDefinition.isRequired() && propertyDefinition.getUpdatability() == Updatability.READWRITE && !requiredExtProperty.startsWith(Constants.CMIS_PREFIX)) {

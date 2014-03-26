@@ -6,6 +6,8 @@ import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
@@ -55,18 +57,9 @@ import java.util.UUID;
  */
 public class CmisSingleVersionOperations extends CmisOperation {
 
-    private SingleVersionOptions singleVersionOptions;
-    private SingleVersionDocumentsCache singleVersionCache;
-    private DocumentProducer documentProducer;
-
-    public CmisSingleVersionOperations(Session session, LocalTypeManager localTypeManager, CmisObjectFinderUtil fUtil,
-                                       SingleVersionOptions singleVersionOptions,
-                                       SingleVersionDocumentsCache singleVersionCache,
-                                       DocumentProducer documentProducer) {
-        super(session, localTypeManager, fUtil);
-        this.singleVersionOptions = singleVersionOptions;
-        this.singleVersionCache = singleVersionCache;
-        this.documentProducer = documentProducer;
+    public CmisSingleVersionOperations(RuntimeSnapshot snapshot,
+                                       CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
     /*
@@ -74,7 +67,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * it's ought to be saved as single version
     */
     public boolean doStoreAsSingleVersion(ObjectId objectId) {
-        return singleVersionCache.containsKey(objectId.getIdentifier());
+        return snapshot.getSingleVersionCache().containsKey(objectId.getIdentifier());
     }
 
     /*
@@ -83,15 +76,15 @@ public class CmisSingleVersionOperations extends CmisOperation {
     */
     public void storeDocument(ObjectId objectId, Document document, CmisNewObjectCombinedOperation cmisStoreOperation,
                               BinaryContentProducerInterface binaryContentProducer) {
-        TempDocument tempDocument = singleVersionCache.get(objectId.getIdentifier());
+        TempDocument tempDocument = snapshot.getSingleVersionCache().get(objectId.getIdentifier());
         if (objectId.getType() == ObjectId.Type.CONTENT) {
             cmisStoreOperation.storeDocument(
                     tempDocument.getParentId(), tempDocument.getName(), tempDocument.getPrimaryType(),
                     tempDocument.getDocument(),
                     document, binaryContentProducer);
-            singleVersionCache.remove(objectId.getIdentifier());
+            snapshot.getSingleVersionCache().remove(objectId.getIdentifier());
             // seems must clean reference as well todo check
-            singleVersionCache.removeReference(tempDocument.getParentId(), objectId.getIdentifier());
+            snapshot.getSingleVersionCache().removeReference(tempDocument.getParentId(), objectId.getIdentifier());
         } else {
             tempDocument.setDocument(document);
         }
@@ -125,12 +118,12 @@ public class CmisSingleVersionOperations extends CmisOperation {
         String newGUID = singleVersionOptions.getSingleVersionGUIDPrefix() + UUID.randomUUID().toString();
         String resultGuid = singleVersionOptions.commonIdValuePreProcess(newGUID);
         TempDocument value = new TempDocument(parentId, name, primaryType);
-        singleVersionCache.put(resultGuid, value);
+        snapshot.getSingleVersionCache().put(resultGuid, value);
         // parent
-        List<String> childValues = singleVersionCache.getReferences(parentId);
+        List<String> childValues = snapshot.getSingleVersionCache().getReferences(parentId);
         if (childValues == null) childValues = new ArrayList<String>();
         childValues.add(resultGuid);
-        singleVersionCache.putReferences(parentId, childValues);
+        snapshot.getSingleVersionCache().putReferences(parentId, childValues);
 
         return resultGuid;
     }
@@ -141,10 +134,10 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * but already attached to parent by jcr/modeshape
     */
     public void addCachedChildren(String id, DocumentWriter writer) {
-        if (singleVersionCache.containsReferences(id)) {
-            List<String> strings = singleVersionCache.getReferences(id);
+        if (snapshot.getSingleVersionCache().containsReferences(id)) {
+            List<String> strings = snapshot.getSingleVersionCache().getReferences(id);
             for (String childId : strings) {
-                TempDocument tempDocument = singleVersionCache.get(childId);
+                TempDocument tempDocument = snapshot.getSingleVersionCache().get(childId);
                 if (tempDocument != null)
                     writer.addChild(childId, tempDocument.getName().getLocalName());
             }
@@ -158,14 +151,14 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * todo validate that returning of empty CONTENT node does not affect performance, or else construct virtual CONTENT document
     */
     public Document getCachedTempDocument(ObjectId suggestedObjectId) {
-        TempDocument theParams = singleVersionCache.get(suggestedObjectId.getIdentifier());
+        TempDocument theParams = snapshot.getSingleVersionCache().get(suggestedObjectId.getIdentifier());
         if (theParams.getDocument() != null) {
             Document document = theParams.getDocument();
             System.out.println("Return cached document:: " + document);
             return document;
         }
         if (suggestedObjectId.getType() == ObjectId.Type.OBJECT) {
-            DocumentWriter writer = documentProducer.getNewDocument(suggestedObjectId.toString());
+            DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(suggestedObjectId.toString());
             // set correct type
             writer.setPrimaryType(theParams.getPrimaryType());
             // parents

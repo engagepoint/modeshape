@@ -3,13 +3,11 @@ package org.modeshape.connector.cmis.operations.impl;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
-import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.commons.lang3.StringUtils;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 import org.modeshape.jcr.federation.spi.PageWriter;
@@ -19,22 +17,9 @@ import java.util.NoSuchElementException;
 
 public class CmisGetChildrenOperation extends CmisOperation {
 
-    private String remoteUnfiledNodeId;
-    private String commonIdPropertyName;
-    private long pageSize;
-    private boolean folderSetUnknownChildren;
-    private String unfiledQueryTemplate;
-
-    public CmisGetChildrenOperation(Session session, LocalTypeManager localTypeManager, String remoteUnfiledNodeId,
-                                    SingleVersionOptions singleVersionOptions, CmisObjectFinderUtil finderUtil,
-                                    long pageSize, boolean folderSetUnknownChildren,
-                                    String unfiledQueryTemplate) {
-        super(session, localTypeManager, finderUtil);
-        this.remoteUnfiledNodeId = remoteUnfiledNodeId;
-        this.commonIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
-        this.pageSize = pageSize;
-        this.folderSetUnknownChildren = folderSetUnknownChildren;
-        this.unfiledQueryTemplate = unfiledQueryTemplate;
+    public CmisGetChildrenOperation(RuntimeSnapshot snapshot,
+                                    CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
     /**
@@ -45,8 +30,11 @@ public class CmisGetChildrenOperation extends CmisOperation {
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
         String parentId = folder.getId();
-        if (pageSize != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
-            getChildren(new PageKey(parentId, "0", pageSize), writer);
+        if (config.getPageSize() != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
+            long pageSize = ObjectId.isUnfiledStorage(parentId)
+                    ? config.getPageSizeUnfiled()
+                    : config.getPageSize();
+            getChildren(new PageKey(parentId, "0", pageSize), writer, 0);
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
             ItemIterable<CmisObject> children = parent.getChildren();
@@ -73,73 +61,63 @@ public class CmisGetChildrenOperation extends CmisOperation {
         return getChildren(pageKey, writer, (int) pageKey.getBlockSize());
     }
 
-
     /*
     * get children for the page specified and add reference to new page if has mode children
     */
-    public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer, int nextBlockSize) {
-
+    public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer, int currentBlockSize) {
+        debug("adding children for " + pageKey + " with currentPageSize " + currentBlockSize);
         String parentId = pageKey.getParentId();
 
-//        if (parentId.equals()) {
-//             writer.addChild(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), ObjectId.Type.UNFILED_STORAGE.getValue());
-//            return writer;
-//        }
-
         ItemIterable<?> children;
-        int blockSize = (int) pageKey.getBlockSize();
+        int blockSize = currentBlockSize;
         int offset = pageKey.getOffsetInt();
 
         boolean unfiledStorage = ObjectId.isUnfiledStorage(parentId);
         if (unfiledStorage) {
-            children = getUnfiledDocuments(pageKey.getOffsetInt(), blockSize);
+            boolean doAddPage = blockSize > 0;
 
-            ItemIterable<?> page = children.skipTo(offset);
-            Iterator<?> pageIterator = page.iterator();
-            debug("adding children for pageKey = " + pageKey);
-            for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
-                QueryResult next = (QueryResult) page.iterator().next();
-                String childId = finderUtil.getObjectMappingId(next);
-                String oName = next.getPropertyById(PropertyIds.NAME).getFirstValue().toString();
-                debug("adding child", oName, childId);
-                writer.addChild(childId, oName);
+            if (blockSize > 0) {
+                children = getUnfiledDocuments(pageKey.getOffsetInt(), blockSize);
+                ItemIterable<?> page = children;
+                Iterator<?> pageIterator = page.iterator();
+                for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
+                    QueryResult next = (QueryResult) page.iterator().next();
+                    String childId = finderUtil.getObjectMappingId(next);
+                    String oName = next.getPropertyById(PropertyIds.NAME).getFirstValue().toString();
+                    debug("adding child", oName, childId);
+                    writer.addChild(childId, oName);
+                }
+                doAddPage = pageIterator.hasNext();
             }
 
-            if (pageIterator.hasNext()) {
+            if (doAddPage) {
                 int nextPageOffset = offset + blockSize;
                 long totalSize = PageWriter.UNKNOWN_TOTAL_SIZE;
-                debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + totalSize);
-                writer.addPage(parentId, nextPageOffset, nextBlockSize, totalSize);
+                debug("adding follower page offset/size: " + nextPageOffset + "#" + (int) pageKey.getBlockSize() + " " + totalSize);
+                writer.addPage(parentId, nextPageOffset, pageKey.getBlockSize(), totalSize);
             }
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
-            // ? why this doesn't work for page size ??
-            // return totalNumItem = pageSize instead of real total num items
             ctx.setMaxItemsPerPage(1000); // check if it affects performance
-//            ctx.setMaxItemsPerPage(blockSize);
-//            ctx.setOrderBy("cmis:creationDate DESC");
-//            ctx.setCacheEnabled(true);
             children = parent.getChildren(ctx);
 
             ItemIterable<?> page = children.skipTo(offset);
-//            page = page.getPage(blockSize);
             Iterator<?> pageIterator = page.iterator();
-            debug("adding children for pageKey = " + pageKey);
             for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
                 CmisObject next = (CmisObject) pageIterator.next();
                 String childId = finderUtil.getObjectMappingId(next);
-                debug("adding child", next.getName(), childId);
+                debug("adding child [" + (int) (offset + i) + "]", next.getName(), childId);
                 writer.addChild(childId, next.getName());
             }
 
             if (pageIterator.hasNext()) {
                 int nextPageOffset = offset + blockSize;
-                long totalSize = (folderSetUnknownChildren)
+                long totalSize = (config.isFolderSetUnknownChildren())
                         ? PageWriter.UNKNOWN_TOTAL_SIZE
                         : children.getTotalNumItems();
-                debug("adding follower page " + nextPageOffset + "#" + nextBlockSize + " " + totalSize);
-                writer.addPage(parentId, nextPageOffset, nextBlockSize, totalSize);
+                debug("adding follower page offset/size: " + nextPageOffset + "#" + (int) pageKey.getBlockSize() + " / total = " + totalSize);
+                writer.addPage(parentId, nextPageOffset, pageKey.getBlockSize(), totalSize);
             }
         }
 
@@ -147,12 +125,12 @@ public class CmisGetChildrenOperation extends CmisOperation {
     }
 
     private String getUnfiledQueryTemplate() {
-        return (StringUtils.isNotEmpty(remoteUnfiledNodeId))
-                    ? "select * from cmis:document where " +
-                    "IN_FOLDER('" + remoteUnfiledNodeId + "')"
-                    : "select doc.* from cmis:document doc " +
-                    "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
-                    "WHERE rcr.Head is NULL";
+        return (StringUtils.isNotEmpty(config.getRemoteUnfiledNodeId()))
+                ? "select * from cmis:document where " +
+                "IN_FOLDER('" + config.getRemoteUnfiledNodeId() + "')"
+                : "select doc.* from cmis:document doc " +
+                "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
+                "WHERE rcr.Head is NULL";
     }
 
 

@@ -8,6 +8,8 @@ import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
@@ -21,8 +23,9 @@ import java.util.Map;
 public class CmisNewObjectOperation extends CmisOperation {
 
 
-    public CmisNewObjectOperation(Session session, LocalTypeManager localTypeManager,CmisObjectFinderUtil finderUtil) {
-        super(session, localTypeManager,finderUtil);
+    public CmisNewObjectOperation(RuntimeSnapshot snapshot,
+                                  CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
     public String newDocumentId(String parentId,

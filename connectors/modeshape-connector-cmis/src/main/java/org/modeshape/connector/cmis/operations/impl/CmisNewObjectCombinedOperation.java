@@ -11,6 +11,8 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
@@ -23,15 +25,9 @@ import java.util.*;
 
 public class CmisNewObjectCombinedOperation extends CmisOperation {
 
-    private boolean ignoreEmptyPropertiesOnCreate;
-    private String secondaryIdPropertyName;
-
-    public CmisNewObjectCombinedOperation(Session session, LocalTypeManager localTypeManager,
-                                          SingleVersionOptions singleVersionOptions,
-                                          boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
-        super(session, localTypeManager,finderUtil);
-        this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
-        this.secondaryIdPropertyName = singleVersionOptions.getCommonIdPropertyName();
+    public CmisNewObjectCombinedOperation(RuntimeSnapshot snapshot,
+                                          CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
 
@@ -132,7 +128,7 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                     // store properties for update
                     // incorrect value won't be parsed so cmisValue will have null which may overwrite default value for required property
                     // consider not to put empty values while store ??
-                    if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && (cmisValue == null || "".equals(cmisValue.toString()))) {
+                    if (config.isIgnoreEmptyPropertiesOnCreate() && pdef.isRequired() && (cmisValue == null || "".equals(cmisValue.toString()))) {
                         continue;
                     }
                     // add property
@@ -140,7 +136,7 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                 }
 
             }
-
+            String secondaryIdPropertyName = config.getSingleVersionOptions().getCommonIdPropertyName();
             ObjectId objectId = ObjectId.valueOf(document.getString("key"));
             PropertyDefinition<?> sidDefinition = objectType.getPropertyDefinitions().get(secondaryIdPropertyName);
             String identifier = objectId.getIdentifier();
