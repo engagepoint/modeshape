@@ -4,6 +4,8 @@ import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.enums.UnfileObject;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
@@ -11,8 +13,9 @@ import org.modeshape.connector.cmis.ObjectId;
 
 public class CmisDeleteOperation extends CmisOperation {
 
-    public CmisDeleteOperation(Session session, LocalTypeManager localTypeManager, CmisObjectFinderUtil finderUtil) {
-        super(session, localTypeManager, finderUtil);
+    public CmisDeleteOperation(RuntimeSnapshot snapshot,
+                               CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
     public boolean removeDocument(String id) {

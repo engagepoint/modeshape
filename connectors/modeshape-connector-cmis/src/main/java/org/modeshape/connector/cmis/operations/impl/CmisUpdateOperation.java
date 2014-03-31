@@ -10,6 +10,8 @@ import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundExcept
 import org.apache.chemistry.opencmis.commons.spi.Holder;
 import org.apache.chemistry.opencmis.commons.spi.ObjectService;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.RuntimeSnapshot;
+import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
@@ -28,11 +30,9 @@ import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.
 
 public class CmisUpdateOperation extends CmisOperation {
 
-    private boolean ignoreEmptyPropertiesOnCreate;
-
-    public CmisUpdateOperation(Session session, LocalTypeManager localTypeManager, boolean ignoreEmptyPropertiesOnCreate,CmisObjectFinderUtil finderUtil) {
-        super(session, localTypeManager,finderUtil);
-        this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
+    public CmisUpdateOperation(RuntimeSnapshot snapshot,
+                               CmisConnectorConfiguration config) {
+        super(snapshot, config);
     }
 
 	private String mapProperty(MappedCustomType mapping, Name name)
@@ -177,7 +177,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                     Object value = localTypeManager.getPropertyUtils().cmisValue(pdef, name.getLocalName(), jcrValues);
                     // ! error protection
-                    if (ignoreEmptyPropertiesOnCreate && pdef.isRequired() && value == null) {
+                    if (config.isIgnoreEmptyPropertiesOnCreate() && pdef.isRequired() && value == null) {
                         debug("WARNING: property [", cmisPropertyName, "] is required but EMPTY !!!!");
                         continue;
                     }

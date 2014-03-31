@@ -3,7 +3,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-remote-client</artifactId>
-    <version>3.7.29-EP-CR-SNAPSHOT</version>
+    <version>3.7.28-EP-CR</version>
 
     <name>ModeShape BOM for remote REST and JDBC clients</name>
 
