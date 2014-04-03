@@ -1,0 +1,41 @@
+{
+    "name" : "config",
+    "jndiName" : "",
+
+    "workspaces" : {
+        "default" : "load",
+        "predefined" : ["load"],
+        "allowCreation" : true
+
+    },
+    "storage" : {
+        "cacheName" : "DATAREPOSITORY",
+        "cacheConfiguration" : "broken_folder/concurrent-load-infinispan-cache.xml",
+        "binaryStorage" : {
+            "type" : "file",
+            "directory": "../modeshape-jcr/target/concurrent_load_non_clustered/binary/",
+            "minimumBinarySizeInBytes" : 4
+        }
+    },
+    "security" : {
+        "anonymous" : {
+            "username" : "<anonymous>",
+            "roles" : ["readonly","readwrite","admin"],
+            "useOnFailedLogin" : false
+        }
+    },
+    "query":{
+        "enabled":true,     
+        "indexing":{
+            "rebuildOnStartup":{
+                "when":"if_missing"
+            }           
+        },
+        "indexStorage": {
+            "type":"filesystem",
+            "location":"../modeshape-jcr/target/concurrent_load_non_clustered/indexes/",
+            "fileSystemAccessType":"auto"
+        }
+    },
+    "node-types" : ["broken_folder/custom_types.cnd"]
+}
