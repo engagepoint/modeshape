@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.7.28-EP-CR</version>
+        <version>3.7.29-EP-FP2-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-web-explorer</artifactId>
