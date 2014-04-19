@@ -40,6 +40,7 @@ import javax.jcr.Binary;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
@@ -149,13 +150,14 @@ public class LoadCreateUnfiledIT extends MultiUseAbstractTest {
         root = getSession().getNodeByIdentifier("jcr:unfiled");
 
 
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 20; i++) {
             long start = new Date().getTime();
             Node node1 = root.addNode("test-1_" + new Date().getTime(), "MyDocType2.8_remapped");
             // System.out.println("Test: creating binary content");
-            byte[] content = "Hello World".getBytes();
-            ByteArrayInputStream bin = new ByteArrayInputStream(content);
-            bin.reset();
+//            byte[] content = "Hello World".getBytes();
+//            ByteArrayInputStream bin = new ByteArrayInputStream(content);
+//            bin.reset();
+            InputStream bin = node.getClass().getClassLoader().getResourceAsStream("sampledata.jpg");
 
             // System.out.println("Test: creating content node");
             Node contentNode = node1.addNode("jcr:content", "nt:resource");

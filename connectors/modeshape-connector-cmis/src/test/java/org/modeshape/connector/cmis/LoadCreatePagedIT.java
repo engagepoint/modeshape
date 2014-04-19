@@ -53,7 +53,7 @@ import static org.junit.Assert.assertTrue;
  * @author Nick Knysh
  * @version 1.0 2/20/2013
  */
-//@Ignore
+@Ignore
 public class LoadCreatePagedIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.
@@ -142,7 +142,7 @@ public class LoadCreatePagedIT extends MultiUseAbstractTest {
         // node.setProperty("name", "test-name");
         root = getSession().getNode("/cmis/" + name);
 
-        for (int i = 0; i < 500; i++) {
+        for (int i = 0; i < 20; i++) {
             long start = new Date().getTime();
             Node node1 = root.addNode("test-1_" + new Date().getTime(), "nt:file");
             // System.out.println("Test: creating binary content");
