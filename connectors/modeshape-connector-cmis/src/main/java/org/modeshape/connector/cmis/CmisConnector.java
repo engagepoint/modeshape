@@ -611,7 +611,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // DEBUG
     public void debug(String... values) {
-        if (debug) {
+//        if (debug) {
             StringBuilder sb = new StringBuilder();
             for (String value : values) {
                 sb.append(value).append(" ");
@@ -623,7 +623,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             } else {
                 System.out.println(sb.toString());
             }
-        }
+//        }
     }
 
     /*
@@ -638,14 +638,19 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
          * @param document JCR node representation
          * @return CMIS content stream object
          */
-        public ContentStream jcrBinaryContent(Document document) {
+        public ContentStream jcrBinaryContent(Document document, String fileName) {
 
             try {
                 DocumentReader reader = readDocument(document);
                 Document props = document.getDocument("properties").getDocument(JcrLexicon.Namespace.URI);
 
-                String fileName = props.getString("fileName");
+//                String fileName = props.getString("name");
                 String mimeType = props.getString("mimeType");
+                if (debug) {
+                    System.out.println("binary: String fileName = props.getString(\"fileName'\" : " + fileName);
+                    System.out.println("binary: String fileName = props.getString(\"mimeType'\" : " + mimeType);
+                    System.out.println("binary: document:: " + document);
+                }
 
                 org.modeshape.jcr.value.Property content = reader.getProperty(Constants.JCR_DATA);
                 BinaryValue binary = factories().getBinaryFactory().create(content.getFirstValue());

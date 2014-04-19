@@ -158,7 +158,8 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                 versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
             }
 
-            ContentStream stream = getContentStream(documentContent, binaryProducer);
+            String filename = cmisProperties.get(PropertyIds.NAME).toString();
+            ContentStream stream = getContentStream(documentContent, filename, binaryProducer);
             if (parent == null) {
                 // unfiled
                 result = session.createDocument(cmisProperties, null, stream, versioningState).getId();
@@ -177,9 +178,9 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
 //        return null;
     }
 
-    private ContentStream getContentStream(Document document, BinaryContentProducerInterface binaryProducer) {
+    private ContentStream getContentStream(Document document, String filename, BinaryContentProducerInterface binaryProducer) {
         // original object is here so converting binary value and
-        return binaryProducer.jcrBinaryContent(document);
+        return binaryProducer.jcrBinaryContent(document, filename);
 
     }
 }

@@ -53,9 +53,10 @@ public class CmisStoreOperation extends CmisOperation {
                     return;
                 }
 
+                String filename = cmisObject.getName();
                 // original object is here so converting binary value and
                 // updating original cmis:document
-                ContentStream stream = binaryProducer.jcrBinaryContent(document);
+                ContentStream stream = binaryProducer.jcrBinaryContent(document, filename);
                 if (stream != null) {
                     if (isVersioned(cmisObject)) CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream);
                     else asDocument(cmisObject).setContentStream(stream, true, true);

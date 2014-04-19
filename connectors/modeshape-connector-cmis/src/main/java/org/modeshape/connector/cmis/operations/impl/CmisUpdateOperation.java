@@ -91,7 +91,8 @@ public class CmisUpdateOperation extends CmisOperation {
                         asDocument(cmisObject).deleteContentStream();
                     }
                 } else {
-                    ContentStream stream = binaryProducer.jcrBinaryContent(delta.getDocument());
+                    String filename = cmisObject.getName();
+                    ContentStream stream = binaryProducer.jcrBinaryContent(delta.getDocument(), filename);
 
                     if (stream != null) {
                         if (isVersioned(cmisObject)) {

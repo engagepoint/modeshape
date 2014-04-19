@@ -5,6 +5,6 @@ import org.infinispan.schematic.document.Document;
 
 public interface BinaryContentProducerInterface {
 
-    ContentStream jcrBinaryContent(Document document);
+    ContentStream jcrBinaryContent(Document document, String fileName);
 
 }
