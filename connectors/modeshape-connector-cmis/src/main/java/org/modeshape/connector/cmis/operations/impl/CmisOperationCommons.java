@@ -1,6 +1,7 @@
 package org.modeshape.connector.cmis.operations.impl;
 
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
 import org.apache.chemistry.opencmis.client.api.QueryResult;
@@ -76,11 +77,13 @@ public class CmisOperationCommons {
     */
     public static boolean isVersioned(CmisObject cmisObject) {
         ObjectType objectType = cmisObject.getType();
+        System.out.println(MessageFormat.format("cmisObject name [{0}] type class [{1}]",  cmisObject.getName(), objectType.getClass().getCanonicalName()));
         if (objectType instanceof DocumentTypeDefinition) {
             DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
+            System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", docType.isVersionable()));
             return docType.isVersionable();
         }
-
+        System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", false));
         return false;
     }
 

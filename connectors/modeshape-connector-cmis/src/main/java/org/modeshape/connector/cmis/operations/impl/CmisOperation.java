@@ -35,9 +35,9 @@ public abstract class CmisOperation {
     public void debug(String... values) {
         if (config.isDebug()) {
             for (String value : values) {
-//                System.out.print(value + " ");
+                System.out.print(value + " ");
             }
-//            System.out.println();
+            System.out.println();
         }
     }
 }
