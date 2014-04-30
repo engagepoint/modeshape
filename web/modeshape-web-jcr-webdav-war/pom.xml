@@ -22,7 +22,6 @@
         <dependency>
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-webdav-war</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
             <type>test-jar</type>
         </dependency>
@@ -30,7 +29,6 @@
         <dependency>
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-common</artifactId>
-            <version>${project.version}</version>
             <scope>test</scope>
             <type>test-jar</type>
         </dependency>
@@ -52,7 +50,7 @@
 
         <dependency>
             <groupId>junit</groupId>
-            <artifactId>junit-dep</artifactId>
+            <artifactId>junit</artifactId>
         </dependency>
 
         <dependency>

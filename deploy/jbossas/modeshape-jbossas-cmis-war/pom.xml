@@ -32,7 +32,6 @@
         <dependency>
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-web-cmis</artifactId>
-            <version>${project.version}</version>  		
         </dependency>
     </dependencies>
     <build>

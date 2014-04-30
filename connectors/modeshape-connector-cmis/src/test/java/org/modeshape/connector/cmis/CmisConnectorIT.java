@@ -23,11 +23,27 @@
  */
 package org.modeshape.connector.cmis;
 
-import junit.framework.Assert;
+
 import org.apache.chemistry.opencmis.client.api.*;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Map;
+import javax.jcr.Binary;
+import javax.jcr.Node;
+import javax.jcr.Property;
+import javax.jcr.PropertyIterator;
+import javax.jcr.nodetype.NodeType;
+import javax.jcr.nodetype.NodeTypeIterator;
+import javax.jcr.nodetype.NodeTypeManager;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
-import org.apache.chemistry.opencmis.commons.PropertyIds;
+
 import org.apache.chemistry.opencmis.commons.SessionParameter;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.log4j.Logger;
@@ -41,17 +57,12 @@ import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.Workspace;
 
 import javax.jcr.*;
-import javax.jcr.Property;
-import javax.jcr.nodetype.NodeType;
-import javax.jcr.nodetype.NodeTypeIterator;
-import javax.jcr.nodetype.NodeTypeManager;
+
 import javax.jcr.nodetype.PropertyDefinition;
 import java.io.*;
 import java.util.*;
 
 import static junit.framework.Assert.assertNotNull;
-import static org.junit.Assert.*;
-import static org.junit.Assert.assertEquals;
 
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
