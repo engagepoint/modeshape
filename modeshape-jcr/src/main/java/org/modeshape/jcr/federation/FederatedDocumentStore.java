@@ -30,6 +30,7 @@ import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
 import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.logging.Logger;
+import org.modeshape.common.util.SecureHash.Algorithm;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
 import org.modeshape.jcr.JcrI18n;
@@ -502,13 +503,19 @@ public class FederatedDocumentStore implements DocumentStore {
 
     private boolean isLocalSource(String key) {
         return !NodeKey.isValidFormat(key) // the key isn't a std key format (probably some internal format)
-                || StringUtil.isBlank(localSourceKey) // there isn't a local source configured yet (e.g. system startup)
-                || (key.startsWith(localSourceKey)); // the sources differ
 
-    }
+                    || StringUtil.isBlank(localSourceKey) // there isn't a local source configured yet (e.g. system startup)
+                    || key.startsWith(localSourceKey); // the sources differ
+        }
 
     private boolean isSystemUnfiled(String key) {
         return (key.contains("jcr:unfiled"));
+    }
+
+
+    private boolean isBinaryMetadataDocumentKey( String key ) {
+        return key.endsWith("-ref") && Algorithm.SHA_1.isHexadecimal(key.substring(0, 40)); // 40 hexadecimal characters long
+
     }
 
     private String sourceKey(String nodeKey) {
