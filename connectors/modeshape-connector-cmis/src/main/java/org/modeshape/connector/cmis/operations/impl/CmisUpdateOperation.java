@@ -227,6 +227,30 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
 
                 break;
+            case UNFILED_STORAGE:
+                // process unfiled changes
+                Map<String, Name> renamed = new HashMap<String, Name>();
+                renamed.putAll(delta.getChildrenChanges().getRenamed());
+
+                if (renamed.size() > 0)
+                {
+                    debug("Unfiled changes: renamed ", Integer.toString(renamed.size()));
+
+                    CmisObject child;
+                    String before, after;
+                    for (Map.Entry<String, Name> entry : renamed.entrySet())
+                    {
+                        child = finderUtil.find(entry.getKey());
+                        before = child.getName();
+                        after = entry.getValue().getLocalName();
+
+                        if (after.equals(before)) continue;
+
+                        debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+
+                        rename(child, after);
+                    }
+                }
         }
         debug("end of update story -----------------------------");
 
