@@ -92,6 +92,12 @@ import org.modeshape.jcr.value.binary.InMemoryBinaryValue;
  */
 public class DocumentTranslator implements DocumentConstants {
 
+    public static final String KEY_DECIMAL = "$dec";
+    public static final String KEY_DATE = "$date";
+    public static final String KEY_NAME = "$name";
+    public static final String KEY_PATH = "$path";
+    public static final String KEY_RELATIVE = "$relative";
+
     private final DocumentStore documentStore;
     private final AtomicLong largeStringSize = new AtomicLong();
     private final ExecutionContext context;
@@ -1157,7 +1163,7 @@ public class DocumentTranslator implements DocumentConstants {
         }
         if (value instanceof Name) {
             Name name = (Name)value;
-            return Schematic.newDocument("$name", name.getString(encoder));
+            return Schematic.newDocument(KEY_NAME, name.getString(encoder));
         }
         if (value instanceof Path) {
             Path path = (Path)value;
@@ -1167,13 +1173,13 @@ public class DocumentTranslator implements DocumentConstants {
                 segments.add(str);
             }
             boolean relative = !path.isAbsolute();
-            return Schematic.newDocument("$path", segments, "$relative", relative);
+            return Schematic.newDocument(KEY_PATH, segments, KEY_RELATIVE, relative);
         }
         if (value instanceof DateTime) {
-            return Schematic.newDocument("$date", this.strings.create((DateTime)value));
+            return Schematic.newDocument(KEY_DATE, this.strings.create((DateTime)value));
         }
         if (value instanceof BigDecimal) {
-            return Schematic.newDocument("$dec", this.strings.create((BigDecimal)value));
+            return Schematic.newDocument(KEY_DECIMAL, this.strings.create((BigDecimal)value));
         }
         if (value instanceof Reference) {
             Reference ref = (Reference)value;
@@ -1329,18 +1335,18 @@ public class DocumentTranslator implements DocumentConstants {
             Document doc = (Document)value;
             String valueStr = null;
             List<?> array = null;
-            if (!Null.matches(valueStr = doc.getString("$name"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_NAME))) {
                 return names.create(valueStr, decoder);
             }
-            if (!Null.matches(array = doc.getArray("$path"))) {
+            if (!Null.matches(array = doc.getArray(KEY_PATH))) {
                 List<Segment> segments = segmentsFrom(array);
-                boolean relative = doc.getBoolean("$relative");
+                boolean relative = doc.getBoolean(KEY_RELATIVE);
                 return relative ? paths.createRelativePath(segments) : paths.createAbsolutePath(segments);
             }
-            if (!Null.matches(valueStr = doc.getString("$date"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DATE))) {
                 return dates.create(valueStr);
             }
-            if (!Null.matches(valueStr = doc.getString("$dec"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DECIMAL))) {
                 return decimals.create(valueStr);
             }
             if (!Null.matches(valueStr = doc.getString(REFERENCE_FIELD))) {

@@ -39,7 +39,7 @@ import org.infinispan.schematic.internal.document.BasicDocument;
 import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
-
+import org.modeshape.jcr.cache.document.DocumentTranslator;
 /**
  * Implements mapping between several CMIS and JCR properties. This implementation of the connector suppose conversation between
  * cmis folders and document into jcr folders and files. Such conversation in its order suppose conversation of the names and
@@ -227,7 +227,21 @@ public class Properties {
             case BOOLEAN:
                 return document.getBoolean(jcrName);
             case DECIMAL:
-                return BigDecimal.valueOf(document.getLong(jcrName));
+                Object decimal = document.get(jcrName);
+                if(decimal == null) return decimal;   // no object with this name
+
+                if ( !( decimal instanceof BasicDocument) ) {
+                    break;  //  Unknown type
+                }
+                BasicDocument decimalDocument = (BasicDocument) decimal;
+                if (! decimalDocument.containsField(DocumentTranslator.KEY_DECIMAL) ) {
+                    break;  //  Unknown fields
+                }
+                String decimalAsString = decimalDocument.getString(DocumentTranslator.KEY_DECIMAL);
+                if(decimalAsString!=null){
+                    return new BigDecimal(decimalAsString);
+                }
+                else return null;
             case INTEGER:
                 // override default logic. There is not integer in Jcr
                 Object obj = document.get(jcrName);
@@ -246,10 +260,10 @@ public class Properties {
                 }
                 BasicDocument dateDocument = (BasicDocument)date;
 
-                if (! dateDocument.containsField(Json.ReservedField.DATE) ) {
+                if (! dateDocument.containsField(DocumentTranslator.KEY_DATE) ) {
                     break;  //  Unknown fields
                 }
-                String dateAsString = dateDocument.getString(Json.ReservedField.DATE);
+                String dateAsString = dateDocument.getString(DocumentTranslator.KEY_DATE);
                 if ( dateAsString == null || dateAsString.trim().isEmpty() ) {
                     break;
                 }
