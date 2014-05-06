@@ -122,22 +122,24 @@ public class CmisUpdateOperation extends CmisOperation {
                     String before, after;
                     for (Map.Entry<String, Name> entry : map.entrySet()) {
                         child = finderUtil.find(entry.getKey());
-                        before = child.getName();
-                        after = entry.getValue().getLocalName();
+                        if (child != null) {
+                            before = child.getName();
+                            after = entry.getValue().getLocalName();
 
-                        if (after.equals(before)) {
-                            continue;
+                            if (after.equals(before)) {
+                                continue;
+                            }
+
+                            debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+
+                            // determine if in child's parent already exists a child with same name
+                            if (isExistCmisObject(((FileableCmisObject) child).getParents().get(0).getPath() + "/" + after)) {
+                                // already exists, so generates a temporary name
+                                after += "-temp";
+                            }
+
+                            rename(child, after);
                         }
-
-                        debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
-
-                        // determine if in child's parent already exists a child with same name
-                        if (isExistCmisObject(((FileableCmisObject) child).getParents().get(0).getPath() + "/" + after)) {
-                            // already exists, so generates a temporary name
-                            after += "-temp";
-                        }
-
-                        rename(child, after);
                     }
                 }
                 Document props = delta.getDocument().getDocument("properties");
