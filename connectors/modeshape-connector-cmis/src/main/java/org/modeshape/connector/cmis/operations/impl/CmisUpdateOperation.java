@@ -22,6 +22,7 @@ import org.modeshape.jcr.value.Name;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
@@ -284,13 +285,16 @@ public class CmisUpdateOperation extends CmisOperation {
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put("cmis:name", name);
 
-        CmisObject parent = ((FileableCmisObject)object).getParents().get(0);
+        List<CmisObject> parents = new ArrayList<CmisObject>();
+        CmisObject parent = null;
 
-        if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object))
-        {
-            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+        parents.addAll(((FileableCmisObject) object).getParents());
+        if (!parents.isEmpty()) {
+            parent = parents.get(0);
         }
-        else object.updateProperties(properties);
+        if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
+            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+        } else object.updateProperties(properties);
     }
 
     /**
