@@ -10,13 +10,9 @@ import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.Constants;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
@@ -47,6 +43,8 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject == null ? "null" : cmisObject.getName());
         CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(snapshot, config);
 
         Folder folder = (Folder) cmisObject;
@@ -76,6 +74,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = folder.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
+        debug("Finish CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject.getName(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
         return writer;
     }
 
@@ -88,6 +87,8 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public Document cmisDocument(CmisObject cmisObject, String incomingId) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject == null ? "null" : cmisObject.getName(), " and incomingId = ", getPossibleNullString(incomingId));
         org.apache.chemistry.opencmis.client.api.Document doc = CmisOperationCommons.asDocument(cmisObject);
 
         // document and internalId
@@ -123,6 +124,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
 
+        debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
         return writer.document();
     }
 
@@ -133,6 +135,8 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node representation.
      */
     public Document cmisContent(String id) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetObjectOperation:cmisContent for cmisObject with Id = ", getPossibleNullString(id));
         String contentId = ObjectId.toString(ObjectId.Type.CONTENT, id);
         DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(contentId);
 
@@ -163,6 +167,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
 
+        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
         return writer.document();
     }
 
@@ -172,6 +177,9 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return node document.
      */
     public Document jcrUnfiled(String originalId, String caughtProjectedId) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetObjectOperation:jcrUnfiled for originalId = ", getPossibleNullString(originalId), " and caughtProjectedId = ", getPossibleNullString(caughtProjectedId));
+       
         DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, ObjectId.Type.UNFILED_STORAGE.getValue()));
         Folder root = session.getRootFolder();
 
@@ -206,6 +214,7 @@ public class CmisGetObjectOperation extends CmisOperation {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, 0, PageWriter.UNKNOWN_TOTAL_SIZE);
         }
 
+        debug("Finish CmisGetObjectOperation:jcrUnfiled for originalId = ", originalId, " and caughtProjectedId = ", caughtProjectedId, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");        
         return writer.document();
     }
 
@@ -244,6 +253,9 @@ public class CmisGetObjectOperation extends CmisOperation {
     }
 
     public Map<String, Object[]> processProperties(List<Property<?>> cmisProperties, TypeDefinition type, MappedCustomType typeMapping, Set<String> propertyDefinitions) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetObjectOperation:processProperties");
+       
         Map<String, Object[]> result = new LinkedHashMap<String, Object[]>(cmisProperties.size());
         for (Property<?> cmisProperty : cmisProperties) {
             // pop item prom list
@@ -261,7 +273,7 @@ public class CmisGetObjectOperation extends CmisOperation {
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
             result.put(jcrPropertyName, values);
         }
-
+        debug("Finish CmisGetObjectOperation:processProperties. Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");                
         return result;
     }
 

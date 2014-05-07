@@ -2,7 +2,6 @@ package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
@@ -13,10 +12,7 @@ import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 import org.modeshape.jcr.value.Name;
@@ -43,7 +39,10 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                                 Document document,
                                 Document documentContent,
                                 BinaryContentProducerInterface binaryProducer) {
-        String result;
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisNewObjectCombinedOperation:storeDocument for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName());
+        
+        String result = null;
         Map<String, Object> cmisProperties = new HashMap<String, Object>();
         try {
             // all other node types belong to cmis object
@@ -175,6 +174,7 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
 //        return null;
     }
 

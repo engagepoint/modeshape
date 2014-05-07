@@ -2,7 +2,6 @@ package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
@@ -10,8 +9,6 @@ import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.jcr.value.Name;
@@ -31,13 +28,19 @@ public class CmisNewObjectOperation extends CmisOperation {
     public String newDocumentId(String parentId,
                                 Name name,
                                 Name primaryType) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisNewObjectOperation:newDocumentId for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName());
+        
         Map<String, Object> params = new HashMap<String, Object>();
         try {
+            String result = null;
             // let'start from checking primary type
             if (primaryType.getLocalName().equals("resource")) {
                 // nt:resource node belongs to cmis:document's content thus
                 // we must return just parent id without creating any CMIS object
-                return ObjectId.toString(ObjectId.Type.CONTENT, parentId);
+                result = ObjectId.toString(ObjectId.Type.CONTENT, parentId);
+                debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+                return result;
             }
 
             // all other node types belong to cmis object
@@ -69,7 +72,7 @@ public class CmisNewObjectOperation extends CmisOperation {
             params.put(PropertyIds.OBJECT_TYPE_ID, objectType.getId());
             params.put(PropertyIds.NAME, name.getLocalName());
 
-            String result = null;
+            
             // create object and id for it.
             switch (objectType.getBaseTypeId()) {
                 case CMIS_FOLDER:
@@ -102,11 +105,12 @@ public class CmisNewObjectOperation extends CmisOperation {
                 default:
                     debug("return null. base type id is ", objectType.getBaseTypeId().value());
             }
-
+            debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
             return result;
         } catch (Exception e) {
             e.printStackTrace();
         }
+        debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", "null", ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
         return null;
     }
 

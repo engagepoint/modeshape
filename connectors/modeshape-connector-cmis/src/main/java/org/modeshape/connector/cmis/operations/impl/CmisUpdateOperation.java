@@ -52,9 +52,11 @@ public class CmisUpdateOperation extends CmisOperation {
     }
 
     public void updateDocument(DocumentChanges delta, BinaryContentProducerInterface binaryProducer) {
+        long startTime = System.currentTimeMillis();
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
+        debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());        
 
         // this action depends from object type
         switch (objectId.getType()) {
@@ -72,6 +74,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 CmisObject cmisObject = finderUtil.find(cmisId);
 
                 if (cmisObject == null) {
+                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                     throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + cmisId);
                 }
 
@@ -105,6 +108,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 // checking that object exists
                 if (cmisObject == null) {
+                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                     throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
                 }
 
@@ -242,8 +246,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 break;
         }
-        debug("end of update story -----------------------------");
-
+        debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
     }
 
     /**

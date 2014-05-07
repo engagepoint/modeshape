@@ -25,7 +25,7 @@ public class CmisStoreOperation extends CmisOperation {
 
     public void storeDocument(Document document, BinaryContentProducerInterface binaryProducer) {
         long startTime = System.currentTimeMillis();
-        debug("Connector storeDocument started");
+        debug("Start CmisStoreOperation:storeDocumen");
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
@@ -34,7 +34,7 @@ public class CmisStoreOperation extends CmisOperation {
         switch (objectId.getType()) {
             case REPOSITORY_INFO:
                 // repository information is ready only
-                debug("Connector storeDocument objectId.getType() is REPOSITORY_INFO. Nothing to do");
+                debug("Finish CmisStoreOperation:storeDocumen objectId.getType() is REPOSITORY_INFO. Nothing to do. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                 return;
             case CONTENT:
                 // in the jcr domain content is represented by child node of
@@ -50,7 +50,7 @@ public class CmisStoreOperation extends CmisOperation {
                 if (cmisObject == null) {
                     // object does not exist. propably was deleted by from cmis domain
                     // we don't know how to handle such case yet, thus TODO
-                    debug("Connector storeDocument cmisObject is null.");                
+                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");                
                     return;
                 }
 
@@ -70,7 +70,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // check that we have jcr properties to store in the cmis repo
                 if (jcrProperties == null) {
                     // nothing to store
-                    debug("Connector storeDocument jcrProperties is null."); 
+                    debug("Finish CmisStoreOperation:storeDocumen jcrProperties is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms"); 
                     return;
                 }
 
@@ -87,7 +87,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // unknown object?
                 if (cmisObject == null) {
                     // exit silently
-                    debug("Connector storeDocument cmisObject is null."); 
+                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms"); 
                     return;
                 }
 
@@ -160,6 +160,6 @@ public class CmisStoreOperation extends CmisOperation {
                 }
                 break;
         }
-        debug("Connector storeDocument finished. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisStoreOperation:storeDocumen. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
     }
 }
