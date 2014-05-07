@@ -1,5 +1,6 @@
 package org.modeshape.connector.cmis.operations.impl;
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -18,6 +19,7 @@ import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 import org.modeshape.jcr.value.Name;
 
 import java.util.*;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisStorageException;
 
 public class CmisNewObjectCombinedOperation extends CmisOperation {
 
@@ -166,16 +168,11 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                 org.apache.chemistry.opencmis.client.api.Document resultDocument = parent.createDocument(cmisProperties, stream, versioningState);
                 result = ObjectId.toString(ObjectId.Type.OBJECT, resultDocument.getId());
             }
-
-            // replace id with version series id
-//            result = CmisOperationCommons.getMappingId(session.getObject(result));
-
-//            return result;
         } catch (Exception e) {
             e.printStackTrace();
+            throw new CmisStorageException(MessageFormat.format("Unable to store document [{0}] to external CMIS storage due to unexpected error.", (document == null ? "null" : document.getString("key"))), e);
         }
-        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
-//        return null;
+        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", getPossibleNullString(result), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
     }
 
     private ContentStream getContentStream(Document document, String filename, BinaryContentProducerInterface binaryProducer) {
