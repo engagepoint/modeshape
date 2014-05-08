@@ -17,6 +17,7 @@ import org.modeshape.jcr.value.Name;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
@@ -245,6 +246,30 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
 
                 break;
+            case UNFILED_STORAGE:
+                // process unfiled changes
+                Map<String, Name> renamed = new HashMap<String, Name>();
+                renamed.putAll(delta.getChildrenChanges().getRenamed());
+
+                if (renamed.size() > 0)
+                {
+                    debug("Unfiled changes: renamed ", Integer.toString(renamed.size()));
+
+                    CmisObject child;
+                    String before, after;
+                    for (Map.Entry<String, Name> entry : renamed.entrySet())
+                    {
+                        child = finderUtil.find(entry.getKey());
+                        before = child.getName();
+                        after = entry.getValue().getLocalName();
+
+                        if (after.equals(before)) continue;
+
+                        debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+
+                        rename(child, after);
+                    }
+                }
         }
         debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
@@ -274,13 +299,16 @@ public class CmisUpdateOperation extends CmisOperation {
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put("cmis:name", name);
 
-        CmisObject parent = ((FileableCmisObject) object).getParents().get(0);
+        List<CmisObject> parents = new ArrayList<CmisObject>();
+        CmisObject parent = null;
 
+        parents.addAll(((FileableCmisObject) object).getParents());
+        if (!parents.isEmpty()) {
+            parent = parents.get(0);
+        }
         if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
             CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
-        } else {
-            object.updateProperties(properties);
-        }
+        } else object.updateProperties(properties);
     }
 
     /**

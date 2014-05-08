@@ -761,6 +761,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         System.out.println(String.format("And I've found <%s> sns Items", result.getTotalNumItems()));
 
         QueryResult next = result.iterator().next();
+        if (next == null)
+            return null;
+
         String mappedId = runtimeSnapshot.getCmisObjectFinderUtil().getObjectMappingId(next);
         return newChildReference(mappedId, childName.getLocalName());
     }

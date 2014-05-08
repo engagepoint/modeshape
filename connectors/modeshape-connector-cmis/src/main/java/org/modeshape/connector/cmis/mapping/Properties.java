@@ -1,26 +1,26 @@
 /*
- * ModeShape (http://www.modeshape.org)
- * See the COPYRIGHT.txt file distributed with this work for information
- * regarding copyright ownership.  Some portions may be licensed
- * to Red Hat, Inc. under one or more contributor license agreements.
- * See the AUTHORS.txt file in the distribution for a full listing of
- * individual contributors.
- *
- * ModeShape is free software. Unless otherwise indicated, all code in ModeShape
- * is licensed to you under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- *
- * ModeShape is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
+* ModeShape (http://www.modeshape.org)
+* See the COPYRIGHT.txt file distributed with this work for information
+* regarding copyright ownership. Some portions may be licensed
+* to Red Hat, Inc. under one or more contributor license agreements.
+* See the AUTHORS.txt file in the distribution for a full listing of
+* individual contributors.
+*
+* ModeShape is free software. Unless otherwise indicated, all code in ModeShape
+* is licensed to you under the terms of the GNU Lesser General Public License as
+* published by the Free Software Foundation; either version 2.1 of
+* the License, or (at your option) any later version.
+*
+* ModeShape is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+* Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public
+* License along with this software; if not, write to the Free
+* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+* 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+*/
 package org.modeshape.connector.cmis.mapping;
 
 import java.math.BigDecimal;
@@ -146,7 +146,7 @@ public class Properties {
     /**
      * Calculates value of the property corresponding to cmis domain.
      *
-     * @param pdef  property definition as declared in cmis repository.
+     * @param pdef property definition as declared in cmis repository.
      * @param field the representation of the value of the property in jcr domain.
      * @return value as declared by property definition.
      */
@@ -156,10 +156,10 @@ public class Properties {
             System.out.println("FLDFLDFLDFLDFLDFLDFLD::: " + field);
             return field.getValueAsDocument().getArray(field.getName());
 
-//            if (field.getValue() instanceof List) {
-//                return (List) field.getValue();
-//            }
-//            return Arrays.asList(field.getValue());
+// if (field.getValue() instanceof List) {
+// return (List) field.getValue();
+// }
+// return Arrays.asList(field.getValue());
         }
         switch (pdef.getPropertyType()) {
             case STRING:
@@ -169,7 +169,7 @@ public class Properties {
             case DECIMAL:
                 return BigDecimal.valueOf(field.getValueAsInt());
             case INTEGER:
-//                return field.getValueAsInt();
+// return field.getValueAsInt();
                 // override default logic. There is not integer in Jcr
                 Object obj = field.getValue();
                 if (obj == null) return obj;
@@ -197,8 +197,8 @@ public class Properties {
     /**
      * Calculates value of the property corresponding to cmis domain.
      *
-     * @param pdef     property definition as declared in cmis repository.
-     * @param jcrName  the name of the property in jcr domain
+     * @param pdef property definition as declared in cmis repository.
+     * @param jcrName the name of the property in jcr domain
      * @param document connectors's view of properties in jcr domain.
      * @return value as declared by property definition.
      */
@@ -211,7 +211,7 @@ public class Properties {
             if (array == null) {
                 Object singleValue = getSingleValue(pdef, jcrName, document);
                 if (singleValue != null) {
-                    array  = new BasicArray(singleValue);
+                    array = new BasicArray(singleValue);
                     System.out.println("custom sv arrays value: "+ array);
                 }
             }
@@ -228,14 +228,14 @@ public class Properties {
                 return document.getBoolean(jcrName);
             case DECIMAL:
                 Object decimal = document.get(jcrName);
-                if(decimal == null) return decimal;   // no object with this name
+                if(decimal == null) return decimal; // no object with this name
 
                 if ( !( decimal instanceof BasicDocument) ) {
-                    break;  //  Unknown type
+                    break; // Unknown type
                 }
                 BasicDocument decimalDocument = (BasicDocument) decimal;
                 if (! decimalDocument.containsField(DocumentTranslator.KEY_DECIMAL) ) {
-                    break;  //  Unknown fields
+                    break; // Unknown fields
                 }
                 String decimalAsString = decimalDocument.getString(DocumentTranslator.KEY_DECIMAL);
                 if(decimalAsString!=null){
@@ -252,16 +252,16 @@ public class Properties {
             case DATETIME:
                 Object date = document.get(jcrName);
                 if (date == null) {
-                    break;  //  There is no fields with such name
+                    break; // There is no fields with such name
                 }
                 GregorianCalendar lCal = new GregorianCalendar();
                 if ( !( date instanceof BasicDocument) ) {
-                    break;  //  Unknown type
+                    break; // Unknown type
                 }
                 BasicDocument dateDocument = (BasicDocument)date;
 
                 if (! dateDocument.containsField(DocumentTranslator.KEY_DATE) ) {
-                    break;  //  Unknown fields
+                    break; // Unknown fields
                 }
                 String dateAsString = dateDocument.getString(DocumentTranslator.KEY_DATE);
                 if ( dateAsString == null || dateAsString.trim().isEmpty() ) {
@@ -448,3 +448,4 @@ public class Properties {
         }
     }
 }
+

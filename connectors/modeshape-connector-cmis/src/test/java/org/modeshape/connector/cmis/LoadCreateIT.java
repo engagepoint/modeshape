@@ -59,7 +59,7 @@ import static org.junit.Assert.*;
  * @version 1.0 2/20/2013
  */
 @Ignore
-public class LoadCreateIT extends MultiUseAbstractTest {
+public class  LoadCreateIT extends MultiUseAbstractTest {
     /**
      * Test OpenCMIS InMemory Server URL.
      * <p/>
