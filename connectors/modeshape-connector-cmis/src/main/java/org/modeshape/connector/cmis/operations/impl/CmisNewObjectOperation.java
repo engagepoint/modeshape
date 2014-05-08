@@ -39,7 +39,7 @@ public class CmisNewObjectOperation extends CmisOperation {
                 // nt:resource node belongs to cmis:document's content thus
                 // we must return just parent id without creating any CMIS object
                 result = ObjectId.toString(ObjectId.Type.CONTENT, parentId);
-                debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+                debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
                 return result;
             }
 
@@ -105,12 +105,12 @@ public class CmisNewObjectOperation extends CmisOperation {
                 default:
                     debug("return null. base type id is ", objectType.getBaseTypeId().value());
             }
-            debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+            debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", result == null ? "null" : result, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
             return result;
         } catch (Exception e) {
             e.printStackTrace();
         }
-        debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", "null", ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisNewObjectOperation:newDocumentId for parentId = ", parentId, " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", "null", ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return null;
     }
 

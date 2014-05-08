@@ -108,7 +108,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 // checking that object exists
                 if (cmisObject == null) {
-                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
+                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
                     throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
                 }
 
@@ -246,7 +246,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 break;
         }
-        debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
 
     /**

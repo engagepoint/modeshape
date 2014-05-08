@@ -50,7 +50,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
                 item = getNext(iterator);
             }
         }
-        debug("Finish CmisGetChildrenOperation:cmisChildren for folder = ", folder.getName(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisGetChildrenOperation:cmisChildren for folder = ", folder.getName(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
     private CmisObject getNext(Iterator<CmisObject> iterator) {
@@ -125,7 +125,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
                 writer.addPage(parentId, nextPageOffset, pageKey.getBlockSize(), totalSize);
             }
         }
-        debug("Finish CmisGetChildrenOperation:getChildren for ", pageKey.toString(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisGetChildrenOperation:getChildren for ", pageKey.toString(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer;
     }
 

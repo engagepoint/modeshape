@@ -74,7 +74,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = folder.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
-        debug("Finish CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject.getName(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject.getName(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer;
     }
 
@@ -124,7 +124,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
 
-        debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
 
@@ -167,7 +167,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
 
-        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
 
@@ -214,7 +214,7 @@ public class CmisGetObjectOperation extends CmisOperation {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, 0, PageWriter.UNKNOWN_TOTAL_SIZE);
         }
 
-        debug("Finish CmisGetObjectOperation:jcrUnfiled for originalId = ", originalId, " and caughtProjectedId = ", caughtProjectedId, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");        
+        debug("Finish CmisGetObjectOperation:jcrUnfiled for originalId = ", originalId, " and caughtProjectedId = ", caughtProjectedId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");        
         return writer.document();
     }
 
@@ -273,7 +273,7 @@ public class CmisGetObjectOperation extends CmisOperation {
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
             result.put(jcrPropertyName, values);
         }
-        debug("Finish CmisGetObjectOperation:processProperties. Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");                
+        debug("Finish CmisGetObjectOperation:processProperties. Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");                
         return result;
     }
 

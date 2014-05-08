@@ -172,7 +172,7 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
             e.printStackTrace();
             throw new CmisStorageException(MessageFormat.format("Unable to store document [{0}] to external CMIS storage due to unexpected error.", (document == null ? "null" : document.getString("key"))), e);
         }
-        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", getPossibleNullString(result), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", getPossibleNullString(result), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
     private ContentStream getContentStream(Document document, String filename, BinaryContentProducerInterface binaryProducer) {

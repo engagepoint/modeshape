@@ -70,7 +70,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // check that we have jcr properties to store in the cmis repo
                 if (jcrProperties == null) {
                     // nothing to store
-                    debug("Finish CmisStoreOperation:storeDocumen jcrProperties is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms"); 
+                    debug("Finish CmisStoreOperation:storeDocumen jcrProperties is null. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms"); 
                     return;
                 }
 
@@ -87,7 +87,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // unknown object?
                 if (cmisObject == null) {
                     // exit silently
-                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms"); 
+                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms"); 
                     return;
                 }
 
@@ -160,6 +160,6 @@ public class CmisStoreOperation extends CmisOperation {
                 }
                 break;
         }
-        debug("Finish CmisStoreOperation:storeDocumen. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisStoreOperation:storeDocumen. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
 }

@@ -129,7 +129,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
         if (childValues == null) childValues = new ArrayList<String>();
         childValues.add(resultGuid);
         snapshot.getSingleVersionCache().putReferences(parentId, childValues);
-        debug("Finish CmisSingleVersionOperations:newDocumentId for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", getPossibleNullString(resultGuid), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisSingleVersionOperations:newDocumentId for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", getPossibleNullString(resultGuid), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         
         return resultGuid;
     }
@@ -151,7 +151,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
                     writer.addChild(childId, tempDocument.getName().getLocalName());
             }
         }
-        debug("Finish CmisSingleVersionOperations:addCachedChildren for Id = ", getPossibleNullString(id), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");        
+        debug("Finish CmisSingleVersionOperations:addCachedChildren for Id = ", getPossibleNullString(id), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");        
     }
 
     /*

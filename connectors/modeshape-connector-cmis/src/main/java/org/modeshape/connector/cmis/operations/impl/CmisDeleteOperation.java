@@ -58,7 +58,7 @@ public class CmisDeleteOperation extends CmisOperation {
             return true;
         }
         
-        debug("Finish CmisDeleteOperation:doDeleteObject for objectId = ", id, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisDeleteOperation:doDeleteObject for objectId = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
 
@@ -105,7 +105,7 @@ public class CmisDeleteOperation extends CmisOperation {
             }
 
         }
-        debug("Finish CmisDeleteOperation:doDeleteContent for objectId = ", cmisId, ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisDeleteOperation:doDeleteContent for objectId = ", cmisId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
 
@@ -115,7 +115,7 @@ public class CmisDeleteOperation extends CmisOperation {
         debug("Start CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId());
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteContentStream();
-        debug("Finish CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId(), " Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId(), " Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
     public void deleteVersioned(CmisObject object) {
@@ -127,7 +127,7 @@ public class CmisDeleteOperation extends CmisOperation {
 
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteAllVersions();
-        debug("Finish CmisDeleteOperation:deleteVersioned for objectId = ", object == null ? "null" : object.getId(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        debug("Finish CmisDeleteOperation:deleteVersioned for objectId = ", object == null ? "null" : object.getId(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
 }
