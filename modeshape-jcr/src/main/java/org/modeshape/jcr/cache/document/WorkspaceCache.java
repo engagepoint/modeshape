@@ -158,10 +158,14 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
     final DocumentStore documentStore() {
         return documentStore;
     }
-
+    
     final Document documentFor( String key ) {
+        return documentFor(key, false);
+    }
+
+    final Document documentFor( String key, boolean useChildrenCache ) {
         // Look up the information in the database ...
-        SchematicEntry entry = documentStore.get(key);
+        SchematicEntry entry = documentStore.get(key, useChildrenCache);
         if (entry == null) {
             // There is no such node ...
             return null;
@@ -180,7 +184,11 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
     }
 
     final Document documentFor( NodeKey key ) {
-        return documentFor(key.toString());
+        return documentFor(key, false);
+    }
+    
+    final Document documentFor( NodeKey key, boolean useChildrenCache ) {
+        return documentFor(key.toString(), useChildrenCache);
     }
 
     final ChildReference childReferenceForRoot() {
@@ -205,6 +213,11 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
 
     @Override
     public CachedNode getNode( NodeKey key ) {
+        return getNode(key, false);
+    }
+    
+    @Override
+    public CachedNode getNode( NodeKey key, boolean useChildrenCache ) {
         checkNotClosed();
         CachedNode node = nodesByKey.get(key);
         if (node == null) {
@@ -212,7 +225,7 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Node '{0}' is not found in the '{1}' workspace cache; looking in store", key, workspaceName);
             }
-            Document doc = documentFor(key);
+            Document doc = documentFor(key, useChildrenCache);
             if (doc != null) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Materialized document '{0}' in '{1}' workspace from store: {2}", key, workspaceName, doc);

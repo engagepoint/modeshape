@@ -1,6 +1,5 @@
 package org.modeshape.connector.cmis.config;
 
-import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 
 /*
@@ -27,6 +26,9 @@ public class CmisConnectorConfiguration {
     long pageSize;
 
     long pageSizeUnfiled;
+    
+    int folderCacheTtlSeconds;
+    int folderCacheSize;
 
     SingleVersionOptions singleVersionOptions;
     private boolean hideRootFolderReference;
@@ -39,7 +41,7 @@ public class CmisConnectorConfiguration {
                                       boolean folderSetUnknownChildren, long pageSize, long pageSizeUnfiled,
                                       SingleVersionOptions singleVersionOptions,
                                       boolean hideRootFolderReference,
-                                      boolean debug) {
+                                      boolean debug, int folderCacheTtlSeconds, int folderCacheSize) {
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.snsCommonIndex = snsCommonIndex;
@@ -51,6 +53,8 @@ public class CmisConnectorConfiguration {
         this.singleVersionOptions = singleVersionOptions;
         this.hideRootFolderReference = hideRootFolderReference;
         this.debug = debug;
+        this.folderCacheTtlSeconds = folderCacheTtlSeconds;
+        this.folderCacheSize = folderCacheSize;
     }
 
     public boolean isIgnoreEmptyPropertiesOnCreate() {
@@ -96,4 +100,13 @@ public class CmisConnectorConfiguration {
     public boolean isDebug() {
         return debug;
     }
+
+    public int getFolderCacheTtlSeconds() {
+        return folderCacheTtlSeconds;
+    }
+
+    public int getFolderCacheSize() {
+        return folderCacheSize;
+    }
+
 }

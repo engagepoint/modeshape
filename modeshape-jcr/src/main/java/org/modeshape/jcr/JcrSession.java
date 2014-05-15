@@ -447,8 +447,15 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
      */
     AbstractJcrNode node( NodeKey nodeKey,
                           AbstractJcrNode.Type expectedType ) throws ItemNotFoundException {
+        return node(nodeKey, expectedType, false);
+    }
+    
+    AbstractJcrNode node( NodeKey nodeKey,
+                          AbstractJcrNode.Type expectedType, boolean useChildrenCache ) throws ItemNotFoundException {
         return node(nodeKey, expectedType, null);
     }
+    
+    
 
     /**
      * Obtain the {@link Node JCR Node} object for the node with the supplied key.
@@ -736,6 +743,11 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
 
     @Override
     public AbstractJcrNode getNodeByIdentifier( String id ) throws ItemNotFoundException, RepositoryException {
+        return getNodeByIdentifier(id, false);
+    }
+    
+    @Override
+    public AbstractJcrNode getNodeByIdentifier( String id, boolean useChildrenCache ) throws ItemNotFoundException, RepositoryException {
         checkLive();
         if (NodeKey.isValidFormat(id)) {
             // Try the identifier as a node key ...
@@ -752,7 +764,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         try {
             // Try as node key identifier ...
             key = this.rootNode.key.withId(id);
-            return node(key, null);
+            return node(key, null, useChildrenCache);
         } catch (ItemNotFoundException e) {
             // Not found, so capture the exception (which we might use later) and continue ...
             first = e;
@@ -761,7 +773,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         try {
             String systemWorkspaceKey = this.repository().systemWorkspaceKey();
             key = key.withWorkspaceKey(systemWorkspaceKey);
-            AbstractJcrNode systemNode = node(key, null);
+            AbstractJcrNode systemNode = node(key, null, useChildrenCache);
             if (systemNode instanceof JcrVersionHistoryNode) {
                 //because the version history node has the same key as the original node, we don't want to expose it to clients
                 //this means that if we got this far, the original hasn't been found, so neither should the version history
@@ -2178,13 +2190,20 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 node.setProperty(cache, propertyFactory.create(JcrLexicon.ETAG, etagValue));
             }
         }
-
+        
         @Override
         public void processAfterLocking( MutableCachedNode modifiedNode,
                                          SaveContext context,
                                          NodeCache persistentNodeCache ) throws RepositoryException {
-            // We actually can avoid this altogether if certain conditions are met ...
-            final Name primaryType = modifiedNode.getPrimaryType(cache);
+            processAfterLocking(modifiedNode, context, persistentNodeCache, false);
+        }
+
+        @Override
+        public void processAfterLocking( MutableCachedNode modifiedNode,
+                                         SaveContext context,
+                                         NodeCache persistentNodeCache, boolean useChildrenCache ) throws RepositoryException {           
+            // We actually can av   oid this altogether if certain conditions are met ...
+            final Name primaryType = modifiedNode.getPrimaryType(cache, useChildrenCache);
             final Set<Name> mixinTypes = modifiedNode.getMixinTypes(cache);
             if (!nodeTypeCapabilities.disallowsSameNameSiblings(primaryType, mixinTypes)) return;
 
@@ -2256,7 +2275,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     for (NodeKey appendedOrRenamedKey : appendedOrRenamedChildrenByName.get(childName)) {
                         MutableCachedNode appendedOrRenamedChild = session.mutable(appendedOrRenamedKey);
                         if (appendedOrRenamedChild == null) continue;
-                        Name childPrimaryType = appendedOrRenamedChild.getPrimaryType(session);
+                        Name childPrimaryType = appendedOrRenamedChild.getPrimaryType(session, useChildrenCache);
                         childNodeDefinition = nodeTypeCapabilities.findChildNodeDefinition(primaryType,
                                                                                            mixinTypes,
                                                                                            childName,

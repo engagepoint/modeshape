@@ -107,6 +107,8 @@ import org.modeshape.jcr.value.basic.NodeKeyReference;
  */
 @ThreadSafe
 abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
+    
+    private static final String USE_CHILDREN_CACHE_FLAG = "~use_children_cache~";
 
     enum Type {
         ROOT,
@@ -115,7 +117,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         VERSION,
         VERSION_HISTORY;
 
-        private static final Map<Name, Type> DEFAULT_TYPE_BY_NAME;
+        private static final Map<Name, Type> DEFAULT_TYPE_BY_NAME;        
 
         static {
             Map<Name, Type> byName = new HashMap<Name, Type>();
@@ -255,9 +257,13 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     protected Name name() throws RepositoryException {
         return node().getName(sessionCache());
     }
-
+    
+    protected Segment segment(boolean useChildrenCache) throws RepositoryException {
+        return node().getSegment(sessionCache(), useChildrenCache);
+    }
+    
     protected Segment segment() throws RepositoryException {
-        return node().getSegment(sessionCache());
+        return segment(false);
     }
 
     /**
@@ -770,7 +776,10 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     @Override
     public AbstractJcrNode getNode( String relativePath ) throws PathNotFoundException, RepositoryException {
-        return getNode(relativePath, false);
+        if (relativePath != null && relativePath.contains(USE_CHILDREN_CACHE_FLAG)) {            
+            return getNode(relativePath.replace(USE_CHILDREN_CACHE_FLAG, ""), true);
+        } 
+        return getNode(relativePath == null ? null : relativePath.replace(USE_CHILDREN_CACHE_FLAG, ""), false);
     }
     
     /**
@@ -2527,6 +2536,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     @Override
     public void addMixin( String mixinName )
         throws NoSuchNodeTypeException, VersionException, ConstraintViolationException, LockException, RepositoryException {
+//        addMixin(mixinName, false);
         addMixin(mixinName, true);
     }
 

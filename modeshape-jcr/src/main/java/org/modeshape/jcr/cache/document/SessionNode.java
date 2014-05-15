@@ -317,6 +317,10 @@ public class SessionNode implements MutableCachedNode {
     protected CachedNode nodeInWorkspace( AbstractSessionCache session ) {
         return session.getWorkspace().getNode(key);
     }
+    
+    protected CachedNode nodeInWorkspace( AbstractSessionCache session, boolean useChildrenCache ) {
+        return session.getWorkspace().getNode(key, useChildrenCache);
+    }  
 
     @Override
     public NodeKey getParentKey( NodeCache cache ) {
@@ -338,12 +342,16 @@ public class SessionNode implements MutableCachedNode {
         return cachedNode != null ? cachedNode.getParentKeyInAnyWorkspace(cache) : null;
     }
 
-    protected CachedNode parent( AbstractSessionCache session ) {
+    protected CachedNode parent( AbstractSessionCache session, boolean useChildrenCache ) {
         NodeKey parentKey = getParentKey(session);
         if (parentKey == null) {
             return null;
         }
-        return session.getNode(parentKey);
+        return session.getNode(parentKey, useChildrenCache);
+    }
+    
+    protected CachedNode parent( AbstractSessionCache session ) {
+        return parent(session, false);
     }
 
     protected ChangedAdditionalParents additionalParents() {
@@ -416,9 +424,14 @@ public class SessionNode implements MutableCachedNode {
     public Name getName( NodeCache cache ) {
         return getSegment(cache).getName();
     }
-
+    
     @Override
     public Segment getSegment( NodeCache cache ) {
+        return getSegment(cache, false);
+    }
+
+    @Override
+    public Segment getSegment( NodeCache cache, boolean skipChildren ) {
         AbstractSessionCache session = session(cache);
         CachedNode parent = parent(session);
         return getSegment(cache, parent);
@@ -448,6 +461,11 @@ public class SessionNode implements MutableCachedNode {
 
     @Override
     public Path getPath( NodeCache cache ) {
+        return getPath(cache, false);
+    }
+    
+    @Override
+    public Path getPath( NodeCache cache, boolean useChildrenCache ) {
         AbstractSessionCache session = session(cache);
         CachedNode parent = parent(session);
         if (parent != null) {
@@ -464,7 +482,12 @@ public class SessionNode implements MutableCachedNode {
     }
 
     @Override
-    public Path getPath( PathCache pathCache ) throws NodeNotFoundException {
+    public Path getPath( PathCache pathCache ) {
+        return getPath(pathCache, false);
+    }
+     
+    @Override
+    public Path getPath( PathCache pathCache, boolean useChildrenCache ) throws NodeNotFoundException {
         NodeCache cache = pathCache.getCache();
         AbstractSessionCache session = session(cache);
         CachedNode parent = parent(session);
@@ -483,8 +506,13 @@ public class SessionNode implements MutableCachedNode {
 
     @Override
     public Name getPrimaryType( NodeCache cache ) {
+        return getPrimaryType(cache, false);
+    }
+    
+    @Override
+    public Name getPrimaryType( NodeCache cache, boolean useChildrenCache ) {
         AbstractSessionCache session = session(cache);
-        Property prop = getProperty(JcrLexicon.PRIMARY_TYPE, session);
+        Property prop = getProperty(JcrLexicon.PRIMARY_TYPE, session, useChildrenCache);
         NameFactory nameFactory = session.nameFactory();
         return prop != null ? nameFactory.create(prop.getFirstValue()) : nameFactory.create((Object)null);
     }
@@ -707,15 +735,20 @@ public class SessionNode implements MutableCachedNode {
     @Override
     public Property getProperty( Name name,
                                  NodeCache cache ) {
+        return getProperty(name, cache, false);
+    }
+    
+    private Property getProperty( Name name,
+                                 NodeCache cache, boolean useChildrenCache ) {
         Property prop = null;
         if ((prop = changedProperties.get(name)) != null) return prop;
         if (isPropertyRemoved(name)) return null;
         // Otherwise, delegate to the workspace node (if it exists) ...
         AbstractSessionCache session = session(cache);
-        CachedNode raw = nodeInWorkspace(session);
+        CachedNode raw = nodeInWorkspace(session, useChildrenCache);
         return raw != null ? raw.getProperty(name, session) : null;
     }
-
+    
     protected final boolean isPropertyRemoved( Name name ) {
         return !isNew && removedProperties.containsKey(name);
     }

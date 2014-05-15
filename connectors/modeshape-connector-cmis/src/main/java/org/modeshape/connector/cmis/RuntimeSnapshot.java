@@ -8,6 +8,7 @@ import org.modeshape.jcr.RepositoryConfiguration;
 
 import java.util.List;
 import java.util.Map;
+import org.modeshape.jcr.CacheService;
 
 // Cmis Connector runtime container
 public class RuntimeSnapshot {
@@ -16,6 +17,7 @@ public class RuntimeSnapshot {
     private String caughtProjectedId;
     private LocalTypeManager localTypeManager;
     private SingleVersionDocumentsCache singleVersionCache;
+    private CacheService<String, Object> folderCache;
     // local document producer instance
     private CmisConnector.ConnectorDocumentProducer documentProducer;
     // projections for unfiled node
@@ -26,14 +28,14 @@ public class RuntimeSnapshot {
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           CmisObjectFinderUtil cmisObjectFinderUtil) {
+                           CmisObjectFinderUtil cmisObjectFinderUtil, CacheService<String, Object> folderCache) {
         this.session = session;
-        this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
         this.singleVersionCache = singleVersionCache;
         this.documentProducer = documentProducer;
         this.preconfiguredProjections = preconfiguredProjections;
         this.cmisObjectFinderUtil = cmisObjectFinderUtil;
+        this.folderCache = folderCache;
     }
 
     public Session getSession() {
@@ -64,14 +66,20 @@ public class RuntimeSnapshot {
         return cmisObjectFinderUtil;
     }
 
-    //
-
     public void setCaughtProjectedId(String caughtProjectedId) {
         this.caughtProjectedId = caughtProjectedId;
     }
 
     public void setPreconfiguredProjections(Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections) {
         this.preconfiguredProjections = preconfiguredProjections;
+    }
+
+    public CacheService<String, Object> getFolderCache() {
+        return folderCache;
+    }
+
+    public void setFolderCache(CacheService<String, Object> folderCache) {
+        this.folderCache = folderCache;
     }
 
 }

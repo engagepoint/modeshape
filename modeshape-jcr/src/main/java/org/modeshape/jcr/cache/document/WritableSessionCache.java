@@ -154,6 +154,11 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     @Override
     public CachedNode getNode( NodeKey key ) {
+        return getNode(key, false);
+    }
+    
+    @Override
+    public CachedNode getNode(NodeKey key, boolean useChildrenCache) {
         CachedNode sessionNode = null;
         Lock lock = this.lock.readLock();
         try {
@@ -166,7 +171,7 @@ public class WritableSessionCache extends AbstractSessionCache {
             // This node's been removed ...
             return null;
         }
-        return sessionNode != null ? sessionNode : super.getNode(key);
+        return sessionNode != null ? sessionNode : super.getNode(key, useChildrenCache);
     }
 
     @Override
@@ -430,7 +435,7 @@ public class WritableSessionCache extends AbstractSessionCache {
         Transaction txn = null;
         try {
             lock.lock();
-
+            
             // Before we start the transaction, apply the pre-save operations to the new and changed nodes ...
             runPreSaveBeforeTransaction(preSaveOperation);
 
@@ -446,14 +451,14 @@ public class WritableSessionCache extends AbstractSessionCache {
                     final Monitor monitor = txn.createMonitor();
 
                     // Lock the nodes in Infinispan
-                    lockAndPurgeCache(changedNodesInOrder);
+                    lockAndPurgeCache(changedNodesInOrder);                    
 
                     // process after locking
-                    runPreSaveAfterLocking(preSaveOperation);
+                    runPreSaveAfterLocking(preSaveOperation, true);
 
                     // Now persist the changes ...
                     logChangesBeingSaved(this.changedNodesInOrder, this.changedNodes, null, null);
-                    events = persistChanges(this.changedNodesInOrder, monitor);
+                    events = persistChanges(this.changedNodesInOrder, monitor, true);
 
                     // Register a handler that will execute upon successful commit of the transaction (whenever that happens) ...
                     final ChangeSet changes = events;
@@ -542,6 +547,19 @@ public class WritableSessionCache extends AbstractSessionCache {
         }
     }
 
+    private void runPreSaveAfterLocking( PreSave preSaveOperation, boolean useChildrenCache ) throws Exception {
+        if (preSaveOperation != null) {
+            SaveContext saveContext = new BasicSaveContext(context());
+            for (MutableCachedNode node : this.changedNodes.values()) {
+                // only process existing nodes that have not been removed
+                if (node == REMOVED || node.isNew()) {
+                    continue;
+                }
+                preSaveOperation.processAfterLocking(node, saveContext, workspaceCache(), useChildrenCache);
+            }
+        }
+    } 
+    
     private void runPreSaveAfterLocking( PreSave preSaveOperation ) throws Exception {
         if (preSaveOperation != null) {
             SaveContext saveContext = new BasicSaveContext(context());
@@ -611,15 +629,15 @@ public class WritableSessionCache extends AbstractSessionCache {
                         that.lockAndPurgeCache(that.changedNodesInOrder);
 
                         // process after locking
-                        runPreSaveAfterLocking(preSaveOperation);
+                        runPreSaveAfterLocking(preSaveOperation, true);
 
                         // Now persist the changes ...
                         logChangesBeingSaved(this.changedNodesInOrder,
                                              this.changedNodes,
                                              that.changedNodesInOrder,
                                              that.changedNodes);
-                        events1 = persistChanges(this.changedNodesInOrder, monitor);
-                        events2 = that.persistChanges(that.changedNodesInOrder, monitor);
+                        events1 = persistChanges(this.changedNodesInOrder, monitor, true);
+                        events2 = that.persistChanges(that.changedNodesInOrder, monitor, true);
                     } catch (org.infinispan.util.concurrent.TimeoutException e) {
                         txn.rollback();
                         if (repeat <= 0) throw new TimeoutException(e.getMessage(), e);
@@ -791,8 +809,8 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                         // Now persist the changes ...
                         logChangesBeingSaved(savedNodesInOrder, this.changedNodes, that.changedNodesInOrder, that.changedNodes);
-                        events1 = persistChanges(savedNodesInOrder, monitor);
-                        events2 = that.persistChanges(that.changedNodesInOrder, monitor);
+                        events1 = persistChanges(savedNodesInOrder, monitor, true);
+                        events2 = that.persistChanges(that.changedNodesInOrder, monitor, true);
 
                     } catch (org.infinispan.util.concurrent.TimeoutException e) {
                         txn.rollback();
@@ -890,9 +908,10 @@ public class WritableSessionCache extends AbstractSessionCache {
      *         document
      * @throws DocumentNotFoundException if one of the modified documents was removed by another session
      */
+    
     @GuardedBy( "lock" )
     protected ChangeSet persistChanges( Iterable<NodeKey> changedNodesInOrder,
-                                        Monitor monitor ) {
+                                        Monitor monitor, boolean useChildrenCache ) {
         // Compute the save meta-info ...
         ExecutionContext context = context();
         String userId = context.getSecurityContext().getUserName();
@@ -946,7 +965,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                     // if there were any referrer changes for the removed nodes, we need to process them
                     ReferrerChanges referrerChanges = referrerChangesForRemovedNodes.get(key);
                     if (referrerChanges != null) {
-                        EditableDocument doc = documentStore.get(keyStr).editDocumentContent();
+                        EditableDocument doc = documentStore.get(keyStr, useChildrenCache).editDocumentContent();
                         translator.changeReferrers(doc, referrerChanges);
                     }
                     // Note 1: Do not actually remove the document from the documentStore yet; see below (note 2)
@@ -967,7 +986,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                     // Create an event ...
                     changes.nodeCreated(key, newParent, newPath, node.changedProperties());
                 } else {
-                    SchematicEntry nodeEntry = documentStore.get(keyStr);
+                    SchematicEntry nodeEntry = documentStore.get(keyStr, useChildrenCache);
                     if (nodeEntry == null) {
                         if (isExternal && renamedExternalNodes.contains(key)) {
                             // this is a renamed external node which has been processed in the parent, so we can skip it
@@ -979,7 +998,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                     }
                     doc = nodeEntry.editDocumentContent();
                     if (newParent != null) {
-                        persisted = workspaceCache.getNode(key);
+                        persisted = workspaceCache.getNode(key, useChildrenCache);
                         // The node has moved (either within the same parent or to another parent) ...
                         Path oldPath = workspacePaths.getPath(persisted);
                         NodeKey oldParentKey = persisted.getParentKey(workspaceCache);
@@ -1035,7 +1054,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                 if (!removedProperties.isEmpty()) {
                     assert !node.isNew();
                     if (persisted == null) {
-                        persisted = workspaceCache.getNode(key);
+                        persisted = workspaceCache.getNode(key, useChildrenCache);
                     }
                     for (Name name : removedProperties) {
                         Property oldProperty = translator.removeProperty(doc, name, unusedBinaryKeys);
@@ -1051,7 +1070,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                 // Save the changes to the properties
                 if (!node.changedProperties().isEmpty()) {
                     if (!node.isNew() && persisted == null) {
-                        persisted = workspaceCache.getNode(key);
+                        persisted = workspaceCache.getNode(key, useChildrenCache);
                     }
                     for (Map.Entry<Name, Property> propEntry : node.changedProperties().entrySet()) {
                         Name name = propEntry.getKey();
@@ -1230,7 +1249,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                     // when linking/un-linking nodes (e.g. shareable node or jcr:system) this condition will be false.
                     // the downside of this is that there may be cases (e.g. back references when working with versions) in which
                     // we might loose information from the indexes
-                    Path oldNodePath = workspacePaths.getPath(workspaceCache.getNode(node.getKey()));
+                    Path oldNodePath = workspacePaths.getPath(workspaceCache.getNode(node.getKey(), useChildrenCache));
                     Path newNodePath = sessionPaths.getPath(node);
                     boolean pathChanged = !oldNodePath.equals(newNodePath);
                     boolean shouldUpdateIndexes = (isSameWorkspace && (hasPropertyChanges || node.hasIndexRelatedChanges() || pathChanged))

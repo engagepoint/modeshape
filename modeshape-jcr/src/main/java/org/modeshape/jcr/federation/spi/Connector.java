@@ -374,6 +374,8 @@ public abstract class Connector {
      * @return either an {@link Document} instance or {@code null}
      */
     public abstract Document getDocumentById( String id );
+    
+    public abstract Document getDocumentById( String id, boolean useChildrenCache );
 
     /**
      * Returns the id of an external node located at the given external path within the connector's exposed tree of content.

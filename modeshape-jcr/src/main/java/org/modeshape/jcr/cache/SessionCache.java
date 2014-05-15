@@ -87,6 +87,9 @@ public interface SessionCache extends NodeCache {
         void processAfterLocking( MutableCachedNode modifiedNode,
                                   SaveContext context,
                                   NodeCache persistentNodeCache ) throws Exception;
+        
+        void processAfterLocking( MutableCachedNode modifiedNode,
+                                  SaveContext context, NodeCache persistentNodeCache, boolean useChildrenCache ) throws Exception;                        
     }
 
     /**

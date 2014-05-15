@@ -66,7 +66,7 @@ class JcrNode extends AbstractJcrNode {
 
     @Override
     public String getName() throws RepositoryException {
-        return segment().getName().getString(namespaces());
+        return segment(false).getName().getString(namespaces());
     }
 
     @Override

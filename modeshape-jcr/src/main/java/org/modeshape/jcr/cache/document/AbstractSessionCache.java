@@ -236,6 +236,11 @@ public abstract class AbstractSessionCache implements SessionCache, DocumentCach
     public CachedNode getNode( NodeKey key ) {
         return workspaceCache().getNode(key);
     }
+    
+    @Override
+    public CachedNode getNode( NodeKey key, boolean useChildrenCache ) {
+        return workspaceCache().getNode(key, useChildrenCache);
+    }
 
     @Override
     public CachedNode getNode( ChildReference reference ) {

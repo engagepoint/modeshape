@@ -1,6 +1,5 @@
 package org.modeshape.connector.cmis.operations.impl;
 
-
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
@@ -29,12 +28,11 @@ public class CmisGetObjectOperation extends CmisOperation {
     String projectedNodeId;
 
     public CmisGetObjectOperation(RuntimeSnapshot snapshot,
-                                  CmisConnectorConfiguration config,
-                                  String projectedNodeId) {
+            CmisConnectorConfiguration config,
+            String projectedNodeId) {
         super(snapshot, config);
         this.projectedNodeId = projectedNodeId;
     }
-
 
     /**
      * Translates CMIS folder object to JCR node
@@ -43,6 +41,10 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
+        return cmisFolder(cmisObject, false);
+    }
+
+    public DocumentWriter cmisFolder(CmisObject cmisObject, boolean useChildrenCache) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject == null ? "null" : cmisObject.getName());
         CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(snapshot, config);
@@ -56,7 +58,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         // properties
         cmisProperties(folder, writer);
         // children
-        childrenOperation.cmisChildren(folder, writer);
+        childrenOperation.cmisChildren(folder, writer, useChildrenCache);
 
         // append repository information to the root node
         if (folder.isRootFolder() && !config.isHideRootFolderReference()) {
@@ -74,16 +76,17 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = folder.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
-        debug("Finish CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject.getName(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+        debug("Finish CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject.getName(), ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer;
     }
-
+    
 
     /**
      * Translates cmis document object to JCR node.
      *
      * @param cmisObject cmis document node
-     * @param incomingId jcr key by which document is referenced. it is preferable to set it as document id
+     * @param incomingId jcr key by which document is referenced. it is
+     * preferable to set it as document id
      * @return JCR node document.
      */
     public Document cmisDocument(CmisObject cmisObject, String incomingId) {
@@ -104,7 +107,9 @@ public class CmisGetObjectOperation extends CmisOperation {
             parentIds.add(ObjectId.toString(ObjectId.Type.OBJECT, f.getId()));
         }
         // no parents = unfiled
-        if (parentIds.isEmpty()) parentIds.add(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""));
+        if (parentIds.isEmpty()) {
+            parentIds.add(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""));
+        }
 
         // set parents
         writer.setParents(parentIds);
@@ -124,7 +129,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
 
-        debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+        debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
     }
 
@@ -167,7 +172,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
 
-        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
     }
 
@@ -179,7 +184,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public Document jcrUnfiled(String originalId, String caughtProjectedId) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetObjectOperation:jcrUnfiled for originalId = ", getPossibleNullString(originalId), " and caughtProjectedId = ", getPossibleNullString(caughtProjectedId));
-       
+
         DocumentWriter writer = snapshot.getDocumentProducer().getNewDocument(ObjectId.toString(ObjectId.Type.OBJECT, ObjectId.Type.UNFILED_STORAGE.getValue()));
         Folder root = session.getRootFolder();
 
@@ -214,18 +219,19 @@ public class CmisGetObjectOperation extends CmisOperation {
             writer.addPage(ObjectId.toString(ObjectId.Type.UNFILED_STORAGE, ""), 0, 0, PageWriter.UNKNOWN_TOTAL_SIZE);
         }
 
-        debug("Finish CmisGetObjectOperation:jcrUnfiled for originalId = ", originalId, " and caughtProjectedId = ", caughtProjectedId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");        
+        debug("Finish CmisGetObjectOperation:jcrUnfiled for originalId = ", originalId, " and caughtProjectedId = ", caughtProjectedId, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
     }
 
     /**
-     * Converts CMIS object's properties to JCR node localTypeManager.getPropertyUtils().
+     * Converts CMIS object's properties to JCR node
+     * localTypeManager.getPropertyUtils().
      *
      * @param object CMIS object
      * @param writer JCR node representation.
      */
     private void cmisProperties(CmisObject object,
-                                DocumentWriter writer) {
+            DocumentWriter writer) {
         // convert properties
         List<Property<?>> cmisProperties = object.getProperties();
         TypeDefinition type = object.getType();
@@ -255,7 +261,7 @@ public class CmisGetObjectOperation extends CmisOperation {
     public Map<String, Object[]> processProperties(List<Property<?>> cmisProperties, TypeDefinition type, MappedCustomType typeMapping, Set<String> propertyDefinitions) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetObjectOperation:processProperties");
-       
+
         Map<String, Object[]> result = new LinkedHashMap<String, Object[]>(cmisProperties.size());
         for (Property<?> cmisProperty : cmisProperties) {
             // pop item prom list
@@ -265,21 +271,25 @@ public class CmisGetObjectOperation extends CmisOperation {
             String jcrPropertyName = typeMapping.toJcrProperty(cmisProperty.getId());
 
             // filtered = ignored
-            if (jcrPropertyName == null) continue;
+            if (jcrPropertyName == null) {
+                continue;
+            }
             // if unhandled continue = ignore
-            if (!getShouldHandleCustomProperty(type, typeMapping, jcrPropertyName, propertyDefinition)) continue;
+            if (!getShouldHandleCustomProperty(type, typeMapping, jcrPropertyName, propertyDefinition)) {
+                continue;
+            }
 
             // now handle -> it is our custom property or basic jcr one
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
             result.put(jcrPropertyName, values);
         }
-        debug("Finish CmisGetObjectOperation:processProperties. Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");                
+        debug("Finish CmisGetObjectOperation:processProperties. Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return result;
     }
 
     /*
-    * custom property filter criteria
-    */
+     * custom property filter criteria
+     */
     private boolean getShouldHandleCustomProperty(TypeDefinition type, MappedCustomType typeMapping, String jcrPropertyName, PropertyDefinition<?> propertyDefinition) {
         // should be no additional properties for basic types
         boolean noCustomAllowed = type.getId().equals(BaseTypeId.CMIS_DOCUMENT.value());
@@ -289,11 +299,15 @@ public class CmisGetObjectOperation extends CmisOperation {
         boolean isCustom = !jcrPropertyName.startsWith("jcr:");
 
         boolean isUnhandledCustomProp = (isCustom) && (readOnly || noCustomAllowed);
-        if (isUnhandledCustomProp) return false;
+        if (isUnhandledCustomProp) {
+            return false;
+        }
 
         // jcr analog not found but property is not our custom one
         boolean isUnknown = jcrPropertyName.startsWith(Constants.CMIS_PREFIX);
-        if (isUnknown) return false;
+        if (isUnknown) {
+            return false;
+        }
 
         return true;
     }

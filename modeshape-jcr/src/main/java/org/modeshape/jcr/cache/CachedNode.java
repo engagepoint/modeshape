@@ -72,6 +72,8 @@ public interface CachedNode {
      * @see #getPath(NodeCache)
      */
     Segment getSegment( NodeCache cache );
+    
+    Segment getSegment( NodeCache cache, boolean skipChildren );        
 
     /**
      * Get the path to this node.
@@ -84,6 +86,8 @@ public interface CachedNode {
      * @see #getSegment(NodeCache)
      */
     Path getPath( NodeCache cache ) throws NodeNotFoundException;
+    
+    Path getPath( NodeCache cache, boolean useChildrenCache ) throws NodeNotFoundException;
 
     /**
      * Get the path to this node.
@@ -96,6 +100,8 @@ public interface CachedNode {
      * @see #getSegment(NodeCache)
      */
     Path getPath( PathCache pathCache ) throws NodeNotFoundException;
+    
+    Path getPath( PathCache pathCache, boolean useChildrenCache ) throws NodeNotFoundException;
 
     /**
      * Get the node key for this node's primary parent within this workspace.
@@ -129,6 +135,8 @@ public interface CachedNode {
      * @return the primary type name; never null
      */
     Name getPrimaryType( NodeCache cache );
+    
+    Name getPrimaryType( NodeCache cache, boolean useChildrenCache );
 
     /**
      * Get the set of mixin types for this node.

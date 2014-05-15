@@ -65,6 +65,8 @@ import java.util.*;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
+import org.modeshape.jcr.CacheService;
+import org.modeshape.jcr.GenericCacheService;
 
 /**
  * This connector exposes the content of a CMIS repository.
@@ -159,6 +161,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String remoteUnfiledNodeId;
     // debug
     private boolean debug = false;
+    
+    int folderCacheTtlSeconds = GenericCacheService.DEFAULT_EXPIRATION_IN_SECONDS;
+    int folderCacheSize = GenericCacheService.DEFAULT_CACHE_CAPACITY;
 
     private String unfiledQueryTemplate = null;
 
@@ -256,7 +261,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 snsCommonIndex, remoteUnfiledNodeId, unfiledQueryTemplate, folderSetUnknownChildren,
                 pageSize, pageSizeUnfiled, singleVersionOptions,
                 hideRootFolderReference,
-                debug);
+                debug, folderCacheTtlSeconds, folderCacheSize);
 
         // setup CMIS connection
         Session session = getCmisConnection();
@@ -278,15 +283,20 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
         SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
-
+        
+        CacheService<String, Object> folderCache = new GenericCacheService<String, Object>(configuration.getFolderCacheSize(), configuration.getFolderCacheTtlSeconds());
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, folderCache);
     }
-
 
     @Override
     public Document getDocumentById(String id) {
+        return getDocumentById(id, false);
+    }
+    
+    @Override
+    public Document getDocumentById(String id, boolean useChildrenCache) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         System.out.println("GET-DOCUMENT-BY-ID : " + id);
@@ -316,7 +326,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return cmisGetObjectOperation.cmisContent(objectId.getIdentifier());
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
-                return cmisObject(objectId.getIdentifier());
+                return cmisObject(objectId.getIdentifier(), useChildrenCache);
 
             default:
                 return null;
@@ -452,6 +462,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
      * @return JCR node document.
      */
     private Document cmisObject(String id) {
+        return cmisObject(id, true);
+    }
+    
+    private Document cmisObject(String id, boolean useChildrenCache) {
         CmisObject cmisObject = runtimeSnapshot.getCmisObjectFinderUtil().find(id);
 
         // object does not exist? return null
@@ -464,7 +478,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         // converting CMIS object to JCR node
         switch (cmisObject.getBaseTypeId()) {
             case CMIS_FOLDER:
-                DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject);
+                DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject, useChildrenCache);
                 getCmisSingleVersionOperations().addCachedChildren(id, document);
 
                 return document.document();

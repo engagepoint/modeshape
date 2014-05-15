@@ -23,6 +23,7 @@
  */
 package org.modeshape.jcr.api;
 
+import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
 import javax.jcr.Property;
 import javax.jcr.RepositoryException;
@@ -89,5 +90,7 @@ public interface Session extends javax.jcr.Session {
      * @see #encode(String)
      */
     String decode( final String localName );
+    
+    Node getNodeByIdentifier( String id, boolean useChildrenCache ) throws ItemNotFoundException, RepositoryException;
 
 }

@@ -1,5 +1,6 @@
 package org.modeshape.connector.cmis.operations.impl;
 
+import java.util.HashMap;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
@@ -13,6 +14,7 @@ import org.modeshape.jcr.federation.spi.PageKey;
 import org.modeshape.jcr.federation.spi.PageWriter;
 
 import java.util.Iterator;
+import java.util.Map;
 import java.util.NoSuchElementException;
 
 public class CmisGetChildrenOperation extends CmisOperation {
@@ -29,6 +31,10 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
+        cmisChildren(folder, writer, false);
+    }
+    
+    public void cmisChildren(Folder folder, DocumentWriter writer, boolean useChildrenCache) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetChildrenOperation:cmisChildren for folder = ", folder == null ? "null" : folder.getName());
         String parentId = folder.getId();
@@ -40,17 +46,42 @@ public class CmisGetChildrenOperation extends CmisOperation {
             }
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
-            ItemIterable<CmisObject> children = parent.getChildren();
-            Iterator<CmisObject> iterator = children.iterator();
-            // try to use next right away in order to save time for hasNext call
-            CmisObject item = getNext(iterator);
-            while (item != null) {
-                String childId = finderUtil.getObjectMappingId(item);
-                writer.addChild(childId, item.getName());
-                item = getNext(iterator);
+            Map<String, String> childrenMap;
+            if (useChildrenCache) {
+                debug("CmisGetChildrenOperation:cmisChildren useChildrenCache = true");
+                childrenMap = (Map<String, String>) snapshot.getFolderCache().get(parentId);
+                if (childrenMap == null) {
+                    childrenMap = getChildrenMap(parent);
+                    snapshot.getFolderCache().put(parentId, childrenMap);
+                }
+            } else {
+                debug("CmisGetChildrenOperation:cmisChildren useChildrenCache = false for folder", parent == null ? "null" : parent.getName(), "Invocation path:");
+                Exception e = new Exception();
+                e.printStackTrace();
+                childrenMap = getChildrenMap(parent);
+                snapshot.getFolderCache().put(parentId, childrenMap);
             }
+            
+            for (Map.Entry<String, String> entry : childrenMap.entrySet()) {
+                writer.addChild(entry.getKey(), entry.getValue());
+            }
+            
         }
         debug("Finish CmisGetChildrenOperation:cmisChildren for folder = ", folder.getName(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+    }
+        
+    private Map<String, String> getChildrenMap(Folder parent) {
+        ItemIterable<CmisObject> children = parent.getChildren();
+        Iterator<CmisObject> iterator = children.iterator();
+        // try to use next right away in order to save time for hasNext call            
+        Map<String, String> childrenMap = new HashMap<String, String>();
+        CmisObject item = getNext(iterator);
+        while (item != null) {
+            String childId = finderUtil.getObjectMappingId(item);
+            childrenMap.put(childId, item.getName());
+            item = getNext(iterator);
+        }
+        return childrenMap;
     }
 
     private CmisObject getNext(Iterator<CmisObject> iterator) {

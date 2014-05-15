@@ -76,12 +76,11 @@ public class CmisNewObjectOperation extends CmisOperation {
             // create object and id for it.
             switch (objectType.getBaseTypeId()) {
                 case CMIS_FOLDER:
-
                     String path = parent.getPath() + "/" + name.getLocalName();
                     params.put(PropertyIds.PATH, path);
                     String newFolderId = parent.createFolder(params).getId();
-                    result = newFolderId;
-
+                    result = newFolderId;                   
+                    snapshot.getFolderCache().remove(parent.getId());
                     break;
                 case CMIS_DOCUMENT:
                     VersioningState versioningState = VersioningState.NONE;

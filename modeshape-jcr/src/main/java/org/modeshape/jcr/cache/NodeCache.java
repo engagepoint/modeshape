@@ -49,6 +49,8 @@ public interface NodeCache {
      * @return the cached node, or null if there is no such node
      */
     CachedNode getNode( NodeKey key );
+    
+    CachedNode getNode( NodeKey key, boolean useChildrenCache );
 
     /**
      * Get the cached representation of the node as represented by the supplied child reference. This is a convenience method that

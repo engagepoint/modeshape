@@ -179,4 +179,9 @@ public class SessionCacheWrapper implements SessionCache {
         delegate.checkForTransaction();
     }
 
+    @Override
+    public CachedNode getNode(NodeKey key, boolean useChildrenCache) {
+        return getNode(key);
+    }
+
 }

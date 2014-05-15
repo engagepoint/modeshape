@@ -165,11 +165,14 @@ public class LazyCachedNode implements CachedNode, Serializable {
     }
 
     protected CachedNode parent( WorkspaceCache cache ) {
+        return parent(cache, false);
+    }
+    protected CachedNode parent( WorkspaceCache cache, boolean useChildrenCache ) {
         NodeKey parentKey = getParentKey(cache);
         if (parentKey == null) {
             return null;
         }
-        CachedNode parent = cache.getNode(parentKey);
+        CachedNode parent = cache.getNode(parentKey, useChildrenCache);
         if (parent == null) {
             throw new NodeNotFoundException(parentKey);
         }
@@ -193,7 +196,12 @@ public class LazyCachedNode implements CachedNode, Serializable {
      * @throws NodeNotFoundInParentException if this node is no longer referenced by its parent as a child of the parent node
      *         (which can happen if this node is used while in the midst of being (re)moved.
      */
+    
     protected ChildReference parentReferenceToSelf( WorkspaceCache cache ) {
+        return parentReferenceToSelf(cache, false);
+    }
+    
+    protected ChildReference parentReferenceToSelf( WorkspaceCache cache, boolean useChildrenCache ) {
         CachedNode currentParent = null;
 
         // If we currently have cached our parent's reference to us (and it is still complete) ...
@@ -204,7 +212,7 @@ public class LazyCachedNode implements CachedNode, Serializable {
                 return prts.childReferenceInParent();
             }
             // Get the current parent to compare with what we've cached ...
-            currentParent = parent(cache);
+            currentParent = parent(cache, useChildrenCache);
             if (currentParent == null && prts.isRoot()) {
                 // We are the root and this never changes. Therefore, our 'parentRefToSelf' is always valid ...
                 return prts.childReferenceInParent();
@@ -217,7 +225,7 @@ public class LazyCachedNode implements CachedNode, Serializable {
         }
 
         // We have to (re)find our parent's reference to us ...
-        if (currentParent == null) currentParent = parent(cache);
+        if (currentParent == null) currentParent = parent(cache, useChildrenCache);
         if (currentParent == null) {
             // This is the root node ...
             parentRefToSelf.compareAndSet(null, new RootParentReferenceToSelf(cache));
@@ -270,10 +278,14 @@ public class LazyCachedNode implements CachedNode, Serializable {
     }
 
     @Override
-    public Segment getSegment( NodeCache cache ) {
-        return parentReferenceToSelf(workspaceCache(cache)).getSegment();
+    public Segment getSegment( NodeCache cache, boolean useChildrenCache ) {
+        return parentReferenceToSelf(workspaceCache(cache), useChildrenCache).getSegment();
     }
-
+    @Override
+    public Segment getSegment( NodeCache cache ) {
+        return getSegment(cache, false);
+    }
+    
     /**
      * Get the name for this node, without any same-name-sibiling (SNS) index.
      * 
@@ -290,8 +302,13 @@ public class LazyCachedNode implements CachedNode, Serializable {
 
     @Override
     public Path getPath( NodeCache cache ) {
+        return getPath(cache, false);
+    }
+    
+    @Override
+    public Path getPath( NodeCache cache, boolean useChildrenCache ) {
         WorkspaceCache wsCache = workspaceCache(cache);
-        CachedNode parent = parent(wsCache);
+        CachedNode parent = parent(wsCache, useChildrenCache);
         if (parent != null) {
             Path parentPath = parent.getPath(wsCache);
             return wsCache.pathFactory().create(parentPath, getSegment(wsCache));
@@ -306,9 +323,14 @@ public class LazyCachedNode implements CachedNode, Serializable {
 
     @Override
     public Path getPath( PathCache pathCache ) throws NodeNotFoundException {
+        return getPath(pathCache, false);
+    }
+    
+    @Override
+    public Path getPath( PathCache pathCache, boolean useChildrenCache ) throws NodeNotFoundException {
         NodeCache cache = pathCache.getCache();
         WorkspaceCache wsCache = workspaceCache(cache);
-        CachedNode parent = parent(wsCache);
+        CachedNode parent = parent(wsCache, useChildrenCache);
         if (parent != null) {
             Path parentPath = pathCache.getPath(parent);
             return wsCache.pathFactory().create(parentPath, getSegment(wsCache));
@@ -461,6 +483,11 @@ public class LazyCachedNode implements CachedNode, Serializable {
         if (document != null) sb.append(document);
         else sb.append(" <unloaded>");
         return sb.toString();
+    }
+
+    @Override
+    public Name getPrimaryType(NodeCache cache, boolean useChildrenCache) {
+        return getPrimaryType(cache);
     }
 
     /**

@@ -321,4 +321,9 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
     protected List<String> getQueryableBranches() {
         return queryableBranches;
     }
+
+    @Override
+    public Document getDocumentById(String id, boolean useChildrenCache) {
+        return getDocumentById(id);
+    }
 }

@@ -49,6 +49,8 @@ public interface DocumentStore {
      * @throws DocumentStoreException if there is a problem retrieving the document
      */
     public SchematicEntry get( String key );
+    
+    public SchematicEntry get( String key, boolean useChildrenCache );
 
     /**
      * Store the supplied document at the given key.
