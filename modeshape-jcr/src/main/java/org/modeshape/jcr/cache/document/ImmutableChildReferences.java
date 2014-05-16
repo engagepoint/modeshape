@@ -360,12 +360,12 @@ public class ImmutableChildReferences {
 
         @Override
         public Iterator<ChildReference> iterator( Name name ) {
-            return childReferences.get(name).iterator();
+            return contextSensitiveIterator(childReferences.get(name).iterator(), new BasicContext());
         }
 
         @Override
         public Iterator<ChildReference> iterator() {
-            return childReferences.values().iterator();
+            return contextSensitiveIterator(childReferences.values().iterator(), new BasicContext());
         }
 
         @Override
@@ -498,11 +498,12 @@ public class ImmutableChildReferences {
         }
 
         @Override
-        public Iterator<ChildReference> iterator( final Name name ) {
+        public Iterator<ChildReference> iterator( final Name name,
+                                                  final Context context ) {
             final Segment firstSegment = this.firstSegment;
             return new Iterator<ChildReference>() {
                 private Segment segment = firstSegment;
-                private Iterator<ChildReference> iter = segment != null ? segment.getReferences().iterator(name) : ImmutableChildReferences.EMPTY_ITERATOR;
+                private Iterator<ChildReference> iter = segment != null ? segment.getReferences().iterator(name, context) : ImmutableChildReferences.EMPTY_ITERATOR;
                 private ChildReference next;
 
                 @Override
@@ -515,7 +516,7 @@ public class ImmutableChildReferences {
                         while (segment != null) {
                             segment = segment.next(cache);
                             if (segment != null) {
-                                iter = segment.getReferences().iterator(name);
+                                iter = segment.getReferences().iterator(name, context);
                                 if (iter.hasNext()) {
                                     next = iter.next();
                                     return true;
@@ -549,11 +550,11 @@ public class ImmutableChildReferences {
         }
 
         @Override
-        public Iterator<ChildReference> iterator() {
+        public Iterator<ChildReference> iterator( final Context context ) {
             final Segment firstSegment = this.firstSegment;
             return new Iterator<ChildReference>() {
                 private Segment segment = firstSegment;
-                private Iterator<ChildReference> iter = segment != null ? segment.getReferences().iterator() : ImmutableChildReferences.EMPTY_ITERATOR;
+                private Iterator<ChildReference> iter = segment != null ? segment.getReferences().iterator(context) : ImmutableChildReferences.EMPTY_ITERATOR;
                 private ChildReference next;
 
                 @Override
@@ -566,7 +567,7 @@ public class ImmutableChildReferences {
                         while (segment != null) {
                             segment = segment.next(cache);
                             if (segment != null) {
-                                iter = segment.getReferences().iterator();
+                                iter = segment.getReferences().iterator(context);
                                 if (iter.hasNext()) {
                                     next = iter.next();
                                     return true;
@@ -720,6 +721,18 @@ public class ImmutableChildReferences {
         @Override
         public Iterator<ChildReference> iterator() {
             return new UnionIterator<ChildReference>(internalReferences.iterator(), externalReferences);
+        }
+
+        @Override
+        public Iterator<ChildReference> iterator( final Name name ) {
+            final ChildReferences extRefs = externalReferences;
+            Iterable<ChildReference> second = new Iterable<ChildReference>() {
+                @Override
+                public Iterator<ChildReference> iterator() {
+                    return extRefs.iterator(name);
+                }
+            };
+            return new UnionIterator<ChildReference>(internalReferences.iterator(name), second);
         }
 
         @Override
