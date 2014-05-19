@@ -36,6 +36,7 @@ import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
+import org.modeshape.connector.cmis.config.LanguageDialect;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
@@ -179,7 +180,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // -----  runtime variables container -------------
     private RuntimeSnapshot runtimeSnapshot;
-
+    // indicates storage which connector looks at
+    private String languageDialect;
 
     public CmisConnector() {
         super();

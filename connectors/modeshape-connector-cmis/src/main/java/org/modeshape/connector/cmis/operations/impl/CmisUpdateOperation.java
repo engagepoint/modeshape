@@ -25,7 +25,7 @@ import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.
 import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
 
 public class CmisUpdateOperation extends CmisOperation {
-
+    private static final String CMIS_NAME = "cmis:name";
     public CmisUpdateOperation(RuntimeSnapshot snapshot,
                                CmisConnectorConfiguration config) {
         super(snapshot, config);
@@ -297,7 +297,7 @@ public class CmisUpdateOperation extends CmisOperation {
      */
     private void rename(CmisObject object, String name) {
         Map<String, Object> properties = new HashMap<String, Object>();
-        properties.put("cmis:name", name);
+        properties.put(CMIS_NAME, name);
 
         List<CmisObject> parents = new ArrayList<CmisObject>();
         CmisObject parent = null;

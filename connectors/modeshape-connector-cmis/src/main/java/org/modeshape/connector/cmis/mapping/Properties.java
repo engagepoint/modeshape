@@ -228,7 +228,7 @@ public class Properties {
                 return document.getBoolean(jcrName);
             case DECIMAL:
                 Object decimal = document.get(jcrName);
-                if(decimal == null) return decimal; // no object with this name
+                if (decimal == null) return null; // no object with this name
 
                 if ( !( decimal instanceof BasicDocument) ) {
                     break; // Unknown type
@@ -238,10 +238,10 @@ public class Properties {
                     break; // Unknown fields
                 }
                 String decimalAsString = decimalDocument.getString(DocumentTranslator.KEY_DECIMAL);
-                if(decimalAsString!=null){
+                if (decimalAsString != null){
                     return new BigDecimal(decimalAsString);
                 }
-                else return null;
+                break;
             case INTEGER:
                 // override default logic. There is not integer in Jcr
                 Object obj = document.get(jcrName);
