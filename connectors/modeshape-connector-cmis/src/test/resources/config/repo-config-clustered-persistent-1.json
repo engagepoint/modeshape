@@ -1,0 +1,173 @@
+{
+    "name" : "Persistent Repository",
+    "jndiName" : "",
+
+    "workspaces" : {
+        "default" : "default",
+        "allowCreation" : true
+    },
+    "monitoring" : {
+        "enabled" : true
+    },
+    "storage" : {
+        "cacheName" : "persistentRepository",
+        "cacheConfiguration" : "config/infinispan-clustered-persistent-1.xml",
+        "binaryStorage":{
+            "type":"cache",
+            "cacheConfiguration" : "config/infinispan-clustered-persistent-1.xml",
+            "dataCacheName" : "binary-data",
+            "metadataCacheName" : "binary-meta-data",
+            "minimumBinarySizeInBytes":4096
+        }
+    },
+    "query":{
+        "enabled":true,
+        "indexing" : {
+            "rebuildOnStartup": {
+                "when": "if_missing"
+            }
+        },
+        "indexStorage": {
+            "type":"filesystem",
+            "location":"target/clustered/repository_1/index",
+            "lockingStrategy":"simple",
+            "fileSystemAccessType":"auto"
+        }
+    },
+    "security" : {
+        "anonymous" : {
+            "roles" : ["readonly","readwrite","admin"],
+            "useOnFailedLogin" : false
+        }
+    },
+    "clustering" : {
+        "clusterName" : "modeshape-cluster"
+    },
+    "externalSources": {
+        "cmis": {
+            "classname": "org.modeshape.connector.cmis.CmisConnector",
+            "cacheTtlSeconds": 5,
+            "aclService": "http://localhost:8090/services/ACLService?wsdl",
+            "discoveryService": "http://localhost:8090/services/DiscoveryService?wsdl",
+            "multifilingService": "http://localhost:8090/services/MultiFilingService?wsdl",
+            "navigationService": "http://localhost:8090/services/NavigationService?wsdl",
+            "objectService": "http://localhost:8090/services/ObjectService?wsdl",
+            "policyService": "http://localhost:8090/services/PolicyService?wsdl",
+            "relationshipService": "http://localhost:8090/services/RelationshipService?wsdl",
+            "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
+            "versioningService": "http://localhost:8090/services/VersioningService?wsdl",
+            "repositoryId": "A1",
+            "user" : "dummyuser",
+            "password" : "4963D4E2B0808DDCA0EE478F32EB98A9",
+            "debug": true,
+            "queryable": false,
+            "pageSize" : "-1",
+            "ignoreEmptyPropertiesOnCreate": false,
+            "addRequiredPropertiesOnRead": false,
+            "projections": [ "default:/projection-non-queryable => /projection-non-queryable" ],
+            "singleVersionOptions": {
+                "commonIdPropertyName": "custom:commonId",
+                "commonIdTypeName": "custom:singleVersionBaseType",
+                "commonIdQuery": "SELECT * FROM %1$s where '%3$s' =  ANY %2$s",
+                "singleVersionTypes": ["custom:singleVersionTypeOne", "custom:singleVersionTypeTwoMapped"],
+
+                "commonIdProcessorClass" : "org.modeshape.connector.cmis.DummyCommonIdProcessor"
+            },
+            "customMapping": {
+                "namespaces": {
+                    "testing": "http://org.modeshape/testing",
+                    "custom": "http://org.modeshape/custom/sv"
+                },
+                "types": [
+                    {
+                        "jcrName": "MyDocType2.8_remapped",
+                        "extName": "MyDocType2.8"
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/testing",
+                        "jcrName": "testing:ViDeoFiLe",
+                        "extName": "videoFile",
+
+                        "propertyMappings": {
+                            "testing:Title_": "title",
+                            "TrAcK_": "track"
+                        }
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/custom/sv",
+                        "jcrName": "custom:singleVersionTypeTwoMapped",
+                        "extName": "custom:singleVersionTypeTwo",
+
+                        "propertyMappings": {
+                            "custom:artistTwoMapped": "custom:artistTwo"
+                        }
+                    }
+                ],
+                "globalIgnoredExtProperties" : ["title"]
+            }
+        },
+        "cmis1": {
+            "classname": "org.modeshape.connector.cmis.CmisConnector",
+            "cacheTtlSeconds": 5,
+            "aclService": "http://localhost:8090/services/ACLService?wsdl",
+            "discoveryService": "http://localhost:8090/services/DiscoveryService?wsdl",
+            "multifilingService": "http://localhost:8090/services/MultiFilingService?wsdl",
+            "navigationService": "http://localhost:8090/services/NavigationService?wsdl",
+            "objectService": "http://localhost:8090/services/ObjectService?wsdl",
+            "policyService": "http://localhost:8090/services/PolicyService?wsdl",
+            "relationshipService": "http://localhost:8090/services/RelationshipService?wsdl",
+            "repositoryService": "http://localhost:8090/services/RepositoryService?wsdl",
+            "versioningService": "http://localhost:8090/services/VersioningService?wsdl",
+            "repositoryId": "A1",
+            "user" : "dummyuser",
+            "password" : "4963D4E2B0808DDCA0EE478F32EB98A9",
+            "debug": true,
+            "queryable": true,
+            "pageSize" : "-1",
+            "ignoreEmptyPropertiesOnCreate": false,
+            "addRequiredPropertiesOnRead": false,
+            "projections": [ "default:/projection-queryable => /projection-queryable" ],
+            "singleVersionOptions": {
+                "commonIdPropertyName": "custom:commonId",
+                "commonIdTypeName": "custom:singleVersionBaseType",
+                "commonIdQuery": "SELECT * FROM %1$s where '%3$s' =  ANY %2$s",
+                "singleVersionTypes": ["custom:singleVersionTypeOne", "custom:singleVersionTypeTwoMapped"],
+
+                "commonIdProcessorClass" : "org.modeshape.connector.cmis.DummyCommonIdProcessor"
+            },
+            "customMapping": {
+                "namespaces": {
+                    "testing": "http://org.modeshape/testing",
+                    "custom": "http://org.modeshape/custom/sv"
+                },
+                "types": [
+                    {
+                        "jcrName": "MyDocType2.8_remapped",
+                        "extName": "MyDocType2.8"
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/testing",
+                        "jcrName": "testing:ViDeoFiLe",
+                        "extName": "videoFile",
+
+                        "propertyMappings": {
+                            "testing:Title_": "title",
+                            "TrAcK_": "track"
+                        }
+                    },
+                    {
+                        "jcrNamespaceUri": "http://org.modeshape/custom/sv",
+                        "jcrName": "custom:singleVersionTypeTwoMapped",
+                        "extName": "custom:singleVersionTypeTwo",
+
+                        "propertyMappings": {
+                            "custom:artistTwoMapped": "custom:artistTwo"
+                        }
+                    }
+                ],
+                "globalIgnoredExtProperties" : ["title"]
+            }
+        }
+    }
+
+}
