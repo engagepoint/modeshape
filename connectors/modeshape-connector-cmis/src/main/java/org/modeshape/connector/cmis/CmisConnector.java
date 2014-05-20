@@ -35,6 +35,7 @@ import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.common.collection.Problems;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
@@ -65,6 +66,7 @@ import java.util.*;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
+import static org.modeshape.connector.cmis.util.CheckTypeSynchronizationUtil.checkTypeDefinitions;
 
 /**
  * This connector exposes the content of a CMIS repository.
@@ -123,7 +125,7 @@ import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector {
+public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector, SelfCheckTypeSynchronizationConnector {
 
     // -----  json settings -------------
     // binding parameters
@@ -824,5 +826,33 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
 
         return runtimeSnapshot.getCaughtProjectedId();
+    }
+
+    public Problems getSelfCheckStatus() {
+
+        System.out.println("Started self check of de-synchronization in CmisConnector!");
+
+        Map<String, ObjectType> cachedTypes = runtimeSnapshot.getLocalTypeManager().getCachedTypeDefinitions();
+
+        List<Tree<ObjectType>> storageTypeDescendants = runtimeSnapshot.getSession().getTypeDescendants(null, Integer.MAX_VALUE, true);
+
+        Map<String, ObjectType> storageTypes = new HashMap<String, ObjectType>();
+
+        for (Tree<ObjectType> tree : storageTypeDescendants) {
+            putObjectTypesToMap(tree, storageTypes);
+        }
+
+        return checkTypeDefinitions(cachedTypes, storageTypes);
+    }
+
+    private void putObjectTypesToMap(Tree<ObjectType> typeTree, Map<String, ObjectType> types) {
+        ObjectType type = typeTree.getItem();
+        List<Tree<ObjectType>> childrenTree = typeTree.getChildren();
+        types.put(type.getId(), type);
+        if (childrenTree != null && childrenTree.size() > 0) {
+            for (Tree<ObjectType> tree : childrenTree) {
+                putObjectTypesToMap(tree, types);
+            }
+        }
     }
 }
