@@ -2,6 +2,7 @@ package org.modeshape.connector.cmis;
 
 import org.apache.chemistry.opencmis.client.api.Session;
 
+import org.apache.commons.lang3.StringUtils;
 import org.modeshape.jcr.api.Logger;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
@@ -44,12 +45,15 @@ public class RuntimeSnapshot {
 
     private LanguageDialect initLanguageDialect(String value){
         String defaultValue = "opencmis";
+        if(StringUtils.isEmpty(value)){
+            LOGGER.warn("languageDialect parameter is empty, default '%s' will be used ",defaultValue);
+            return new LanguageDialect(defaultValue);
+        }
         try{
             return new LanguageDialect(value);
         }
         catch(IllegalArgumentException e){
-            LOGGER.warn("Wrong languageDialect parameter '%s', default '%s' will be used ",value,defaultValue);
-            return new LanguageDialect(defaultValue);
+            throw new IllegalArgumentException(String.format("Wrong languageDialect parameter '%s' is set",value),e);
         }
     }
 

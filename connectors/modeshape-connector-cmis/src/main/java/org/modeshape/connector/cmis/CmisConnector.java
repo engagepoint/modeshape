@@ -248,7 +248,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public void initialize(NamespaceRegistry registry,
-                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException {
+                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException,IllegalArgumentException {
         super.initialize(registry, nodeTypeManager);
 
         // pack settings into containers for easy passing to sub-classes
