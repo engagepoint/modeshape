@@ -262,6 +262,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
         // setup CMIS connection
         Session session = getCmisConnection();
+
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
                 getContext().getValueFactories(),
@@ -826,5 +827,18 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
 
         return runtimeSnapshot.getCaughtProjectedId();
+    }
+
+    public LanguageDialect getLanguageDialect(){
+        LanguageDialect transformedValue;
+       try{
+        transformedValue = LanguageDialect.valueOf(languageDialect.toUpperCase());
+       }
+       catch(IllegalArgumentException e){
+           transformedValue = LanguageDialect.OPENCMIS;
+           log().warn(String.format("The Language dialect parameter '%s' is set wrong! Default '%s' is used!",
+                   languageDialect,transformedValue.toString().toLowerCase()));
+       }
+        return transformedValue;
     }
 }
