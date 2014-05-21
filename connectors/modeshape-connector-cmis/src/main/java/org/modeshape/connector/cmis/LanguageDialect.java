@@ -17,7 +17,7 @@ public class LanguageDialect {
             this.value = value;
         }
 
-        public static Dialect fromValue(String fromValue) {
+        public static Dialect fromString(String fromValue) {
             for (Dialect dialect : values()) {
                 if (dialect.value.equals(fromValue))
                     return dialect;
@@ -32,13 +32,11 @@ public class LanguageDialect {
 
     private Dialect dialect;
 
-    protected LanguageDialect(Dialect dialect){
-      this.dialect=dialect;
+    public LanguageDialect(String value){
+      this.dialect=Dialect.fromString(value);
     }
 
-    public static LanguageDialect valueOf(String value) {
-       return new LanguageDialect(Dialect.fromValue(value));
-    }
+
 
     public Dialect getDialect(){
         return dialect;

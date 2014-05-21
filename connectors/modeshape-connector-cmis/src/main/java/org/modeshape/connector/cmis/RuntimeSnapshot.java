@@ -1,17 +1,20 @@
 package org.modeshape.connector.cmis;
 
 import org.apache.chemistry.opencmis.client.api.Session;
+
+import org.modeshape.jcr.api.Logger;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.jcr.RepositoryConfiguration;
+
 
 import java.util.List;
 import java.util.Map;
 
 // Cmis Connector runtime container
 public class RuntimeSnapshot {
-
+    private static Logger LOGGER;
     private Session session;
     private String caughtProjectedId;
     private LocalTypeManager localTypeManager;
@@ -28,7 +31,7 @@ public class RuntimeSnapshot {
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           CmisObjectFinderUtil cmisObjectFinderUtil, LanguageDialect languageDialect) {
+                           CmisObjectFinderUtil cmisObjectFinderUtil, String languageDialect) {
         this.session = session;
         this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
@@ -36,7 +39,18 @@ public class RuntimeSnapshot {
         this.documentProducer = documentProducer;
         this.preconfiguredProjections = preconfiguredProjections;
         this.cmisObjectFinderUtil = cmisObjectFinderUtil;
-        this.languageDialect =languageDialect;
+        this.languageDialect= initLanguageDialect(languageDialect);
+    }
+
+    private LanguageDialect initLanguageDialect(String value){
+        String defaultValue = "opencmis";
+        try{
+            return new LanguageDialect(value);
+        }
+        catch(IllegalArgumentException e){
+            LOGGER.warn("Wrong languageDialect parameter '%s', default '%s' will be used ",value,defaultValue);
+            return new LanguageDialect(defaultValue);
+        }
     }
 
     public Session getSession() {

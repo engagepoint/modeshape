@@ -181,7 +181,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private RuntimeSnapshot runtimeSnapshot;
     // indicates storage which connector looks at
     private String languageDialect;
-    private LanguageDialect languageDialectInst;
+
 
     public CmisConnector() {
         super();
@@ -278,19 +278,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
         // extended getObject logic
         CmisObjectFinderUtil cmisObjectFinderUtil = new CmisObjectFinderUtil(session, localTypeManager, singleVersionOptions);
-        try{
-        languageDialectInst=LanguageDialect.valueOf(languageDialect);
-        }
-        catch (IllegalArgumentException e){
-            throw new IOException(String.format("Wrong language dialect parameter '%s'",languageDialect),e);
-        }
+
         SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
 
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialectInst);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
     }
 
 
@@ -836,6 +831,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     }
 
     public LanguageDialect getLanguageDialect(){
-        return languageDialectInst;
+       return runtimeSnapshot.getLanguageDialect();
     }
+
 }
