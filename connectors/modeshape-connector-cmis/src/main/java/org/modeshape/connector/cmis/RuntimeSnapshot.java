@@ -23,10 +23,12 @@ public class RuntimeSnapshot {
 
     private CmisObjectFinderUtil cmisObjectFinderUtil;
 
+    private LanguageDialect languageDialect;
+
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           CmisObjectFinderUtil cmisObjectFinderUtil) {
+                           CmisObjectFinderUtil cmisObjectFinderUtil, LanguageDialect languageDialect) {
         this.session = session;
         this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
@@ -34,6 +36,7 @@ public class RuntimeSnapshot {
         this.documentProducer = documentProducer;
         this.preconfiguredProjections = preconfiguredProjections;
         this.cmisObjectFinderUtil = cmisObjectFinderUtil;
+        this.languageDialect =languageDialect;
     }
 
     public Session getSession() {
@@ -62,6 +65,10 @@ public class RuntimeSnapshot {
 
     public CmisObjectFinderUtil getCmisObjectFinderUtil() {
         return cmisObjectFinderUtil;
+    }
+
+    public LanguageDialect getLanguageDialect(){
+        return languageDialect;
     }
 
     //

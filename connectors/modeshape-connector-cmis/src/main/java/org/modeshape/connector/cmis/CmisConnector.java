@@ -36,7 +36,6 @@ import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.config.LanguageDialect;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
@@ -182,6 +181,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private RuntimeSnapshot runtimeSnapshot;
     // indicates storage which connector looks at
     private String languageDialect;
+    private LanguageDialect languageDialectInst;
 
     public CmisConnector() {
         super();
@@ -278,13 +278,19 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
         // extended getObject logic
         CmisObjectFinderUtil cmisObjectFinderUtil = new CmisObjectFinderUtil(session, localTypeManager, singleVersionOptions);
-
+        try{
+        languageDialectInst=LanguageDialect.valueOf(languageDialect);
+        }
+        catch (IllegalArgumentException e){
+            throw new IOException(String.format("Wrong language dialect parameter '%s'",languageDialect),e);
+        }
         SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
 
+
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialectInst);
     }
 
 
@@ -830,15 +836,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     }
 
     public LanguageDialect getLanguageDialect(){
-        LanguageDialect transformedValue;
-       try{
-        transformedValue = LanguageDialect.valueOf(languageDialect.toUpperCase());
-       }
-       catch(IllegalArgumentException e){
-           transformedValue = LanguageDialect.OPENCMIS;
-           log().warn(String.format("The Language dialect parameter '%s' is set wrong! Default '%s' is used!",
-                   languageDialect,transformedValue.toString().toLowerCase()));
-       }
-        return transformedValue;
+        return languageDialectInst;
     }
 }
