@@ -1,6 +1,7 @@
 package org.modeshape.connector.cmis.common;
 
 /**
+ * Collection of CMIS {@link org.apache.chemistry.opencmis.client.api.ObjectType}, {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition} fields names.
  * Created by vyacheslav.polulyakh on 5/15/2014.
  */
 public class TypeDefinitionsIds {

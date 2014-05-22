@@ -66,7 +66,7 @@ import java.util.*;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
-import static org.modeshape.connector.cmis.util.CheckTypeSynchronizationUtil.checkTypeDefinitions;
+import static org.modeshape.connector.cmis.util.CheckTypeUtil.checkTypeDefinitions;
 
 /**
  * This connector exposes the content of a CMIS repository.
@@ -125,7 +125,7 @@ import static org.modeshape.connector.cmis.util.CheckTypeSynchronizationUtil.che
  * @author Ivan Vasyliev
  * @author Nick Knysh
  */
-public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector, SelfCheckTypeSynchronizationConnector {
+public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector, SelfCheckConnector {
 
     // -----  json settings -------------
     // binding parameters
@@ -828,11 +828,15 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return runtimeSnapshot.getCaughtProjectedId();
     }
 
+    /**
+     * Checks the synchronization between the types registered in the system and current types in a remote storage
+     * @return {@link org.modeshape.common.collection.Problems} The problems encountered in type checking
+     */
     public Problems getSelfCheckStatus() {
 
         System.out.println("Started self check of de-synchronization in CmisConnector!");
 
-        Map<String, ObjectType> cachedTypes = runtimeSnapshot.getLocalTypeManager().getCachedTypeDefinitions();
+        Map<String, ObjectType> cachedTypes = getCachedTypeDefinitions();
 
         List<Tree<ObjectType>> storageTypeDescendants = runtimeSnapshot.getSession().getTypeDescendants(null, Integer.MAX_VALUE, true);
 
@@ -845,6 +849,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         return checkTypeDefinitions(cachedTypes, storageTypes);
     }
 
+    /**
+     * Convert {@link org.apache.chemistry.opencmis.client.api.Tree} of {@link org.apache.chemistry.opencmis.client.api.ObjectType}
+     * to {@link java.util.Map} witch has typeId as key and {@link org.apache.chemistry.opencmis.client.api.ObjectType} as value
+     * @param typeTree types to convert
+     * @param types result types map
+     */
     private void putObjectTypesToMap(Tree<ObjectType> typeTree, Map<String, ObjectType> types) {
         ObjectType type = typeTree.getItem();
         List<Tree<ObjectType>> childrenTree = typeTree.getChildren();

@@ -3,6 +3,7 @@ package org.modeshape.connector.cmis.common;
 import org.modeshape.common.i18n.I18n;
 
 /**
+ * The internationalized string constants for the <code>org.modeshape.connector.cmis.common.*</code> packages.
  * Created by vyacheslav.polulyakh on 5/14/2014.
  */
 public final class CheckTypesI18n {

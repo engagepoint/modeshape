@@ -17,15 +17,21 @@ import java.util.*;
  * Self Check Type synchronization Util
  * Created by vyacheslav.polulyakh on 5/14/2014.
  */
-public class CheckTypeSynchronizationUtil {
+public class CheckTypeUtil {
 
     private static final String ADDED = "Added";
     private static final String DELETED = "Deleted";
     private static final String PARAMETER_FROM_TO = "parameter %s from %s to: %s";
     private static final String FROM_TO = "from: %s to %s";
+    private static final String EMPTY_STRING = "";
 
     protected static Problems problems;
 
+    /**
+     * Compare two Types Definitions and add <code>Error</code> or <code>Warning</code> to returned {@link org.modeshape.common.collection.Problems}
+     * if it's has discrepancy
+     * @return {@link org.modeshape.common.collection.Problems} witch contains all found discrepancy
+     */
     public static Problems checkTypeDefinitions(Map<String, ObjectType> expectedTypes, Map<String, ObjectType> actualTypes) {
         problems = new SimpleProblems();
 
@@ -33,7 +39,7 @@ public class CheckTypeSynchronizationUtil {
             return problems;
         }
 
-        expectedTypes = compareMaps(expectedTypes, actualTypes, CheckTypesI18n.typeWas, null);
+        expectedTypes = compareMaps(expectedTypes, actualTypes, CheckTypesI18n.typeWas, EMPTY_STRING);
 
         for (Map.Entry<String, ObjectType> entry : expectedTypes.entrySet()) {
 
@@ -45,6 +51,12 @@ public class CheckTypeSynchronizationUtil {
         return problems;
     }
 
+    /**
+     * Compare two {@link org.apache.chemistry.opencmis.client.api.ObjectType} to equals,
+     * and add <code>Error</code> or <code>Warning</code> to {@link #problems}
+     * if it's fields and {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition}(s) not equals
+     * used method {@link #comparePropertyDefinitions(java.util.Map, java.util.Map, String)} for compare it's properties
+     */
     protected static void compareObjectType(ObjectType expectedType, ObjectType actualType) {
 
         if (isNullValues(expectedType, actualType)) {
@@ -72,23 +84,42 @@ public class CheckTypeSynchronizationUtil {
             compareForErrorObjectTypeFields(((DocumentTypeDefinition) expectedType).isVersionable(), ((DocumentTypeDefinition) actualType).isVersionable(), typeId, TypeDefinitionsIds.IS_VERSIONABLE);
         }
 
-        //TODO check Extensions
-
         comparePropertyDefinitions(expectedType.getPropertyDefinitions(), actualType.getPropertyDefinitions(), typeId);
     }
 
+    /**
+     * Compare two value of fields from {@link org.apache.chemistry.opencmis.client.api.ObjectType} to equals,
+     * and add <code>Error</code> to {@link #problems} if it's not equals
+     * @param expected value
+     * @param actual value
+     * @param typeId Id of type where are this field
+     * @param fieldName name of this field
+     */
     protected static void compareForErrorObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
             problems.addError(CheckTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
+    /**
+     * Compare two value of fields from {@link org.apache.chemistry.opencmis.client.api.ObjectType} to equals,
+     * and add <code>Warning</code> to {@link #problems} if it's not equals
+     * @param expected value
+     * @param actual value
+     * @param typeId Id of type where are this field
+     * @param fieldName name of this field
+     */
     protected static void compareForWarningObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
             problems.addWarning(CheckTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
+    /**
+     * Compare two {@link Map} of {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition} to equals,
+     * use method {@link #compareMaps(java.util.Map, java.util.Map, org.modeshape.common.i18n.I18n, String)} and {@link #compareProperty} for it
+     * @param typeId Id of type where are this properties
+     */
     protected static void comparePropertyDefinitions(Map<String, PropertyDefinition<?>> expectedProperties, Map<String, PropertyDefinition<?>> actualProperties, String typeId) {
 
         if (isNullValues(expectedProperties, actualProperties)) {
@@ -102,6 +133,12 @@ public class CheckTypeSynchronizationUtil {
         }
     }
 
+    /**
+     * Compare two {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition} to equals,
+     * and add <code>Error</code> or <code>Warning</code> to {@link #problems}
+     * if it's fields and {@link org.apache.chemistry.opencmis.commons.definitions.Choice}(s) not equals
+     * @param typeId Id of type where are this property
+     */
     protected static void compareProperty(PropertyDefinition<?> expectedProperty, PropertyDefinition<?> actualProperty, String typeId) {
 
         if (isNullValues(problems, expectedProperty, actualProperty)) {
@@ -132,35 +169,53 @@ public class CheckTypeSynchronizationUtil {
         expectedDefaultValue = expectedDefaultValue == null ? Collections.emptyList() : expectedDefaultValue;
         actualDefaultValue = actualDefaultValue == null ? Collections.emptyList() : actualDefaultValue;
 
-/*        boolean isAllNulls = expectedProperty.getDefaultValue() == null && actualProperty.getDefaultValue() == null;
-        boolean isNullValues = expectedProperty.getDefaultValue() == null || actualProperty.getDefaultValue() == null;
-
-        boolean isEquals = !isNullValues && CollectionUtils.isEqualCollection(expectedProperty.getDefaultValue(), actualProperty.getDefaultValue());
-
-        if (!(isAllNulls || isEquals)) {*/
-
         if (!CollectionUtils.isEqualCollection(expectedDefaultValue,actualDefaultValue)) {
             problems.addWarning(CheckTypesI18n.propertyAreChanged, typeId, propertyId,
                     String.format(PARAMETER_FROM_TO, TypeDefinitionsIds.DEFAULT_VALUE, expectedProperty.getDefaultValue(), actualProperty.getDefaultValue()));
         }
 
-        //TODO check
-
         compareChoices(expectedProperty.getChoices(), actualProperty.getChoices(), typeId, propertyId);
     }
 
+    /**
+     * Compare two value of fields from {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition} to equals,
+     * and add <code>Error</code> to {@link #problems} if it's not equals
+     * @param expected value
+     * @param actual value
+     * @param typeId Id of type where are this property
+     * @param propertyId Id of property where this field are
+     * @param fieldName name of this field
+     */
     protected static void compareForErrorPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
             problems.addError(CheckTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
+    /**
+     * Compare two value of fields from {@link org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition} to equals,
+     * and add <code>Warning</code> to {@link #problems} if it's not equals
+     * @param expected value
+     * @param actual value
+     * @param typeId Id of type where are this property
+     * @param propertyId Id of property where this field are
+     * @param fieldName name of this field
+     */
     protected static void compareForWarningPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
             problems.addWarning(CheckTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
+    /**
+     * Compare two {@link List} of {@link org.apache.chemistry.opencmis.commons.definitions.Choice}(s)
+     * for compare one {@link org.apache.chemistry.opencmis.commons.definitions.Choice} used method {@link #compareChoice(org.apache.chemistry.opencmis.commons.definitions.Choice, org.apache.chemistry.opencmis.commons.definitions.Choice, String, String)}
+     * and add <code>Error</code> to {@link #problems} if it's not <code>equals</code>
+     * @param expectedChoices expected {@link List} of {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * @param actualChoices actual {@link List} of {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * @param typeId Id of type where are property witch contain this {@link org.apache.chemistry.opencmis.commons.definitions.Choice}(s)
+     * @param propertyId Id of property where this {@link org.apache.chemistry.opencmis.commons.definitions.Choice}(s) are
+     */
     protected static void compareChoices(List<? extends Choice<?>> expectedChoices, List<? extends Choice<?>> actualChoices, String typeId, String propertyId) {
 
         if (expectedChoices.isEmpty() && actualChoices.isEmpty()) {
@@ -172,12 +227,20 @@ public class CheckTypeSynchronizationUtil {
             return;
         }
 
-        //TODO
         for (int i = 0; i < expectedChoices.size(); i++) {
             compareChoice(expectedChoices.get(i), actualChoices.get(i), typeId, propertyId);
         }
     }
 
+    /**
+     * Compare two {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * If {@link org.apache.chemistry.opencmis.commons.definitions.Choice} are changed add <code>Error</code>
+     * to {@link #problems}
+     * @param expectedChoice expected {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * @param actualChoice actual {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * @param typeId Id of type where are property witch contain this {@link org.apache.chemistry.opencmis.commons.definitions.Choice}
+     * @param propertyId Id of property where this {@link org.apache.chemistry.opencmis.commons.definitions.Choice} are
+     */
     protected static void compareChoice(Choice<?> expectedChoice, Choice<?> actualChoice, String typeId, String propertyId) {
 
         if (!compareValues(expectedChoice.getDisplayName(), actualChoice.getDisplayName())) {
@@ -189,6 +252,15 @@ public class CheckTypeSynchronizationUtil {
         }
     }
 
+    /**
+     * Compare two maps for equals it's <code>keys</code>
+     * Create a copy of expected map with keys, witch are in actual map and in expected map
+     * If keys not exist in actual map, add Error to {@link #problems} with <code>message</code> and parameters <code>deleted</code>, <code>param</code>
+     * If keys not exist in expected map, add Warning to {@link #problems} with <code>message</code> and parameters <code>added</code>, <code>param</code>
+     * @param message {@link org.modeshape.common.i18n.I18n} message
+     * @param param additional info for <code>message</code>
+     * @return cope of expected map, without keys witch not exist in actual map
+     */
     protected static <T> Map<String, T> compareMaps(Map<String, T> expected, Map<String, T> actual, I18n message, String param) {
         Map<String, T> expectedMap = new HashMap<String, T>(expected);
         Set<String> expectedKeys = new HashSet<String>(expectedMap.keySet());
@@ -218,6 +290,12 @@ public class CheckTypeSynchronizationUtil {
         return expectedMap;
     }
 
+    /**
+     * Verify all objects for <code>null</code> value, if one of it are <code>null</code>
+     * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CheckTypesI18n#argumentMayNotBeNull}
+     * @param objects objects to verify
+     * @return <code>false</code> if all of objects are not null, else <coe>true</coe>
+     */
     protected static boolean isNullValues(Object... objects) {
 
         for (Object o : objects) {
@@ -229,6 +307,12 @@ public class CheckTypeSynchronizationUtil {
         return false;
     }
 
+    /**
+     * Compare two object to equals
+     * @param expected expected value, may be null
+     * @param actual actual value, may be null
+     * @return <code>true</code> if object equals or both are null's, else <code>false</code>
+     */
     protected static boolean compareValues(Object expected, Object actual) {
 
         boolean isNulls = expected == null && actual == null;

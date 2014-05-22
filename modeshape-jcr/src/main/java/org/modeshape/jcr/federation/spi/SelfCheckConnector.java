@@ -7,7 +7,7 @@ import org.modeshape.common.collection.Problems;
  * implement type synchronization check
  * Created by vyacheslav.polulyakh on 5/14/2014.
  */
-public interface SelfCheckTypeSynchronizationConnector {
+public interface SelfCheckConnector {
 
     /**
      * Checks the synchronization between the types registered in the system and current types in a remote storage
