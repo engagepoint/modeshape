@@ -283,11 +283,23 @@ public class CompareTypeDefinitionsUtil {
 
             if (!actualKeys.isEmpty()) {
                 for (String key : actualKeys) {
-                    problems.addWarning(message, key, ADDED, param);
+                    if (isRequiredProperty(actual.get(key))) {
+                        problems.addError(message, key, ADDED, param);
+                    } else {
+                        problems.addWarning(message, key, ADDED, param);
+                    }
                 }
             }
         }
         return expectedMap;
+    }
+
+    private static boolean isRequiredProperty(Object o){
+        if (o instanceof PropertyDefinition){
+            if(((PropertyDefinition) o).isRequired())
+                return true;
+        }
+        return false;
     }
 
     /**

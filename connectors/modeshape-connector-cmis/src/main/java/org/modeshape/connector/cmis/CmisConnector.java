@@ -860,30 +860,28 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Problems getSelfCheckStatus() {
 
         System.out.println("Started self check in CmisConnector!");
+        Problems problems;
 
         Map<String, ObjectType> cachedTypes = getCachedTypeDefinitions();
 
         List<Tree<ObjectType>> storageTypeDescendants;
         try {
             storageTypeDescendants = runtimeSnapshot.getSession().getTypeDescendants(null, Integer.MAX_VALUE, true);
+            Map<String, ObjectType> storageTypes = new HashMap<String, ObjectType>();
+            for (Tree<ObjectType> tree : storageTypeDescendants) {
+                putObjectTypesToMap(tree, storageTypes);
+            }
+            problems = compareTypeDefinitions(cachedTypes, storageTypes);
         } catch (CmisRuntimeException cre) {
             if (cre.getCode().intValue() == 0) {
-                Problems problems = new SimpleProblems();
+                problems = new SimpleProblems();
                 problems.addError(CompareTypesI18n.repositoryException, cre.getMessage());
-                return problems;
+            } else {
+                throw cre;
             }
-            throw cre;
         }
-
-        Map<String, ObjectType> storageTypes = new HashMap<String, ObjectType>();
-
-        for (Tree<ObjectType> tree : storageTypeDescendants) {
-            putObjectTypesToMap(tree, storageTypes);
-        }
-
-        Problems problems = compareTypeDefinitions(cachedTypes, storageTypes);
         setConnectorProblemsIfErrors(problems);
-        return compareTypeDefinitions(cachedTypes, storageTypes);
+        return problems;
     }
 
     /**
@@ -896,13 +894,17 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             StringBuilder message = new StringBuilder();
             for (Problem problem : problems) {
                 boolean isError = problem.getStatus() == Problem.Status.ERROR;
-                boolean isRepoException = problem.getMessage() != CompareTypesI18n.repositoryException;
+                boolean isRepoException = problem.getMessage() == CompareTypesI18n.repositoryException;
                 if (isError && !isRepoException) {
                     message.append(problem.getMessageString()).append("; ");
                 }
             }
-            connectorProblems = message.toString();
-            System.out.println("Found problems in connector: " + connectorProblems);
+
+            String errors = message.toString();
+            if (!errors.isEmpty()) {
+                connectorProblems = errors;
+                System.out.println("Found problems in connector: " + connectorProblems);
+            }
         } else {
             connectorProblems = null;
         }
