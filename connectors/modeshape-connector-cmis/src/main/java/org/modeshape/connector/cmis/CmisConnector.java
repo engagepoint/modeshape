@@ -32,10 +32,14 @@ import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.RepositoryInfo;
 import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
 import org.apache.commons.lang3.StringUtils;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.common.collection.Problem;
 import org.modeshape.common.collection.Problems;
+import org.modeshape.common.collection.SimpleProblems;
+import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
@@ -66,7 +70,7 @@ import java.util.*;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
-import static org.modeshape.connector.cmis.util.CheckTypeUtil.checkTypeDefinitions;
+import static org.modeshape.connector.cmis.util.CompareTypeDefinitionsUtil.compareTypeDefinitions;
 
 /**
  * This connector exposes the content of a CMIS repository.
@@ -170,6 +174,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     //
     private boolean folderSetUnknownChildren = false;
+
+    private String connectorProblems = null;
 
     long pageSize = Constants.DEFAULT_PAGE_SIZE;
     long pageSizeUnfiled = Constants.DEFAULT_PAGE_SIZE_UNFILED;
@@ -508,31 +514,37 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     /* regular store operation */
     private CmisStoreOperation getCmisStoreOperation() {
+        validateConnectorForErrors();
         return new CmisStoreOperation(runtimeSnapshot, configuration);
     }
 
     /* regular update operation */
     private CmisUpdateOperation getCmisUpdateOperation() {
+        validateConnectorForErrors();
         return new CmisUpdateOperation(runtimeSnapshot, configuration);
     }
 
     /* universal getChildren op */
     private CmisGetChildrenOperation getCmisGetChildrenOperation() {
+        validateConnectorForErrors();
         return new CmisGetChildrenOperation(runtimeSnapshot, configuration);
     }
 
     /* newObject/store ops combined in a single call - used by singleVersion feature */
     private CmisNewObjectCombinedOperation getCmisNewObjectCombinedOperation() {
+        validateConnectorForErrors();
         return new CmisNewObjectCombinedOperation(runtimeSnapshot, configuration);
     }
 
     /* a set of modified actions and utils/checks to support singleVersion feature */
     private CmisSingleVersionOperations getCmisSingleVersionOperations() {
+        validateConnectorForErrors();
         return new CmisSingleVersionOperations(runtimeSnapshot, configuration);
     }
 
     /* regular newObjectId op */
     private CmisNewObjectOperation getCmisNewObjectOperation() {
+        validateConnectorForErrors();
         return new CmisNewObjectOperation(runtimeSnapshot, configuration);
     }
 
@@ -540,7 +552,19 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     * new instance of cmis getObjectOperation
     */
     public CmisGetObjectOperation getCmisGetOperation() {
+        validateConnectorForErrors();
         return new CmisGetObjectOperation(runtimeSnapshot, configuration, getUnfiledParentId());
+    }
+
+    /**
+     * Validate {@link #connectorProblems} for writen errors.
+     * In normal state {@link #connectorProblems} must bee <code>null</code>
+     * @throws org.modeshape.jcr.federation.spi.ConnectorException with messages from {@link #connectorProblems}
+     */
+    private void validateConnectorForErrors(){
+        if (connectorProblems != null){
+            throw new ConnectorException(connectorProblems);
+        }
     }
 
 
@@ -614,17 +638,17 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // DEBUG
     public void debug(String... values) {
 //        if (debug) {
-            StringBuilder sb = new StringBuilder();
-            for (String value : values) {
-                sb.append(value).append(" ");
-            }
-            if (getLogger() != null) {
-                getLogger().debug(sb.toString());
-            } else if (log() != null /* simple logger */) {
-                log().debug(sb.toString());
-            } else {
-                System.out.println(sb.toString());
-            }
+        StringBuilder sb = new StringBuilder();
+        for (String value : values) {
+            sb.append(value).append(" ");
+        }
+        if (getLogger() != null) {
+            getLogger().debug(sb.toString());
+        } else if (log() != null /* simple logger */) {
+            log().debug(sb.toString());
+        } else {
+            System.out.println(sb.toString());
+        }
 //        }
     }
 
@@ -829,16 +853,27 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     }
 
     /**
-     * Checks the synchronization between the types registered in the system and current types in a remote storage
+     * Validate the types registered in the system and current types in a remote storage
+     *
      * @return {@link org.modeshape.common.collection.Problems} The problems encountered in type checking
      */
     public Problems getSelfCheckStatus() {
 
-        System.out.println("Started self check of de-synchronization in CmisConnector!");
+        System.out.println("Started self check in CmisConnector!");
 
         Map<String, ObjectType> cachedTypes = getCachedTypeDefinitions();
 
-        List<Tree<ObjectType>> storageTypeDescendants = runtimeSnapshot.getSession().getTypeDescendants(null, Integer.MAX_VALUE, true);
+        List<Tree<ObjectType>> storageTypeDescendants;
+        try {
+            storageTypeDescendants = runtimeSnapshot.getSession().getTypeDescendants(null, Integer.MAX_VALUE, true);
+        } catch (CmisRuntimeException cre) {
+            if (cre.getCode().intValue() == 0) {
+                Problems problems = new SimpleProblems();
+                problems.addError(CompareTypesI18n.repositoryException, cre.getMessage());
+                return problems;
+            }
+            throw cre;
+        }
 
         Map<String, ObjectType> storageTypes = new HashMap<String, ObjectType>();
 
@@ -846,14 +881,39 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             putObjectTypesToMap(tree, storageTypes);
         }
 
-        return checkTypeDefinitions(cachedTypes, storageTypes);
+        Problems problems = compareTypeDefinitions(cachedTypes, storageTypes);
+        setConnectorProblemsIfErrors(problems);
+        return compareTypeDefinitions(cachedTypes, storageTypes);
+    }
+
+    /**
+     * Set to {@link #connectorProblems} messages from funded problems for {@link #getSelfCheckStatus()}
+     * without connection problem
+     * @param problems current problems
+     */
+    private void setConnectorProblemsIfErrors(Problems problems) {
+        if (problems.hasErrors()) {
+            StringBuilder message = new StringBuilder();
+            for (Problem problem : problems) {
+                boolean isError = problem.getStatus() == Problem.Status.ERROR;
+                boolean isRepoException = problem.getMessage() != CompareTypesI18n.repositoryException;
+                if (isError && !isRepoException) {
+                    message.append(problem.getMessageString()).append("; ");
+                }
+            }
+            connectorProblems = message.toString();
+            System.out.println("Found problems in connector: " + connectorProblems);
+        } else {
+            connectorProblems = null;
+        }
     }
 
     /**
      * Convert {@link org.apache.chemistry.opencmis.client.api.Tree} of {@link org.apache.chemistry.opencmis.client.api.ObjectType}
      * to {@link java.util.Map} witch has typeId as key and {@link org.apache.chemistry.opencmis.client.api.ObjectType} as value
+     *
      * @param typeTree types to convert
-     * @param types result types map
+     * @param types    result types map
      */
     private void putObjectTypesToMap(Tree<ObjectType> typeTree, Map<String, ObjectType> types) {
         ObjectType type = typeTree.getItem();

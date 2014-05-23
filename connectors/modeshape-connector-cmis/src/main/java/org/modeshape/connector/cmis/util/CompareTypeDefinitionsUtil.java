@@ -8,16 +8,16 @@ import org.apache.commons.collections.CollectionUtils;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.i18n.I18n;
-import org.modeshape.connector.cmis.common.CheckTypesI18n;
+import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.common.TypeDefinitionsIds;
 
 import java.util.*;
 
 /**
- * Self Check Type synchronization Util
+ * Self Check Type conformity Util
  * Created by vyacheslav.polulyakh on 5/14/2014.
  */
-public class CheckTypeUtil {
+public class CompareTypeDefinitionsUtil {
 
     private static final String ADDED = "Added";
     private static final String DELETED = "Deleted";
@@ -32,14 +32,14 @@ public class CheckTypeUtil {
      * if it's has discrepancy
      * @return {@link org.modeshape.common.collection.Problems} witch contains all found discrepancy
      */
-    public static Problems checkTypeDefinitions(Map<String, ObjectType> expectedTypes, Map<String, ObjectType> actualTypes) {
+    public static Problems compareTypeDefinitions(Map<String, ObjectType> expectedTypes, Map<String, ObjectType> actualTypes) {
         problems = new SimpleProblems();
 
         if (isNullValues(expectedTypes, actualTypes)) {
             return problems;
         }
 
-        expectedTypes = compareMaps(expectedTypes, actualTypes, CheckTypesI18n.typeWas, EMPTY_STRING);
+        expectedTypes = compareMaps(expectedTypes, actualTypes, CompareTypesI18n.typeWas, EMPTY_STRING);
 
         for (Map.Entry<String, ObjectType> entry : expectedTypes.entrySet()) {
 
@@ -97,7 +97,7 @@ public class CheckTypeUtil {
      */
     protected static void compareForErrorObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addError(CheckTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addError(CompareTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
@@ -111,7 +111,7 @@ public class CheckTypeUtil {
      */
     protected static void compareForWarningObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addWarning(CheckTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addWarning(CompareTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
@@ -126,7 +126,7 @@ public class CheckTypeUtil {
             return;
         }
 
-        expectedProperties = compareMaps(expectedProperties, actualProperties, CheckTypesI18n.propertyAreChanged, typeId);
+        expectedProperties = compareMaps(expectedProperties, actualProperties, CompareTypesI18n.propertyAreChanged, typeId);
 
         for (Map.Entry<String, PropertyDefinition<?>> entry : expectedProperties.entrySet()) {
             compareProperty(entry.getValue(), actualProperties.get(entry.getKey()), typeId);
@@ -170,7 +170,7 @@ public class CheckTypeUtil {
         actualDefaultValue = actualDefaultValue == null ? Collections.emptyList() : actualDefaultValue;
 
         if (!CollectionUtils.isEqualCollection(expectedDefaultValue,actualDefaultValue)) {
-            problems.addWarning(CheckTypesI18n.propertyAreChanged, typeId, propertyId,
+            problems.addWarning(CompareTypesI18n.propertyAreChanged, typeId, propertyId,
                     String.format(PARAMETER_FROM_TO, TypeDefinitionsIds.DEFAULT_VALUE, expectedProperty.getDefaultValue(), actualProperty.getDefaultValue()));
         }
 
@@ -188,7 +188,7 @@ public class CheckTypeUtil {
      */
     protected static void compareForErrorPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addError(CheckTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addError(CompareTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
@@ -203,7 +203,7 @@ public class CheckTypeUtil {
      */
     protected static void compareForWarningPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addWarning(CheckTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addWarning(CompareTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
         }
     }
 
@@ -223,7 +223,7 @@ public class CheckTypeUtil {
         }
 
         if (expectedChoices.size() != actualChoices.size()) {
-            problems.addError(CheckTypesI18n.choiceAreChanged, typeId, propertyId, "Choices are changed");
+            problems.addError(CompareTypesI18n.choiceAreChanged, typeId, propertyId, "Choices are changed");
             return;
         }
 
@@ -244,11 +244,11 @@ public class CheckTypeUtil {
     protected static void compareChoice(Choice<?> expectedChoice, Choice<?> actualChoice, String typeId, String propertyId) {
 
         if (!compareValues(expectedChoice.getDisplayName(), actualChoice.getDisplayName())) {
-            problems.addError(CheckTypesI18n.choiceAreChanged, typeId, propertyId, TypeDefinitionsIds.DISPLAY_NAME);
+            problems.addError(CompareTypesI18n.choiceAreChanged, typeId, propertyId, TypeDefinitionsIds.DISPLAY_NAME);
         }
 
         if (!CollectionUtils.isEqualCollection(expectedChoice.getValue(), actualChoice.getValue())) {
-            problems.addError(CheckTypesI18n.choiceAreChanged, typeId, propertyId, String.format(FROM_TO, expectedChoice.getValue().toString(), actualChoice.getValue().toString()));
+            problems.addError(CompareTypesI18n.choiceAreChanged, typeId, propertyId, String.format(FROM_TO, expectedChoice.getValue().toString(), actualChoice.getValue().toString()));
         }
     }
 
@@ -292,7 +292,7 @@ public class CheckTypeUtil {
 
     /**
      * Verify all objects for <code>null</code> value, if one of it are <code>null</code>
-     * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CheckTypesI18n#argumentMayNotBeNull}
+     * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CompareTypesI18n#argumentMayNotBeNull}
      * @param objects objects to verify
      * @return <code>false</code> if all of objects are not null, else <coe>true</coe>
      */
@@ -300,7 +300,7 @@ public class CheckTypeUtil {
 
         for (Object o : objects) {
             if (o == null) {
-                problems.addError(CheckTypesI18n.argumentMayNotBeNull);
+                problems.addError(CompareTypesI18n.argumentMayNotBeNull);
                 return true;
             }
         }
