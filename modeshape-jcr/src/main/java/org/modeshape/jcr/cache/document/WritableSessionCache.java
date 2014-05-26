@@ -128,7 +128,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     /**
      * Create a new SessionCache that can be used for making changes to the workspace.
-     * 
+     *
      * @param context the execution context; may not be null
      * @param workspaceCache the (shared) workspace cache; may not be null
      * @param sessionContext the context for the session; may not be null
@@ -240,7 +240,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     /**
      * Returns the list of changed nodes at or below the given path, starting with the children.
-     * 
+     *
      * @param nodePath the path of the parent node
      * @return the list of changed nodes
      */
@@ -254,7 +254,7 @@ public class WritableSessionCache extends AbstractSessionCache {
             } catch (NodeNotFoundException e) {
                 isAtOrBelow = false;
             }
-            
+
             if (!isAtOrBelow) {
                 continue;
             }
@@ -409,7 +409,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     /**
      * Persist the changes within a transaction.
-     * 
+     *
      * @throws LockFailureException if a requested lock could not be made
      * @throws DocumentAlreadyExistsException if this session attempts to create a document that has the same key as an existing
      *         document
@@ -718,7 +718,7 @@ public class WritableSessionCache extends AbstractSessionCache {
      * This method saves the changes made by both sessions within a single transaction. <b>Note that this must be used with
      * caution, as this method attempts to get write locks on both sessions, meaning they <i>cannot<i> be concurrently used
      * elsewhere (otherwise deadlocks might occur).</b>
-     * 
+     *
      * @param toBeSaved the set of keys identifying the nodes whose changes should be saved; may not be null
      * @param other the other session
      * @param preSaveOperation the pre-save operation
@@ -881,7 +881,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     /**
      * Persist the changes within an already-established transaction.
-     * 
+     *
      * @param changedNodesInOrder the nodes that are to be persisted; may not be null
      * @param monitor the monitor for these changes; may be null if not needed
      * @return the ChangeSet encapsulating the changes that were made

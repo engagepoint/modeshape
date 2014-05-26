@@ -49,12 +49,9 @@ public class RuntimeSnapshot {
             LOGGER.warn("languageDialect parameter is empty, default '%s' will be used ",defaultValue);
             return new LanguageDialect(defaultValue);
         }
-        try{
+
             return new LanguageDialect(value);
-        }
-        catch(IllegalArgumentException e){
-            throw new IllegalArgumentException(String.format("Wrong languageDialect parameter '%s' is set",value),e);
-        }
+
     }
 
     public Session getSession() {

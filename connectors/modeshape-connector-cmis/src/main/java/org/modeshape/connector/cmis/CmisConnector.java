@@ -757,7 +757,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         OperationContext ctx = getChildrenQueryOperationContext();
         ctx.setFilter(getIDsFilter());
         ctx.setMaxItemsPerPage(snsIndex);
-
         ItemIterable<QueryResult> result = runtimeSnapshot.getSession().query(query, false, ctx);
 
         if (snsIndex > 1)

@@ -17,12 +17,12 @@ public class LanguageDialect {
             this.value = value;
         }
 
-        public static Dialect fromString(String fromValue) {
+        public static Dialect fromString(String fromValue) throws IllegalArgumentException {
             for (Dialect dialect : values()) {
                 if (dialect.value.equals(fromValue))
                     return dialect;
             }
-            return null;
+            throw new IllegalArgumentException(String.format("Wrong languageDialect parameter '%s' is set",fromValue));
         }
 
         public String getValue() {
