@@ -187,6 +187,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // -----  runtime variables container -------------
     private RuntimeSnapshot runtimeSnapshot;
+    // indicates storage which connector looks at
+    private String languageDialect;
 
 
     public CmisConnector() {
@@ -254,7 +256,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public void initialize(NamespaceRegistry registry,
-                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException {
+                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException,IllegalArgumentException {
         super.initialize(registry, nodeTypeManager);
 
         // pack settings into containers for easy passing to sub-classes
@@ -268,6 +270,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
         // setup CMIS connection
         Session session = getCmisConnection();
+
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
                 getContext().getValueFactories(),
@@ -288,8 +291,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
 
+
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
     }
 
 
@@ -638,17 +642,17 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // DEBUG
     public void debug(String... values) {
 //        if (debug) {
-        StringBuilder sb = new StringBuilder();
-        for (String value : values) {
-            sb.append(value).append(" ");
-        }
-        if (getLogger() != null) {
-            getLogger().debug(sb.toString());
-        } else if (log() != null /* simple logger */) {
-            log().debug(sb.toString());
-        } else {
-            System.out.println(sb.toString());
-        }
+            StringBuilder sb = new StringBuilder();
+            for (String value : values) {
+                sb.append(value).append(" ");
+            }
+            if (getLogger() != null) {
+                getLogger().debug(sb.toString());
+            } else if (log() != null /* simple logger */) {
+                log().debug(sb.toString());
+            } else {
+                System.out.println(sb.toString());
+            }
 //        }
     }
 
@@ -927,4 +931,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             }
         }
     }
+
+    public LanguageDialect getLanguageDialect(){
+       return runtimeSnapshot.getLanguageDialect();
+    }
+
 }
