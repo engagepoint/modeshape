@@ -3,7 +3,9 @@ package org.modeshape.connector.cmis;
 import org.apache.chemistry.opencmis.client.api.Session;
 
 import org.apache.commons.lang3.StringUtils;
-import org.modeshape.jcr.api.Logger;
+
+import org.apache.log4j.Logger;
+
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
@@ -15,7 +17,8 @@ import java.util.Map;
 
 // Cmis Connector runtime container
 public class RuntimeSnapshot {
-    private static Logger LOGGER;
+    private static Logger logger = Logger.getLogger(RuntimeSnapshot.class);
+
     private Session session;
     private String caughtProjectedId;
     private LocalTypeManager localTypeManager;
@@ -46,15 +49,12 @@ public class RuntimeSnapshot {
     private LanguageDialect initLanguageDialect(String value){
         String defaultValue = "opencmis";
         if(StringUtils.isEmpty(value)){
-            LOGGER.warn("languageDialect parameter is empty, default '%s' will be used ",defaultValue);
+            logger.warn(String.format("languageDialect parameter is empty, default '%s' will be used ",defaultValue) );
             return new LanguageDialect(defaultValue);
         }
-        try{
+
             return new LanguageDialect(value);
-        }
-        catch(IllegalArgumentException e){
-            throw new IllegalArgumentException(String.format("Wrong languageDialect parameter '%s' is set",value),e);
-        }
+
     }
 
     public Session getSession() {
