@@ -77,6 +77,64 @@ public class CompareTypeDefinitionsUtilTest {
     }
 
     @Test
+    public void shouldCompareNotRequiredPropertiesMapsTest() {
+        CompareTypeDefinitionsUtil.problems = new SimpleProblems();
+        Map<String, PropertyDefinition<?>> expectedMap = new HashMap<String, PropertyDefinition<?>>();
+        Map<String, PropertyDefinition<?>> actualMap = new HashMap<String, PropertyDefinition<?>>();
+        PropertyDefinition<?> expectedType = mock(PropertyDefinition.class);
+        PropertyDefinition<?> actualType = mock(PropertyDefinition.class);
+        when(actualType.isRequired()).thenReturn(false);
+
+        expectedMap.put("key1", expectedType);
+        actualMap.put("key1", actualType);
+        CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.typeWas, null);
+        assertFalse(CompareTypeDefinitionsUtil.problems.hasErrors());
+        assertTrue(expectedMap.size() == 1);
+
+        expectedMap.put("key2", expectedType);
+        expectedMap = CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.typeWas, null);
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 0);
+        assertTrue(expectedMap.size() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.iterator().next().getMessage().equals(CompareTypesI18n.typeWas));
+
+        actualMap.put("key2", actualType);
+        expectedMap = CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.propertyWas, "type1");
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 1);
+        assertTrue(expectedMap.size() == 1);
+    }
+
+    @Test
+    public void shouldCompareRequiredPropertiesMapsTest() {
+        CompareTypeDefinitionsUtil.problems = new SimpleProblems();
+        Map<String, PropertyDefinition<?>> expectedMap = new HashMap<String, PropertyDefinition<?>>();
+        Map<String, PropertyDefinition<?>> actualMap = new HashMap<String, PropertyDefinition<?>>();
+        PropertyDefinition<?> expectedType = mock(PropertyDefinition.class);
+        PropertyDefinition<?> actualType = mock(PropertyDefinition.class);
+        when(actualType.isRequired()).thenReturn(true);
+
+        expectedMap.put("key1", expectedType);
+        actualMap.put("key1", actualType);
+        CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.typeWas, null);
+        assertFalse(CompareTypeDefinitionsUtil.problems.hasErrors());
+        assertTrue(expectedMap.size() == 1);
+
+        expectedMap.put("key2", expectedType);
+        expectedMap = CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.typeWas, null);
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 0);
+        assertTrue(expectedMap.size() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.iterator().next().getMessage().equals(CompareTypesI18n.typeWas));
+
+        actualMap.put("key2", actualType);
+        expectedMap = CompareTypeDefinitionsUtil.compareMaps(expectedMap, actualMap, CompareTypesI18n.propertyWas, "type1");
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 2);
+        assertFalse(CompareTypeDefinitionsUtil.problems.hasWarnings());
+        assertTrue(expectedMap.size() == 1);
+    }
+
+    @Test
     public void shouldCheckChoice() {
         CompareTypeDefinitionsUtil.problems = new SimpleProblems();
         Choice expectedChoice = mock(Choice.class);

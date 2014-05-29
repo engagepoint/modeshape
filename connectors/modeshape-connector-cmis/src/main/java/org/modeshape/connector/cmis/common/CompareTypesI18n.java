@@ -13,7 +13,7 @@ public final class CompareTypesI18n {
     public static I18n propertyWas;
     public static I18n propertyAreChanged;
     public static I18n choiceAreChanged;
-    public static I18n argumentMayNotBeNull;
+    public static I18n argumentShouldNotBeNull;
     public static I18n repositoryException;
     static {
         try {

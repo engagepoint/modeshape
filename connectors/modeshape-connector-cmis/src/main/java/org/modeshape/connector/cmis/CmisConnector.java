@@ -897,9 +897,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             StringBuilder message = new StringBuilder();
             for (Problem problem : problems) {
                 boolean isError = problem.getStatus() == Problem.Status.ERROR;
-                boolean isRepoException = problem.getMessage() == CompareTypesI18n.repositoryException;
-                if (isError && !isRepoException) {
-                    message.append(problem.getMessageString()).append("; ");
+
+                if (isError){
+                    boolean isRepoException = problem.getMessage() == CompareTypesI18n.repositoryException;
+                    if (!isRepoException) {
+                        message.append(problem.getMessageString()).append("; ");
+                    }
                 }
             }
 

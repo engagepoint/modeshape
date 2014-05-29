@@ -274,24 +274,31 @@ public class CompareTypeDefinitionsUtil {
             actualKeys.removeAll(expectedMap.keySet());
             expectedKeys.removeAll(actual.keySet());
 
-            if (!expectedKeys.isEmpty()) {
-                for (String key : expectedKeys) {
-                    problems.addError(message, key, DELETED, param);
-                    expectedMap.remove(key);
-                }
-            }
+            removeDeletedAndAddError(expectedKeys, expectedMap, message, param);
+            addProblemIfAdded(actualKeys, actual, message, param);
+        }
+        return expectedMap;
+    }
 
-            if (!actualKeys.isEmpty()) {
-                for (String key : actualKeys) {
-                    if (isRequiredProperty(actual.get(key))) {
-                        problems.addError(message, key, ADDED, param);
-                    } else {
-                        problems.addWarning(message, key, ADDED, param);
-                    }
+    private static <T> void removeDeletedAndAddError(Set<String> expectedKeys, Map<String, T> expectedMap,  I18n message, String param) {
+        if (!expectedKeys.isEmpty()) {
+            for (String key : expectedKeys) {
+                problems.addError(message, key, DELETED, param);
+                expectedMap.remove(key);
+            }
+        }
+    }
+
+    private static  <T> void addProblemIfAdded(Set<String> actualKeys, Map<String, T> actual, I18n message, String param){
+        if (!actualKeys.isEmpty()) {
+            for (String key : actualKeys) {
+                if (isRequiredProperty(actual.get(key))) {
+                    problems.addError(message, key, ADDED, param);
+                } else {
+                    problems.addWarning(message, key, ADDED, param);
                 }
             }
         }
-        return expectedMap;
     }
 
     private static boolean isRequiredProperty(Object o){
@@ -304,7 +311,7 @@ public class CompareTypeDefinitionsUtil {
 
     /**
      * Verify all objects for <code>null</code> value, if one of it are <code>null</code>
-     * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CompareTypesI18n#argumentMayNotBeNull}
+     * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CompareTypesI18n#argumentShouldNotBeNull}
      * @param objects objects to verify
      * @return <code>false</code> if all of objects are not null, else <coe>true</coe>
      */
@@ -312,7 +319,7 @@ public class CompareTypeDefinitionsUtil {
 
         for (Object o : objects) {
             if (o == null) {
-                problems.addError(CompareTypesI18n.argumentMayNotBeNull);
+                problems.addError(CompareTypesI18n.argumentShouldNotBeNull);
                 return true;
             }
         }
