@@ -65,23 +65,23 @@ public class CompareTypeDefinitionsUtil {
 
         String typeId = expectedType.getId();
 
-        compareForErrorObjectTypeFields(expectedType.getDisplayName(), actualType.getDisplayName(), typeId, TypeDefinitionsIds.DISPLAY_NAME);
+        compareForWarningObjectTypeFields(expectedType.getDisplayName(), actualType.getDisplayName(), typeId, TypeDefinitionsIds.DISPLAY_NAME);
         compareForErrorObjectTypeFields(expectedType.getLocalName(), actualType.getLocalName(), typeId, TypeDefinitionsIds.LOCAL_NAME);
         compareForErrorObjectTypeFields(expectedType.getLocalNamespace(), actualType.getLocalNamespace(), typeId, TypeDefinitionsIds.LOCAL_NAMESPACE);
         compareForErrorObjectTypeFields(expectedType.getQueryName(), actualType.getQueryName(), typeId, TypeDefinitionsIds.QUERY_NAME);
         compareForErrorObjectTypeFields(expectedType.getParentTypeId(), actualType.getParentTypeId(), typeId, TypeDefinitionsIds.PARENT_TYPE);
         compareForWarningObjectTypeFields(expectedType.getDescription(), actualType.getDescription(), typeId, TypeDefinitionsIds.DESCRIPTION);
 
-        compareForErrorObjectTypeFields(expectedType.isQueryable(), actualType.isQueryable(), typeId, TypeDefinitionsIds.IS_QUERYABLE);
+        compareForWarningObjectTypeFields(expectedType.isQueryable(), actualType.isQueryable(), typeId, TypeDefinitionsIds.IS_QUERYABLE);
         compareForWarningObjectTypeFields(expectedType.isControllableAcl(), actualType.isControllableAcl(), typeId, TypeDefinitionsIds.IS_CONTROLLABLE_ACL);
         compareForWarningObjectTypeFields(expectedType.isControllablePolicy(), actualType.isControllablePolicy(), typeId, TypeDefinitionsIds.IS_CONTROLLABLE_POLICY);
         compareForErrorObjectTypeFields(expectedType.isCreatable(), actualType.isCreatable(), typeId, TypeDefinitionsIds.IS_CREATABLE);
-        compareForErrorObjectTypeFields(expectedType.isFileable(), actualType.isFileable(), typeId, TypeDefinitionsIds.IS_FILEABLE);
-        compareForErrorObjectTypeFields(expectedType.isFulltextIndexed(), actualType.isFulltextIndexed(), typeId, TypeDefinitionsIds.IS_FULLTEXT_INDEXED);
-        compareForErrorObjectTypeFields(expectedType.isIncludedInSupertypeQuery(), actualType.isIncludedInSupertypeQuery(), typeId, TypeDefinitionsIds.IS_INCLUDED_IN_SUPERTYPE_QUERY);
+        compareForWarningObjectTypeFields(expectedType.isFileable(), actualType.isFileable(), typeId, TypeDefinitionsIds.IS_FILEABLE);
+        compareForWarningObjectTypeFields(expectedType.isFulltextIndexed(), actualType.isFulltextIndexed(), typeId, TypeDefinitionsIds.IS_FULLTEXT_INDEXED);
+        compareForWarningObjectTypeFields(expectedType.isIncludedInSupertypeQuery(), actualType.isIncludedInSupertypeQuery(), typeId, TypeDefinitionsIds.IS_INCLUDED_IN_SUPERTYPE_QUERY);
 
         if (expectedType instanceof DocumentTypeDefinition && actualType instanceof DocumentTypeDefinition) {
-            compareForErrorObjectTypeFields(((DocumentTypeDefinition) expectedType).isVersionable(), ((DocumentTypeDefinition) actualType).isVersionable(), typeId, TypeDefinitionsIds.IS_VERSIONABLE);
+            compareForWarningObjectTypeFields(((DocumentTypeDefinition) expectedType).isVersionable(), ((DocumentTypeDefinition) actualType).isVersionable(), typeId, TypeDefinitionsIds.IS_VERSIONABLE);
         }
 
         comparePropertyDefinitions(expectedType.getPropertyDefinitions(), actualType.getPropertyDefinitions(), typeId);
@@ -147,7 +147,7 @@ public class CompareTypeDefinitionsUtil {
 
         String propertyId = expectedProperty.getId();
 
-        compareForErrorPropertyFields(expectedProperty.getDisplayName(), actualProperty.getDisplayName(), typeId, propertyId, TypeDefinitionsIds.DISPLAY_NAME);
+        compareForWarningPropertyFields(expectedProperty.getDisplayName(), actualProperty.getDisplayName(), typeId, propertyId, TypeDefinitionsIds.DISPLAY_NAME);
         compareForErrorPropertyFields(expectedProperty.getLocalNamespace(), actualProperty.getLocalNamespace(), typeId, propertyId, TypeDefinitionsIds.LOCAL_NAMESPACE);
         compareForErrorPropertyFields(expectedProperty.getLocalName(), actualProperty.getLocalName(), typeId, propertyId, TypeDefinitionsIds.LOCAL_NAME);
         compareForErrorPropertyFields(expectedProperty.getQueryName(), actualProperty.getQueryName(), typeId, propertyId, TypeDefinitionsIds.QUERY_NAME);
@@ -155,12 +155,12 @@ public class CompareTypeDefinitionsUtil {
         compareForErrorPropertyFields(expectedProperty.getCardinality(), actualProperty.getCardinality(), typeId, propertyId, TypeDefinitionsIds.CARDINALITY);
         compareForErrorPropertyFields(expectedProperty.getPropertyType(), actualProperty.getPropertyType(), typeId, propertyId, TypeDefinitionsIds.PROPERTY_TYPE);
 
-        compareForErrorPropertyFields(expectedProperty.isInherited(), actualProperty.isInherited(), typeId, propertyId, TypeDefinitionsIds.IS_INHERITED);
-        compareForErrorPropertyFields(expectedProperty.isOpenChoice(), actualProperty.isOpenChoice(), typeId, propertyId, TypeDefinitionsIds.IS_OPEN_CHOICE);
-        compareForErrorPropertyFields(expectedProperty.isOrderable(), actualProperty.isOrderable(), typeId, propertyId, TypeDefinitionsIds.IS_ORDERABLE);
-        compareForErrorPropertyFields(expectedProperty.isQueryable(), actualProperty.isQueryable(), typeId, propertyId, TypeDefinitionsIds.IS_QUERYABLE);
+        compareForWarningPropertyFields(expectedProperty.isInherited(), actualProperty.isInherited(), typeId, propertyId, TypeDefinitionsIds.IS_INHERITED);
+        compareForWarningPropertyFields(expectedProperty.isOpenChoice(), actualProperty.isOpenChoice(), typeId, propertyId, TypeDefinitionsIds.IS_OPEN_CHOICE);
+        compareForWarningPropertyFields(expectedProperty.isOrderable(), actualProperty.isOrderable(), typeId, propertyId, TypeDefinitionsIds.IS_ORDERABLE);
+        compareForWarningPropertyFields(expectedProperty.isQueryable(), actualProperty.isQueryable(), typeId, propertyId, TypeDefinitionsIds.IS_QUERYABLE);
         compareForErrorPropertyFields(expectedProperty.isRequired(), actualProperty.isRequired(), typeId, propertyId, TypeDefinitionsIds.IS_REQUIRED);
-        compareForErrorPropertyFields(expectedProperty.getUpdatability(), actualProperty.getUpdatability(), typeId, propertyId, TypeDefinitionsIds.UPDATABILITY);
+        compareForWarningPropertyFields(expectedProperty.getUpdatability(), actualProperty.getUpdatability(), typeId, propertyId, TypeDefinitionsIds.UPDATABILITY);
 
 
         List<?> expectedDefaultValue = expectedProperty.getDefaultValue();

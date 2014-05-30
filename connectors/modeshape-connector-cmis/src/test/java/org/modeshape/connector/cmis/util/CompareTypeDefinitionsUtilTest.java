@@ -376,8 +376,8 @@ public class CompareTypeDefinitionsUtilTest {
 
         when(actualChoice.getValue()).thenReturn(Arrays.asList("blue"));
         CompareTypeDefinitionsUtil.compareProperty(actualProperty, expectedProperty, "typeId");
-        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 5);
-        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 4);
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 3);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 6);
     }
 
     @Test
@@ -454,11 +454,12 @@ public class CompareTypeDefinitionsUtilTest {
         when(actualType.isVersionable()).thenReturn(false);
         when(actualType.getDescription()).thenReturn("description2");
         CompareTypeDefinitionsUtil.compareObjectType(expectedType, actualType);
-        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 3);
-        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 1);
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 2);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 2);
 
         CompareTypeDefinitionsUtil.compareObjectType(null, null);
-        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 4);
+        assertTrue(CompareTypeDefinitionsUtil.problems.errorCount() == 3);
+        assertTrue(CompareTypeDefinitionsUtil.problems.warningCount() == 2);
     }
 
     @Test
