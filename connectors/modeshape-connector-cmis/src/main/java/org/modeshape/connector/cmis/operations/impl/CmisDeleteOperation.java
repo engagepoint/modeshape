@@ -2,12 +2,9 @@ package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.enums.UnfileObject;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.ObjectId;
 
 
@@ -40,9 +37,12 @@ public class CmisDeleteOperation extends CmisOperation {
     * delete document/folder
     */
     private boolean doDeleteObject(ObjectId objectId) {
+        long startTime = System.currentTimeMillis();
+        String id = objectId == null ? "null" : objectId.getIdentifier();
+        debug("Start CmisDeleteOperation:doDeleteObject for objectId = ", id);
         // these type points to either cmis:document or cmis:folder so
         // we can just delete it using original identifier defined in cmis domain.
-        CmisObject object = null;
+        CmisObject object;
         try {
             object = finderUtil.find(objectId.getIdentifier());
             if (object == null) return true;
@@ -57,7 +57,8 @@ public class CmisDeleteOperation extends CmisOperation {
         } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
             return true;
         }
-
+        
+        debug("Finish CmisDeleteOperation:doDeleteObject for objectId = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
 
@@ -65,12 +66,14 @@ public class CmisDeleteOperation extends CmisOperation {
     * delete document content
     */
     private boolean doDeleteContent(ObjectId objectId) {
+        long startTime = System.currentTimeMillis();
         // in the jcr domain content is represented by child node of
         // the nt:file node while in cmis domain it is a property of
         // the cmis:document object. so to perform this operation we need
         // to restore identifier of the original cmis:document. it is easy
         String cmisId = objectId.getIdentifier();
-
+        debug("Start CmisDeleteOperation:doDeleteContent for objectId = ", cmisId);
+        
         CmisObject cmisObject = null;
         try {
             cmisObject = finderUtil.find(cmisId);
@@ -102,23 +105,29 @@ public class CmisDeleteOperation extends CmisOperation {
             }
 
         }
-
+        debug("Finish CmisDeleteOperation:doDeleteContent for objectId = ", cmisId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
 
 
     public void deleteStreamVersioned(CmisObject object) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId());
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteContentStream();
+        debug("Finish CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId(), " Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
     public void deleteVersioned(CmisObject object) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisDeleteOperation:deleteVersioned for objectId = ", object == null ? "null" : object.getId());
         org.apache.chemistry.opencmis.client.api.Document document = CmisOperationCommons.asDocument(object);
         if (document.isPrivateWorkingCopy() || document.isVersionSeriesCheckedOut())
             document.deleteAllVersions();
 
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteAllVersions();
+        debug("Finish CmisDeleteOperation:deleteVersioned for objectId = ", object == null ? "null" : object.getId(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
 }

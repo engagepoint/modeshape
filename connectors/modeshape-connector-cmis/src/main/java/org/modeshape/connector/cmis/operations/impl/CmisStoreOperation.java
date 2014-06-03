@@ -1,14 +1,11 @@
 package org.modeshape.connector.cmis.operations.impl;
 
 import org.apache.chemistry.opencmis.client.api.CmisObject;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
@@ -27,6 +24,8 @@ public class CmisStoreOperation extends CmisOperation {
     }
 
     public void storeDocument(Document document, BinaryContentProducerInterface binaryProducer) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisStoreOperation:storeDocumen");
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
@@ -35,6 +34,7 @@ public class CmisStoreOperation extends CmisOperation {
         switch (objectId.getType()) {
             case REPOSITORY_INFO:
                 // repository information is ready only
+                debug("Finish CmisStoreOperation:storeDocumen objectId.getType() is REPOSITORY_INFO. Nothing to do. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                 return;
             case CONTENT:
                 // in the jcr domain content is represented by child node of
@@ -50,12 +50,14 @@ public class CmisStoreOperation extends CmisOperation {
                 if (cmisObject == null) {
                     // object does not exist. propably was deleted by from cmis domain
                     // we don't know how to handle such case yet, thus TODO
+                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");                
                     return;
                 }
 
+                String filename = cmisObject.getName();
                 // original object is here so converting binary value and
                 // updating original cmis:document
-                ContentStream stream = binaryProducer.jcrBinaryContent(document);
+                ContentStream stream = binaryProducer.jcrBinaryContent(document, filename);
                 if (stream != null) {
                     if (isVersioned(cmisObject)) CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream);
                     else asDocument(cmisObject).setContentStream(stream, true, true);
@@ -68,6 +70,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // check that we have jcr properties to store in the cmis repo
                 if (jcrProperties == null) {
                     // nothing to store
+                    debug("Finish CmisStoreOperation:storeDocumen jcrProperties is null. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms"); 
                     return;
                 }
 
@@ -84,6 +87,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // unknown object?
                 if (cmisObject == null) {
                     // exit silently
+                    debug("Finish CmisStoreOperation:storeDocumen cmisObject is null. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms"); 
                     return;
                 }
 
@@ -156,5 +160,6 @@ public class CmisStoreOperation extends CmisOperation {
                 }
                 break;
         }
+        debug("Finish CmisStoreOperation:storeDocumen. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
 }

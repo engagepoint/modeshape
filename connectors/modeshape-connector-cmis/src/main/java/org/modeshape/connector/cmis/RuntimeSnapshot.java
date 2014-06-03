@@ -1,16 +1,23 @@
 package org.modeshape.connector.cmis;
 
 import org.apache.chemistry.opencmis.client.api.Session;
+
+import org.apache.commons.lang3.StringUtils;
+
+import org.apache.log4j.Logger;
+
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.jcr.RepositoryConfiguration;
+
 
 import java.util.List;
 import java.util.Map;
 
 // Cmis Connector runtime container
 public class RuntimeSnapshot {
+    private static Logger logger = Logger.getLogger(RuntimeSnapshot.class);
 
     private Session session;
     private String caughtProjectedId;
@@ -23,10 +30,12 @@ public class RuntimeSnapshot {
 
     private CmisObjectFinderUtil cmisObjectFinderUtil;
 
+    private LanguageDialect languageDialect;
+
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           CmisObjectFinderUtil cmisObjectFinderUtil) {
+                           CmisObjectFinderUtil cmisObjectFinderUtil, String languageDialect) {
         this.session = session;
         this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
@@ -34,6 +43,18 @@ public class RuntimeSnapshot {
         this.documentProducer = documentProducer;
         this.preconfiguredProjections = preconfiguredProjections;
         this.cmisObjectFinderUtil = cmisObjectFinderUtil;
+        this.languageDialect= initLanguageDialect(languageDialect);
+    }
+
+    private LanguageDialect initLanguageDialect(String value){
+        String defaultValue = "opencmis";
+        if(StringUtils.isEmpty(value)){
+            logger.warn(String.format("languageDialect parameter is empty, default '%s' will be used ",defaultValue) );
+            return new LanguageDialect(defaultValue);
+        }
+
+            return new LanguageDialect(value);
+
     }
 
     public Session getSession() {
@@ -62,6 +83,10 @@ public class RuntimeSnapshot {
 
     public CmisObjectFinderUtil getCmisObjectFinderUtil() {
         return cmisObjectFinderUtil;
+    }
+
+    public LanguageDialect getLanguageDialect(){
+        return languageDialect;
     }
 
     //

@@ -1,8 +1,8 @@
 package org.modeshape.connector.cmis.operations.impl;
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.Folder;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
@@ -13,15 +13,13 @@ import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 import org.modeshape.jcr.value.Name;
 
 import java.util.*;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisStorageException;
 
 public class CmisNewObjectCombinedOperation extends CmisOperation {
 
@@ -43,7 +41,10 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                                 Document document,
                                 Document documentContent,
                                 BinaryContentProducerInterface binaryProducer) {
-        String result;
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisNewObjectCombinedOperation:storeDocument for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName());
+        
+        String result = null;
         Map<String, Object> cmisProperties = new HashMap<String, Object>();
         try {
             // all other node types belong to cmis object
@@ -158,7 +159,8 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                 versioningState = docType.isVersionable() ? VersioningState.MAJOR : versioningState;
             }
 
-            ContentStream stream = getContentStream(documentContent, binaryProducer);
+            String filename = cmisProperties.get(PropertyIds.NAME).toString();
+            ContentStream stream = getContentStream(documentContent, filename, binaryProducer);
             if (parent == null) {
                 // unfiled
                 result = session.createDocument(cmisProperties, null, stream, versioningState).getId();
@@ -166,20 +168,16 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
                 org.apache.chemistry.opencmis.client.api.Document resultDocument = parent.createDocument(cmisProperties, stream, versioningState);
                 result = ObjectId.toString(ObjectId.Type.OBJECT, resultDocument.getId());
             }
-
-            // replace id with version series id
-//            result = CmisOperationCommons.getMappingId(session.getObject(result));
-
-//            return result;
         } catch (Exception e) {
             e.printStackTrace();
+            throw new CmisStorageException(MessageFormat.format("Unable to store document [{0}] to external CMIS storage due to unexpected error.", (document == null ? "null" : document.getString("key"))), e);
         }
-//        return null;
+        debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", getPossibleNullString(result), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
-    private ContentStream getContentStream(Document document, BinaryContentProducerInterface binaryProducer) {
+    private ContentStream getContentStream(Document document, String filename, BinaryContentProducerInterface binaryProducer) {
         // original object is here so converting binary value and
-        return binaryProducer.jcrBinaryContent(document);
+        return binaryProducer.jcrBinaryContent(document, filename);
 
     }
 }

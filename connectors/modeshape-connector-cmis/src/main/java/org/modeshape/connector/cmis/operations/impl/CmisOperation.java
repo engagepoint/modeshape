@@ -40,4 +40,9 @@ public abstract class CmisOperation {
             System.out.println();
         }
     }
+    
+    protected String getPossibleNullString(String input) {
+        return input == null ? "null" : input;
+    }
+    
 }

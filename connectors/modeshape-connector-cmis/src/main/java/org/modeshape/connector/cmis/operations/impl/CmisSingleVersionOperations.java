@@ -1,22 +1,17 @@
 package org.modeshape.connector.cmis.operations.impl;
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
-import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.ObjectId;
-import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.features.TempDocument;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
-import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.value.Name;
@@ -76,6 +71,9 @@ public class CmisSingleVersionOperations extends CmisOperation {
     */
     public void storeDocument(ObjectId objectId, Document document, CmisNewObjectCombinedOperation cmisStoreOperation,
                               BinaryContentProducerInterface binaryContentProducer) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisSingleVersionOperations:storeDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());
+        
         TempDocument tempDocument = snapshot.getSingleVersionCache().get(objectId.getIdentifier());
         if (objectId.getType() == ObjectId.Type.CONTENT) {
             cmisStoreOperation.storeDocument(
@@ -88,6 +86,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
         } else {
             tempDocument.setDocument(document);
         }
+        debug("Finish CmisSingleVersionOperations:storeDocument for objectId = ", objectId.getIdentifier(), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
     }
 
     /*
@@ -95,13 +94,17 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * criteria: type must be listed in SingleVersionOptions.singleVersionTypes + must be a descendant of cmis:document
     */
     public boolean doAsSingleVersion(Name primaryType) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisSingleVersionOperations:doAsSingleVersion for primaryType = ", primaryType == null ? "null" : primaryType.getLocalName());
         MappedCustomType mappedType = localTypeManager.getMappedTypes().findByJcrName(primaryType.toString());
         String cmisObjectTypeName = mappedType.getExtName();
         // need to resolve jcr name to prefixed/humanReadable
         boolean doAsSingleVersion = singleVersionOptions.getSingleVersionTypeNames().contains(primaryType);
         ObjectType typeDefinition = localTypeManager.getTypeDefinition(session, cmisObjectTypeName);
 
-        return doAsSingleVersion && typeDefinition.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT;
+        boolean result = doAsSingleVersion && typeDefinition.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT;
+        debug("Finish CmisSingleVersionOperations:doAsSingleVersion for primaryType = ", primaryType.getLocalName(), " with result = ", Boolean.toString(result), ". Time: ", Long.toString(System.currentTimeMillis()-startTime), " ms");
+        return result;
     }
 
     /*
@@ -114,7 +117,9 @@ public class CmisSingleVersionOperations extends CmisOperation {
     public String newDocumentId(String parentId,
                                 Name name,
                                 Name primaryType) {
-
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisSingleVersionOperations:newDocumentId for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName());
+        
         String newGUID = singleVersionOptions.getSingleVersionGUIDPrefix() + UUID.randomUUID().toString();
         String resultGuid = singleVersionOptions.commonIdValuePreProcess(newGUID);
         TempDocument value = new TempDocument(parentId, name, primaryType);
@@ -124,7 +129,8 @@ public class CmisSingleVersionOperations extends CmisOperation {
         if (childValues == null) childValues = new ArrayList<String>();
         childValues.add(resultGuid);
         snapshot.getSingleVersionCache().putReferences(parentId, childValues);
-
+        debug("Finish CmisSingleVersionOperations:newDocumentId for parentId = ", getPossibleNullString(parentId), " and name = ", name == null ? "null" : name.getLocalName(), " with result = ", getPossibleNullString(resultGuid), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+        
         return resultGuid;
     }
 
@@ -134,6 +140,9 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * but already attached to parent by jcr/modeshape
     */
     public void addCachedChildren(String id, DocumentWriter writer) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisSingleVersionOperations:addCachedChildren for Id = ", getPossibleNullString(id));
+        
         if (snapshot.getSingleVersionCache().containsReferences(id)) {
             List<String> strings = snapshot.getSingleVersionCache().getReferences(id);
             for (String childId : strings) {
@@ -142,6 +151,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
                     writer.addChild(childId, tempDocument.getName().getLocalName());
             }
         }
+        debug("Finish CmisSingleVersionOperations:addCachedChildren for Id = ", getPossibleNullString(id), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");        
     }
 
     /*
@@ -151,10 +161,13 @@ public class CmisSingleVersionOperations extends CmisOperation {
     * todo validate that returning of empty CONTENT node does not affect performance, or else construct virtual CONTENT document
     */
     public Document getCachedTempDocument(ObjectId suggestedObjectId) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisSingleVersionOperations:getCachedTempDocument for suggestedObjectId = ", suggestedObjectId == null ? "null" : suggestedObjectId.getIdentifier());
+        
         TempDocument theParams = snapshot.getSingleVersionCache().get(suggestedObjectId.getIdentifier());
         if (theParams.getDocument() != null) {
             Document document = theParams.getDocument();
-            System.out.println("Return cached document:: " + document);
+            System.out.println(MessageFormat.format("Finish CmisSingleVersionOperations:addCachedChildren for Id = {0}. Return cached document:: {1}. Time: {2} ms", suggestedObjectId.getIdentifier(), document, Long.toString(System.currentTimeMillis()-startTime)));
             return document;
         }
         if (suggestedObjectId.getType() == ObjectId.Type.OBJECT) {
@@ -170,10 +183,10 @@ public class CmisSingleVersionOperations extends CmisOperation {
             // content node - mandatory child for a document
 //                writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, id), JcrConstants.JCR_CONTENT);
             EditableDocument document = writer.document();
-            System.out.println("Return cached document by init params:: " + document);
+            System.out.println(MessageFormat.format("Finish CmisSingleVersionOperations:addCachedChildren for Id = {0}. Return cached document by init params:: {1}. Time: {2} ms", suggestedObjectId.getIdentifier(), document, Long.toString(System.currentTimeMillis()-startTime)));
             return document;
         } else if (suggestedObjectId.getType() == ObjectId.Type.CONTENT) {
-            System.out.println("Return cached document content as NULL (SV)");
+            System.out.println(MessageFormat.format("Finish CmisSingleVersionOperations:addCachedChildren for Id = {0}. Return cached document content as NULL (SV). Time: {1} ms", suggestedObjectId.getIdentifier(), Long.toString(System.currentTimeMillis()-startTime)));
             return null;
                 /*String contentId = ObjectId.toString(ObjectId.Type.CONTENT, objectId.getIdentifier());
                 DocumentWriter writer = newDocument(contentId);
@@ -201,6 +214,7 @@ public class CmisSingleVersionOperations extends CmisOperation {
                 System.out.println("Return cached document content by init params:: " + document);
                 return document;*/
         }
+        System.out.println(MessageFormat.format("Finish CmisSingleVersionOperations:addCachedChildren for Id = {0}. Cached object is not found under given key. Throw exception. Time: {1} ms", suggestedObjectId.getIdentifier(), Long.toString(System.currentTimeMillis()-startTime)));
         throw new CmisObjectNotFoundException("Cached object is not found under given key");
     }
 }

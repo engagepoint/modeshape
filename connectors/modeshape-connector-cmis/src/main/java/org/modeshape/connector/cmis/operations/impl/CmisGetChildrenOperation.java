@@ -29,6 +29,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetChildrenOperation:cmisChildren for folder = ", folder == null ? "null" : folder.getName());
         String parentId = folder.getId();
         if (config.getPageSize() != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
             if (ObjectId.isUnfiledStorage(parentId)) {
@@ -48,6 +50,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
                 item = getNext(iterator);
             }
         }
+        debug("Finish CmisGetChildrenOperation:cmisChildren for folder = ", folder.getName(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
     private CmisObject getNext(Iterator<CmisObject> iterator) {
@@ -66,7 +69,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
     * get children for the page specified and add reference to new page if has mode children
     */
     public DocumentWriter getChildren(PageKey pageKey, DocumentWriter writer, int currentBlockSize) {
-        debug("adding children for " + pageKey + " with currentPageSize " + currentBlockSize);
+        long startTime = System.currentTimeMillis();
+        debug("Start CmisGetChildrenOperation:getChildren adding children for ", pageKey == null ? "null" : pageKey.toString(), " with currentPageSize ", Integer.toString(currentBlockSize));
         String parentId = pageKey.getParentId();
 
         ItemIterable<?> children;
@@ -121,7 +125,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
                 writer.addPage(parentId, nextPageOffset, pageKey.getBlockSize(), totalSize);
             }
         }
-
+        debug("Finish CmisGetChildrenOperation:getChildren for ", pageKey.toString(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer;
     }
 

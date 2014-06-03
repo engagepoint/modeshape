@@ -1,13 +1,13 @@
 package org.modeshape.connector.cmis.operations.impl;
 
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.ObjectType;
 import org.apache.chemistry.opencmis.client.api.QueryResult;
 import org.apache.chemistry.opencmis.client.api.Session;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
-import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.definitions.DocumentTypeDefinition;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
@@ -18,7 +18,6 @@ import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 
 import java.util.Collections;
-import java.util.List;
 import java.util.Map;
 
 public class CmisOperationCommons {
@@ -61,10 +60,15 @@ public class CmisOperationCommons {
 
     public static org.apache.chemistry.opencmis.client.api.Document asDocument(CmisObject cmisObject) {
         if (!isDocument(cmisObject))
-            throw new CmisInvalidArgumentException("Object is not a document: "
+            if (cmisObject == null) {
+                System.out.println("Object is null");
+                throw new CmisInvalidArgumentException("Object is null");
+            } else {
+                throw new CmisInvalidArgumentException("Object is not a document: "
                     + cmisObject.getId()
                     + " with type "
                     + cmisObject.getType().getId());
+            }
         return (org.apache.chemistry.opencmis.client.api.Document) cmisObject;
     }
 
@@ -73,11 +77,13 @@ public class CmisOperationCommons {
     */
     public static boolean isVersioned(CmisObject cmisObject) {
         ObjectType objectType = cmisObject.getType();
+        System.out.println(MessageFormat.format("cmisObject name [{0}] type class [{1}]",  cmisObject.getName(), objectType.getClass().getCanonicalName()));
         if (objectType instanceof DocumentTypeDefinition) {
             DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
+            System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", docType.isVersionable()));
             return docType.isVersionable();
         }
-
+        System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", false));
         return false;
     }
 

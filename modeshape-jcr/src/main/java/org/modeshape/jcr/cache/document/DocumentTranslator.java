@@ -1,26 +1,26 @@
 /*
- * ModeShape (http://www.modeshape.org)
- * See the COPYRIGHT.txt file distributed with this work for information
- * regarding copyright ownership.  Some portions may be licensed
- * to Red Hat, Inc. under one or more contributor license agreements.
- * See the AUTHORS.txt file in the distribution for a full listing of 
- * individual contributors.
- *
- * ModeShape is free software. Unless otherwise indicated, all code in ModeShape
- * is licensed to you under the terms of the GNU Lesser General Public License as
- * published by the Free Software Foundation; either version 2.1 of
- * the License, or (at your option) any later version.
- * 
- * ModeShape is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
- * Lesser General Public License for more details.
- *
- * You should have received a copy of the GNU Lesser General Public
- * License along with this software; if not, write to the Free
- * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
- * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
- */
+* ModeShape (http://www.modeshape.org)
+* See the COPYRIGHT.txt file distributed with this work for information
+* regarding copyright ownership. Some portions may be licensed
+* to Red Hat, Inc. under one or more contributor license agreements.
+* See the AUTHORS.txt file in the distribution for a full listing of
+* individual contributors.
+*
+* ModeShape is free software. Unless otherwise indicated, all code in ModeShape
+* is licensed to you under the terms of the GNU Lesser General Public License as
+* published by the Free Software Foundation; either version 2.1 of
+* the License, or (at your option) any later version.
+*
+* ModeShape is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+* Lesser General Public License for more details.
+*
+* You should have received a copy of the GNU Lesser General Public
+* License along with this software; if not, write to the Free
+* Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+* 02110-1301 USA, or see the FSF site: http://www.fsf.org.
+*/
 package org.modeshape.jcr.cache.document;
 
 import java.math.BigDecimal;
@@ -91,6 +91,12 @@ import org.modeshape.jcr.value.binary.InMemoryBinaryValue;
  * A utility class that encapsulates all the logic for reading from and writing to {@link Document} instances.
  */
 public class DocumentTranslator implements DocumentConstants {
+
+    public static final String KEY_DECIMAL = "$dec";
+    public static final String KEY_DATE = "$date";
+    public static final String KEY_NAME = "$name";
+    public static final String KEY_PATH = "$path";
+    public static final String KEY_RELATIVE = "$relative";
 
     private final DocumentStore documentStore;
     private final AtomicLong largeStringSize = new AtomicLong();
@@ -166,13 +172,13 @@ public class DocumentTranslator implements DocumentConstants {
      * Obtain the preferred {@link NodeKey key} for the parent of this node. Because a node can be used in more than once place,
      * it may technically have more than one parent. Therefore, in such cases this method prefers the parent that is in the
      * {@code primaryWorkspaceKey} and, if there is no such parent, the parent that is in the {@code secondaryWorkspaceKey}.
-     * 
+     *
      * @param document the document for the node; may not be null
      * @param primaryWorkspaceKey the key for the workspace in which the parent should preferably exist; may be null
      * @param secondaryWorkspaceKey the key for the workspace in which the parent should exist if not in the primary workspace;
-     *        may be null
+     * may be null
      * @return the key representing the preferred parent, or null if the document contains no parent reference or if the parent
-     *         reference(s) do not have the specified workspace keys
+     * reference(s) do not have the specified workspace keys
      */
     public NodeKey getParentKey( Document document,
                                  String primaryWorkspaceKey,
@@ -231,7 +237,7 @@ public class DocumentTranslator implements DocumentConstants {
                     return key;
                 }
                 if (keyWithSecondaryWorkspaceKey == null && secondaryWorkspaceKey != null
-                    && key.getWorkspaceKey().equals(secondaryWorkspaceKey)) {
+                        && key.getWorkspaceKey().equals(secondaryWorkspaceKey)) {
                     keyWithSecondaryWorkspaceKey = key;
                 }
             }
@@ -902,7 +908,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     /**
      * Reads the children of the given block and returns a {@link ChildReferences} instance.
-     * 
+     *
      * @param block a {@code non-null} {@link Document} representing a block of children
      * @return a {@code non-null} child references instance
      */
@@ -1096,7 +1102,7 @@ public class DocumentTranslator implements DocumentConstants {
     /**
      * Given the lists of added & removed referrers (which may contain duplicates), compute the delta with which the count has to
      * be updated in the document
-     * 
+     *
      * @param addedReferrers the list of referrers that was added
      * @param removedReferrers the list of referrers that was removed
      * @return a map(nodekey, delta) pairs
@@ -1108,7 +1114,7 @@ public class DocumentTranslator implements DocumentConstants {
         Set<NodeKey> addedReferrersUnique = new HashSet<NodeKey>(addedReferrers);
         for (NodeKey addedReferrer : addedReferrersUnique) {
             int referrersCount = Collections.frequency(addedReferrers, addedReferrer)
-                                 - Collections.frequency(removedReferrers, addedReferrer);
+                    - Collections.frequency(removedReferrers, addedReferrer);
             referrersCountDelta.put(addedReferrer, referrersCount);
         }
 
@@ -1157,7 +1163,7 @@ public class DocumentTranslator implements DocumentConstants {
         }
         if (value instanceof Name) {
             Name name = (Name)value;
-            return Schematic.newDocument("$name", name.getString(encoder));
+            return Schematic.newDocument(KEY_NAME, name.getString(encoder));
         }
         if (value instanceof Path) {
             Path path = (Path)value;
@@ -1167,13 +1173,13 @@ public class DocumentTranslator implements DocumentConstants {
                 segments.add(str);
             }
             boolean relative = !path.isAbsolute();
-            return Schematic.newDocument("$path", segments, "$relative", relative);
+            return Schematic.newDocument(KEY_PATH, segments, KEY_RELATIVE, relative);
         }
         if (value instanceof DateTime) {
-            return Schematic.newDocument("$date", this.strings.create((DateTime)value));
+            return Schematic.newDocument(KEY_DATE, this.strings.create((DateTime)value));
         }
         if (value instanceof BigDecimal) {
-            return Schematic.newDocument("$dec", this.strings.create((BigDecimal)value));
+            return Schematic.newDocument(KEY_DECIMAL, this.strings.create((BigDecimal)value));
         }
         if (value instanceof Reference) {
             Reference ref = (Reference)value;
@@ -1185,7 +1191,7 @@ public class DocumentTranslator implements DocumentConstants {
             }
 
             String refString = ref instanceof NodeKeyReference ? ((NodeKeyReference)ref).getNodeKey().toString() :
-                               this.strings.create(ref);
+                    this.strings.create(ref);
             boolean isForeign = ref.isForeign();
             return Schematic.newDocument(key, refString, "$foreign", isForeign);
         }
@@ -1195,9 +1201,9 @@ public class DocumentTranslator implements DocumentConstants {
         if (value instanceof ExternalBinaryValue) {
             ExternalBinaryValue externalBinaryValue = (ExternalBinaryValue)value;
             return Schematic.newDocument(EXTERNAL_BINARY_ID_FIELD,
-                                         externalBinaryValue.getId(),
-                                         SOURCE_NAME_FIELD,
-                                         externalBinaryValue.getSourceName());
+                    externalBinaryValue.getId(),
+                    SOURCE_NAME_FIELD,
+                    externalBinaryValue.getSourceName());
         }
         if (value instanceof org.modeshape.jcr.value.BinaryValue) {
             org.modeshape.jcr.value.BinaryValue binary = (org.modeshape.jcr.value.BinaryValue)value;
@@ -1225,7 +1231,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     /**
      * Increment the reference count for the stored binary value with the supplied SHA-1 hash.
-     * 
+     *
      * @param binaryKey the key for the binary value; never null
      * @param unusedBinaryKeys the set of binary keys that are considered unused; may be null
      */
@@ -1252,7 +1258,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     /**
      * Decrement the reference count for the binary value.
-     * 
+     *
      * @param fieldValue the value in the document that may contain a binary value reference; may be null
      * @param unusedBinaryKeys the set of binary keys that are considered unused; may be null
      * @return true if the binary value is no longer referenced, or false otherwise
@@ -1329,18 +1335,18 @@ public class DocumentTranslator implements DocumentConstants {
             Document doc = (Document)value;
             String valueStr = null;
             List<?> array = null;
-            if (!Null.matches(valueStr = doc.getString("$name"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_NAME))) {
                 return names.create(valueStr, decoder);
             }
-            if (!Null.matches(array = doc.getArray("$path"))) {
+            if (!Null.matches(array = doc.getArray(KEY_PATH))) {
                 List<Segment> segments = segmentsFrom(array);
-                boolean relative = doc.getBoolean("$relative");
+                boolean relative = doc.getBoolean(KEY_RELATIVE);
                 return relative ? paths.createRelativePath(segments) : paths.createAbsolutePath(segments);
             }
-            if (!Null.matches(valueStr = doc.getString("$date"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DATE))) {
                 return dates.create(valueStr);
             }
-            if (!Null.matches(valueStr = doc.getString("$dec"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DECIMAL))) {
                 return decimals.create(valueStr);
             }
             if (!Null.matches(valueStr = doc.getString(REFERENCE_FIELD))) {
@@ -1430,7 +1436,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     /**
      * Checks if the given document is already locked
-     * 
+     *
      * @param doc the document
      * @return true if the change was made successfully, or false otherwise
      */
@@ -1468,7 +1474,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     /**
      * Marks the given document as queryable, by setting a flag.
-     * 
+     *
      * @param document a {@link EditableDocument} instance; never null
      * @param queryable a boolean which indicates whether the document should be queryable or not.
      */
@@ -1495,7 +1501,7 @@ public class DocumentTranslator implements DocumentConstants {
     /**
      * Returns the value of the {@link org.modeshape.jcr.cache.document.DocumentTranslator#CACHE_TTL_SECONDS} field, if such a
      * value exists.
-     * 
+     *
      * @param document a {@code non-null} document
      * @return either the value of the above field, or {@code null} if such a value doesn't exist.
      */

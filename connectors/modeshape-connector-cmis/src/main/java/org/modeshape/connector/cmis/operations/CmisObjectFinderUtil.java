@@ -1,16 +1,14 @@
 package org.modeshape.connector.cmis.operations;
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
-import org.infinispan.schematic.internal.delta.SetValueOperation;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
-import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
-import org.modeshape.jcr.value.Name;
 
 import java.util.List;
 
@@ -101,6 +99,7 @@ public class CmisObjectFinderUtil {
     }
 
     private CmisObject findByCommonId(String id) {
+        long startTime = System.currentTimeMillis();
         if (!singleVersionOptions.isConfigured())
             return null;
 
@@ -110,23 +109,24 @@ public class CmisObjectFinderUtil {
                 singleVersionOptions.getCommonIdTypeName(),
                 singleVersionOptions.getCommonIdPropertyName(),
                 searchValue);
-        System.out.println("Trying to find object using query <" + query + ">");
         ItemIterable<QueryResult> queryResult = session.query(query, false);
-
+        
         if (queryResult == null) {
-            System.out.println("query result is empty");
+            System.out.println("Query result is empty");
+            return null;
         }
 
         long totalNumItems = queryResult.getTotalNumItems();
 
         if (totalNumItems <= 0 || totalNumItems > 1) {
+            System.out.println(MessageFormat.format("Query total items number is [{0}] but must be 1. Return null!!!", totalNumItems));
             return null;
         }
 
         System.out.println("got someth from query");
         QueryResult next = queryResult.iterator().next();
         PropertyData<Object> cmisObjectId = next.getPropertyById(PropertyIds.OBJECT_ID);
-
+        System.out.println(MessageFormat.format("Query [{0}]. Time: {1} ms", query, (System.currentTimeMillis()-startTime)));
         try {
             System.out.println("gettting object by id: " + cmisObjectId.getFirstValue().toString());
             return session.getObject(cmisObjectId.getFirstValue().toString());

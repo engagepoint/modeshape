@@ -1,19 +1,15 @@
 package org.modeshape.connector.cmis.operations.impl;
 
+import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.FileableCmisObject;
-import org.apache.chemistry.opencmis.client.api.Folder;
-import org.apache.chemistry.opencmis.client.api.Session;
+import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
-import org.apache.chemistry.opencmis.commons.spi.Holder;
-import org.apache.chemistry.opencmis.commons.spi.ObjectService;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
@@ -22,11 +18,12 @@ import org.modeshape.jcr.value.Name;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
-
+import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
 
 public class CmisUpdateOperation extends CmisOperation {
 
@@ -35,32 +32,33 @@ public class CmisUpdateOperation extends CmisOperation {
         super(snapshot, config);
     }
 
-	private String mapProperty(MappedCustomType mapping, Name name)
-	{
-		// prefix
-		debug("name.getNamespaceUri()", name.getNamespaceUri());
-		String prefix = localTypeManager.getPrefixes().value(name.getNamespaceUri());
-		debug("prefix", prefix);
+    private String mapProperty(MappedCustomType mapping, Name name) {
+        // prefix
+        debug("name.getNamespaceUri()", name.getNamespaceUri());
+        String prefix = localTypeManager.getPrefixes().value(name.getNamespaceUri());
+        debug("prefix", prefix);
 
-		// prefixed name of the property in jcr domain is
-		String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
-		debug("jcrName", jcrPropertyName);
+        // prefixed name of the property in jcr domain is
+        String jcrPropertyName = prefix != null ? prefix + ":" + name.getLocalName() : name.getLocalName();
+        debug("jcrName", jcrPropertyName);
 
-		// the name of this property in cmis domain is
-		String cmisPropertyName = localTypeManager.getPropertyUtils().findCmisName(jcrPropertyName);
-		debug("cmisName", cmisPropertyName);
+        // the name of this property in cmis domain is
+        String cmisPropertyName = localTypeManager.getPropertyUtils().findCmisName(jcrPropertyName);
+        debug("cmisName", cmisPropertyName);
 
-		// correct. AAA!!!
-		cmisPropertyName = mapping.toExtProperty(cmisPropertyName);
-		debug("cmis replaced name", cmisPropertyName);
+        // correct. AAA!!!
+        cmisPropertyName = mapping.toExtProperty(cmisPropertyName);
+        debug("cmis replaced name", cmisPropertyName);
 
-		return cmisPropertyName;
-	}
+        return cmisPropertyName;
+    }
 
     public void updateDocument(DocumentChanges delta, BinaryContentProducerInterface binaryProducer) {
+        long startTime = System.currentTimeMillis();
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
+        debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());        
 
         // this action depends from object type
         switch (objectId.getType()) {
@@ -78,6 +76,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 CmisObject cmisObject = finderUtil.find(cmisId);
 
                 if (cmisObject == null) {
+                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                     throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + cmisId);
                 }
 
@@ -91,12 +90,14 @@ public class CmisUpdateOperation extends CmisOperation {
                         asDocument(cmisObject).deleteContentStream();
                     }
                 } else {
-                    ContentStream stream = binaryProducer.jcrBinaryContent(delta.getDocument());
+                    String filename = cmisObject.getName();
+                    ContentStream stream = binaryProducer.jcrBinaryContent(delta.getDocument(), filename);
 
                     if (stream != null) {
                         if (isVersioned(cmisObject)) {
-                            if (isVersioned(cmisObject))
+                            if (isVersioned(cmisObject)) {
                                 CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream);
+                            }
                         } else {
                             asDocument(cmisObject).setContentStream(stream, true);
                         }
@@ -107,41 +108,46 @@ public class CmisUpdateOperation extends CmisOperation {
                 // modifying cmis:folders and cmis:documents
                 cmisObject = finderUtil.find(objectId.getIdentifier());
 
-				// checking that object exists
-				if (cmisObject == null) throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
+                // checking that object exists
+                if (cmisObject == null) {
+                    debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), " CmisObject is null. Throw exception. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
+                    throw new CmisObjectNotFoundException("Cannot find CMIS object with id: " + objectId.getIdentifier());
+                }
 
                 changes = delta.getPropertyChanges();
 
-				// process children changes
-				Map<String, Name> map = new HashMap<String, Name>();
-				map.putAll(delta.getChildrenChanges().getRenamed());
-				map.putAll(delta.getChildrenChanges().getAppended());
+                // process children changes
+                Map<String, Name> map = new HashMap<String, Name>();
+                map.putAll(delta.getChildrenChanges().getRenamed());
+                map.putAll(delta.getChildrenChanges().getAppended());
 
-				if (map.size() > 0)
-				{
-					debug("Children changes: renamed and appended", Integer.toString(map.size()));
+                if (map.size() > 0) {
+                    debug("Children changes: renamed and appended", Integer.toString(map.size()));
 
-					CmisObject child;
-					String before, after;
-					for (Map.Entry<String, Name> entry : map.entrySet())
-					{
-						child = finderUtil.find(entry.getKey());
-						before = child.getName();
-						after = entry.getValue().getLocalName();
+                    CmisObject child;
+                    String before, after;
+                    for (Map.Entry<String, Name> entry : map.entrySet()) {
+                        child = finderUtil.find(entry.getKey());
+                        if (child != null) {
+                            before = child.getName();
+                            after = entry.getValue().getLocalName();
 
-						if (after.equals(before)) continue;
+                            if (after.equals(before)) {
+                                continue;
+                            }
 
-						debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+                            debug("Child renamed", entry.getKey(), ":", before + "\t=>\t" + after);
 
-                        // determine if in child's parent already exists a child with same name
-                        if (isExistCmisObject(((FileableCmisObject) child).getParents().get(0).getPath() + "/" + after)) {
-                            // already exists, so generates a temporary name
-                            after += "-temp";
+                            // determine if in child's parent already exists a child with same name
+                            if (isExistCmisObject(((FileableCmisObject) child).getParents().get(0).getPath() + "/" + after)) {
+                                // already exists, so generates a temporary name
+                                after += "-temp";
+                            }
+
+                            rename(child, after);
                         }
-
-                        rename(child, after);
-					}
-				}
+                    }
+                }
                 Document props = delta.getDocument().getDocument("properties");
 
                 // Prepare store for the cmis properties
@@ -151,6 +157,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 // we will use these definitions for correct conversation
                 Map<String, PropertyDefinition<?>> propDefs = cmisObject.getBaseType().getPropertyDefinitions();
                 propDefs.putAll(cmisObject.getType().getPropertyDefinitions());
+                debug("cmisObject PropertyDefinitions", propDefs.toString());
 
                 // group added and modified properties
                 ArrayList<Name> modifications = new ArrayList<Name>();
@@ -161,7 +168,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 // convert names and values
                 for (Name name : modifications) {
-					String cmisPropertyName = mapProperty(mapping, name);
+                    String cmisPropertyName = mapProperty(mapping, name);
 
                     // in cmis domain this property is defined as
                     PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
@@ -182,40 +189,54 @@ public class CmisUpdateOperation extends CmisOperation {
                         continue;
                     }
 
-                    debug("adding prop", cmisPropertyName, "value", value.toString());
+                    debug("adding prop ", cmisPropertyName, " value ", value.toString());
                     updateProperties.put(cmisPropertyName, value);
                 }
 
                 // step #2: nullify removed properties
                 for (Name name : changes.getRemoved()) {
-					String cmisPropertyName = mapProperty(mapping, name);
+                    String cmisPropertyName = mapProperty(mapping, name);
 
-					// in cmis domain this property is defined as
-					PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
+                    // in cmis domain this property is defined as
+                    PropertyDefinition<?> pdef = propDefs.get(cmisPropertyName);
 
-					// unknown property? - ignore
-					if (pdef == null) {
-						debug(cmisPropertyName, "unknown property - ignore ..");
-						continue;
-					}
+                    // unknown property? - ignore
+                    if (pdef == null) {                        
+                        debug(cmisPropertyName, "unknown or readonly property - ignore ..");
+                        continue;
+                    }
 
-					updateProperties.put(cmisPropertyName, null);
+                    updateProperties.put(cmisPropertyName, null);
                 }
 
                 // run update action
                 debug("update properties?? ", updateProperties.isEmpty() ? "No" : "Yep");
+                debug("cmisObject class: ", cmisObject.getClass().getCanonicalName(), " type ", cmisObject.getType().getDescription(), " name: ", cmisObject.getName());
                 if (!updateProperties.isEmpty()) {
+                    debug("Properties to update ", updateProperties.toString());
                     if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
+                        debug("cmisObject is versioned Document");
                         CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null);
+                    } else if (cmisObject instanceof org.apache.chemistry.opencmis.client.api.Folder) {
+                        debug("cmisObject is Folder");
+                        try {
+                            cmisObject.updateProperties(updateProperties);
+                        } catch (CmisUpdateConflictException e) {
+                            System.out.println(MessageFormat.format("Skip update properties [{0}] for folder [{1}] due to error {2}", updateProperties.toString(), cmisObject.getName(), e.getMessage()));                            
+                        }
                     } else {
-                        cmisObject.updateProperties(updateProperties);
+                        debug("cmisObject is not versioned");
+                        try {
+                            cmisObject.updateProperties(updateProperties);
+                        } catch (CmisUpdateConflictException e) {
+                            System.out.println(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null);                            
+                        }
                     }
                 }
 
-
-				// MOVE:
-				if (delta.getParentChanges().hasNewPrimaryParent())
-                {
+                // MOVE:
+                if (delta.getParentChanges().hasNewPrimaryParent()) {
                     move(cmisObject, delta);
 
                     // rename temporary name to a original
@@ -226,61 +247,86 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
 
                 break;
-        }
-        debug("end of update story -----------------------------");
+            case UNFILED_STORAGE:
+                // process unfiled changes
+                Map<String, Name> renamed = new HashMap<String, Name>();
+                renamed.putAll(delta.getChildrenChanges().getRenamed());
 
+                if (renamed.size() > 0)
+                {
+                    debug("Unfiled changes: renamed ", Integer.toString(renamed.size()));
+
+                    CmisObject child;
+                    String before, after;
+                    for (Map.Entry<String, Name> entry : renamed.entrySet())
+                    {
+                        child = finderUtil.find(entry.getKey());
+                        before = child.getName();
+                        after = entry.getValue().getLocalName();
+
+                        if (after.equals(before)) continue;
+
+                        debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
+
+                        rename(child, after);
+                    }
+                }
+        }
+        debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
 
     /**
      * Utility method for checking if CMIS object exists at defined path
+     *
      * @param path path for object
      * @return <code>true</code> if exists, <code>false</code> otherwise
      */
-    private boolean isExistCmisObject(String path)
-    {
-        try
-        {
+    private boolean isExistCmisObject(String path) {
+        try {
             session.getObjectByPath(path);
             return true;
-        }
-        catch (CmisObjectNotFoundException e)
-        {
+        } catch (CmisObjectNotFoundException e) {
             return false;
         }
     }
 
     /**
      * Utility method for renaming CMIS object
+     *
      * @param object CMIS object to rename
      * @param name new name
      */
-    private void rename(CmisObject object, String name)
-    {
+    private void rename(CmisObject object, String name) {
         Map<String, Object> properties = new HashMap<String, Object>();
-        properties.put("cmis:name", name);
+        properties.put(PropertyIds.NAME, name);
 
-        CmisObject parent = ((FileableCmisObject)object).getParents().get(0);
+        List<CmisObject> parents = new ArrayList<CmisObject>();
+        CmisObject parent = null;
 
-        if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object))
-        {
-            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+        parents.addAll(((FileableCmisObject) object).getParents());
+        if (!parents.isEmpty()) {
+            parent = parents.get(0);
         }
-        else object.updateProperties(properties);
+        if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
+            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+        } else object.updateProperties(properties);
     }
 
     /**
      * Utility method for moving CMIS object
+     *
      * @param object CMIS object to move
      * @param delta changes for determining of destination CMIS object
      */
-	private void move(CmisObject object, DocumentChanges delta)
-	{
-		FileableCmisObject target = (FileableCmisObject) object;
-		CmisObject src = target.getParents().get(0);
-		String dst = delta.getParentChanges().getNewPrimaryParent();
+    private void move(CmisObject object, DocumentChanges delta) {
+        FileableCmisObject target = (FileableCmisObject) object;
+        CmisObject src = target.getParents().get(0);
+        String dst = delta.getParentChanges().getNewPrimaryParent();
 
-		if (src.getId().equals(dst)) return;
+        if (src.getId().equals(dst)) {
+            return;
+        }
 
-		target.move(src, finderUtil.find(dst));
-	}
+        target.move(src, finderUtil.find(dst));
+    }
 }
