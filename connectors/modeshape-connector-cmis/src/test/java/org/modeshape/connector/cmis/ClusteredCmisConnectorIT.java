@@ -67,9 +67,8 @@ import static org.junit.Assert.assertTrue;
 /**
  * Provide integration testing of the CMIS connector with OpenCMIS InMemory Repository.
  * 
- * @author Alexander Voloshyn
- * @author Nick Knysh
- * @version 1.0 2/20/2013
+ * @author Evgeniy Shevchenko
+ * @version 1.0 6/10/2014
  */
 
 public class ClusteredCmisConnectorIT {
@@ -163,32 +162,29 @@ public class ClusteredCmisConnectorIT {
             session2 = repository2.login();
             assertThat(session2.getRootNode(), is(notNullValue()));
 
-            createFolder(session1, QUERYABLE, "folder");
-            createFolder(session1, NON_QUERYABLE, "folder");
-            createFile(session1, QUERYABLE, "file");
-            createFile(session1, NON_QUERYABLE, "file");
-
+            createFolder(session1, QUERYABLE, "samplefolder");
+            createFolder(session1, NON_QUERYABLE, "samplefolder");
+            createFile(session1, QUERYABLE, "samplefile");
+            createFile(session1, NON_QUERYABLE, "samplefile");
             session1.save();
-            Thread.sleep(1500);
-
             Workspace workspace1 = (Workspace) session1.getWorkspace();
             Workspace workspace2 = (Workspace) session2.getWorkspace();
 
             workspace1.reindex();
             workspace2.reindex();
 
-            assertNotNull(session1.getNode(QUERYABLE + "/folder"));
-            assertNotNull(session2.getNode(QUERYABLE + "/folder"));
-            assertNotNull(session1.getNode(QUERYABLE + "/file"));
-            assertNotNull(session2.getNode(QUERYABLE + "/file"));
+            assertNotNull(session1.getNode(QUERYABLE + "/samplefolder"));
+            assertNotNull(session2.getNode(QUERYABLE + "/samplefolder"));
+            assertNotNull(session1.getNode(QUERYABLE + "/samplefile"));
+            assertNotNull(session2.getNode(QUERYABLE + "/samplefile"));
 
-            org.junit.Assert.assertNotNull(session1.getNode(NON_QUERYABLE + "/folder"));
-            assertNotNull(session2.getNode(NON_QUERYABLE + "/folder"));
-            org.junit.Assert.assertNotNull(session1.getNode(NON_QUERYABLE + "/file"));
-            assertNotNull(session2.getNode(NON_QUERYABLE + "/file"));
+            assertNotNull(session1.getNode(NON_QUERYABLE + "/samplefolder"));
+            assertNotNull(session2.getNode(NON_QUERYABLE + "/samplefolder"));
+            assertNotNull(session1.getNode(NON_QUERYABLE + "/samplefile"));
+            assertNotNull(session2.getNode(NON_QUERYABLE + "/samplefile"));
 
             String query = "select * FROM [nt:base] where [jcr:path] like '%s'";
-            //actual is 3 because folder, file, content
+            //expected result is equal to 3 because we created 3 nodes: file, content and folder
             queryAndExpectResults(session1, String.format(query,QUERYABLE +"/%") , 3);
             queryAndExpectResults(session2, String.format(query,QUERYABLE+"/%") , 3);
 
