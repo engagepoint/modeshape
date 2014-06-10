@@ -744,25 +744,28 @@ public class RepositoryCache implements Observable {
                     AbstractNodeChange nodeChange = (AbstractNodeChange)change;
                     CachedNode node = workspaceCache.getNode(nodeChange.getKey());
                     if (node != null) {
-                        NodeKey nodeKey = node.getKey();
-                        if (change instanceof NodeAdded) {
-                            monitor.recordAdd(workspaceName,
-                                              nodeKey,
-                                              node.getPath(workspaceCache),
-                                              node.getPrimaryType(workspaceCache),
-                                              node.getMixinTypes(workspaceCache),
-                                              node.getProperties(workspaceCache));
-                        } else if (shouldUpdateIndexes && !nodesWithUpdatedIndexes.contains(nodeKey)) {
-                            nodesWithUpdatedIndexes.add(nodeKey);
-                            // since for an updated node any number of property change events can be received, we only want to
-                            // update the indexes once
-                            // because the persistent state should already have been updated
-                            monitor.recordUpdate(workspaceName,
-                                                 nodeKey,
-                                                 node.getPath(workspaceCache),
-                                                 node.getPrimaryType(workspaceCache),
-                                                 node.getMixinTypes(workspaceCache),
-                                                 node.getProperties(workspaceCache));
+                        boolean isQueryable = node.isQueryable(workspaceCache);
+                        if (isQueryable) {
+                            NodeKey nodeKey = node.getKey();
+                            if (change instanceof NodeAdded) {
+                                monitor.recordAdd(workspaceName,
+                                        nodeKey,
+                                        node.getPath(workspaceCache),
+                                        node.getPrimaryType(workspaceCache),
+                                        node.getMixinTypes(workspaceCache),
+                                        node.getProperties(workspaceCache));
+                            } else if (shouldUpdateIndexes && !nodesWithUpdatedIndexes.contains(nodeKey)) {
+                                nodesWithUpdatedIndexes.add(nodeKey);
+                                // since for an updated node any number of property change events can be received, we only want to
+                                // update the indexes once
+                                // because the persistent state should already have been updated
+                                monitor.recordUpdate(workspaceName,
+                                        nodeKey,
+                                        node.getPath(workspaceCache),
+                                        node.getPrimaryType(workspaceCache),
+                                        node.getMixinTypes(workspaceCache),
+                                        node.getProperties(workspaceCache));
+                            }    
                         }
                     } else {
                         if (change instanceof NodeRemoved) {
