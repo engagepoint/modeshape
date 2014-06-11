@@ -40,6 +40,7 @@ import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
+
 /**
  * Implements mapping between several CMIS and JCR properties. This implementation of the connector suppose conversation between
  * cmis folders and document into jcr folders and files. Such conversation in its order suppose conversation of the names and
@@ -146,7 +147,7 @@ public class Properties {
     /**
      * Calculates value of the property corresponding to cmis domain.
      *
-     * @param pdef property definition as declared in cmis repository.
+     * @param pdef  property definition as declared in cmis repository.
      * @param field the representation of the value of the property in jcr domain.
      * @return value as declared by property definition.
      */
@@ -155,11 +156,6 @@ public class Properties {
         if (pdef.getCardinality() == Cardinality.MULTI) {
             System.out.println("FLDFLDFLDFLDFLDFLDFLD::: " + field);
             return field.getValueAsDocument().getArray(field.getName());
-
-// if (field.getValue() instanceof List) {
-// return (List) field.getValue();
-// }
-// return Arrays.asList(field.getValue());
         }
         switch (pdef.getPropertyType()) {
             case STRING:
@@ -169,7 +165,6 @@ public class Properties {
             case DECIMAL:
                 return BigDecimal.valueOf(field.getValueAsInt());
             case INTEGER:
-// return field.getValueAsInt();
                 // override default logic. There is not integer in Jcr
                 Object obj = field.getValue();
                 if (obj == null) return obj;
@@ -197,22 +192,22 @@ public class Properties {
     /**
      * Calculates value of the property corresponding to cmis domain.
      *
-     * @param pdef property definition as declared in cmis repository.
-     * @param jcrName the name of the property in jcr domain
+     * @param pdef     property definition as declared in cmis repository.
+     * @param jcrName  the name of the property in jcr domain
      * @param document connectors's view of properties in jcr domain.
      * @return value as declared by property definition.
      */
-    public Object cmisValue(PropertyDefinition<?> pdef,
-                            String jcrName,
-                            Document document) {
+    public static Object cmisValue(PropertyDefinition<?> pdef,
+                                   String jcrName,
+                                   Document document) {
         if (pdef.getCardinality() == Cardinality.MULTI) {
             List array = document.getArray(jcrName);
-            System.out.println("arrays value: "+ array);
+            System.out.println("arrays value: " + array);
             if (array == null) {
                 Object singleValue = getSingleValue(pdef, jcrName, document);
                 if (singleValue != null) {
                     array = new BasicArray(singleValue);
-                    System.out.println("custom sv arrays value: "+ array);
+                    System.out.println("custom sv arrays value: " + array);
                 }
             }
             return array;
@@ -220,7 +215,7 @@ public class Properties {
         return getSingleValue(pdef, jcrName, document);
     }
 
-    private Object getSingleValue(PropertyDefinition<?> pdef, String jcrName, Document document) {
+    private static Object getSingleValue(PropertyDefinition<?> pdef, String jcrName, Document document) {
         switch (pdef.getPropertyType()) {
             case STRING:
                 return document.getString(jcrName);
@@ -228,20 +223,19 @@ public class Properties {
                 return document.getBoolean(jcrName);
             case DECIMAL:
                 Object decimal = document.get(jcrName);
-                if(decimal == null) return decimal; // no object with this name
+                if (decimal == null) return decimal; // no object with this name
 
-                if ( !( decimal instanceof BasicDocument) ) {
+                if (!(decimal instanceof BasicDocument)) {
                     break; // Unknown type
                 }
                 BasicDocument decimalDocument = (BasicDocument) decimal;
-                if (! decimalDocument.containsField(DocumentTranslator.KEY_DECIMAL) ) {
+                if (!decimalDocument.containsField(DocumentTranslator.KEY_DECIMAL)) {
                     break; // Unknown fields
                 }
                 String decimalAsString = decimalDocument.getString(DocumentTranslator.KEY_DECIMAL);
-                if(decimalAsString!=null){
+                if (decimalAsString != null) {
                     return new BigDecimal(decimalAsString);
-                }
-                else return null;
+                } else return null;
             case INTEGER:
                 // override default logic. There is not integer in Jcr
                 Object obj = document.get(jcrName);
@@ -255,19 +249,19 @@ public class Properties {
                     break; // There is no fields with such name
                 }
                 GregorianCalendar lCal = new GregorianCalendar();
-                if ( !( date instanceof BasicDocument) ) {
+                if (!(date instanceof BasicDocument)) {
                     break; // Unknown type
                 }
-                BasicDocument dateDocument = (BasicDocument)date;
+                BasicDocument dateDocument = (BasicDocument) date;
 
-                if (! dateDocument.containsField(DocumentTranslator.KEY_DATE) ) {
+                if (!dateDocument.containsField(DocumentTranslator.KEY_DATE)) {
                     break; // Unknown fields
                 }
                 String dateAsString = dateDocument.getString(DocumentTranslator.KEY_DATE);
-                if ( dateAsString == null || dateAsString.trim().isEmpty() ) {
+                if (dateAsString == null || dateAsString.trim().isEmpty()) {
                     break;
                 }
-                lCal.setTime( (javax.xml.bind.DatatypeConverter.parseDateTime(dateAsString).getTime() ));
+                lCal.setTime((javax.xml.bind.DatatypeConverter.parseDateTime(dateAsString).getTime()));
                 return lCal;
             case URI:
                 try {
