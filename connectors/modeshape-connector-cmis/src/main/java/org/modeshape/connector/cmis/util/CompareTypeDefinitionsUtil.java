@@ -19,11 +19,11 @@ import java.util.*;
  */
 public class CompareTypeDefinitionsUtil {
 
-    private static final String ADDED = "Added";
-    private static final String DELETED = "Deleted";
+    private static final String ADDED_TO = "added to ";
+    private static final String REMOVED_FROM = "removed from";
     private static final String PARAMETER_FROM_TO = "parameter %s from %s to: %s";
-    private static final String FROM_TO = "from: %s to %s";
-    private static final String EMPTY_STRING = "";
+    private static final String FROM_TO = "from %s to %s";
+    private static final String TYPE_DEFINITIONS = "Type Definitions";
 
     protected static Problems problems;
 
@@ -39,7 +39,7 @@ public class CompareTypeDefinitionsUtil {
             return problems;
         }
 
-        expectedTypes = compareMaps(expectedTypes, actualTypes, CompareTypesI18n.typeWas, EMPTY_STRING);
+        expectedTypes = compareMaps(expectedTypes, actualTypes, CompareTypesI18n.typeWas, TYPE_DEFINITIONS);
 
         for (Map.Entry<String, ObjectType> entry : expectedTypes.entrySet()) {
 
@@ -97,7 +97,7 @@ public class CompareTypeDefinitionsUtil {
      */
     protected static void compareForErrorObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addError(CompareTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addError(CompareTypesI18n.typeAreChanged, fieldName, typeId, expected, actual);
         }
     }
 
@@ -111,7 +111,7 @@ public class CompareTypeDefinitionsUtil {
      */
     protected static void compareForWarningObjectTypeFields(Object expected, Object actual, String typeId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addWarning(CompareTypesI18n.typeAreChanged, typeId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addWarning(CompareTypesI18n.typeAreChanged, fieldName, typeId, expected, actual);
         }
     }
 
@@ -126,7 +126,7 @@ public class CompareTypeDefinitionsUtil {
             return;
         }
 
-        expectedProperties = compareMaps(expectedProperties, actualProperties, CompareTypesI18n.propertyAreChanged, typeId);
+        expectedProperties = compareMaps(expectedProperties, actualProperties, CompareTypesI18n.propertyWas, typeId);
 
         for (Map.Entry<String, PropertyDefinition<?>> entry : expectedProperties.entrySet()) {
             compareProperty(entry.getValue(), actualProperties.get(entry.getKey()), typeId);
@@ -170,8 +170,8 @@ public class CompareTypeDefinitionsUtil {
         actualDefaultValue = actualDefaultValue == null ? Collections.emptyList() : actualDefaultValue;
 
         if (!CollectionUtils.isEqualCollection(expectedDefaultValue,actualDefaultValue)) {
-            problems.addWarning(CompareTypesI18n.propertyAreChanged, typeId, propertyId,
-                    String.format(PARAMETER_FROM_TO, TypeDefinitionsIds.DEFAULT_VALUE, expectedProperty.getDefaultValue(), actualProperty.getDefaultValue()));
+            problems.addWarning(CompareTypesI18n.propertyAreChanged, TypeDefinitionsIds.DEFAULT_VALUE, propertyId, typeId,
+                    expectedProperty.getDefaultValue(), actualProperty.getDefaultValue());
         }
 
         compareChoices(expectedProperty.getChoices(), actualProperty.getChoices(), typeId, propertyId);
@@ -188,7 +188,7 @@ public class CompareTypeDefinitionsUtil {
      */
     protected static void compareForErrorPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addError(CompareTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addError(CompareTypesI18n.propertyAreChanged, fieldName, propertyId, typeId, expected, actual);
         }
     }
 
@@ -203,7 +203,7 @@ public class CompareTypeDefinitionsUtil {
      */
     protected static void compareForWarningPropertyFields(Object expected, Object actual, String typeId, String propertyId, String fieldName) {
         if (!compareValues(expected, actual)) {
-            problems.addWarning(CompareTypesI18n.propertyAreChanged, typeId, propertyId, String.format(PARAMETER_FROM_TO, fieldName, expected, actual));
+            problems.addWarning(CompareTypesI18n.propertyAreChanged, fieldName, propertyId, typeId, expected, actual);
         }
     }
 
@@ -283,7 +283,7 @@ public class CompareTypeDefinitionsUtil {
     private static <T> void removeDeletedAndAddError(Set<String> expectedKeys, Map<String, T> expectedMap,  I18n message, String param) {
         if (!expectedKeys.isEmpty()) {
             for (String key : expectedKeys) {
-                problems.addError(message, key, DELETED, param);
+                problems.addError(message, key, REMOVED_FROM, param);
                 expectedMap.remove(key);
             }
         }
@@ -293,9 +293,9 @@ public class CompareTypeDefinitionsUtil {
         if (!actualKeys.isEmpty()) {
             for (String key : actualKeys) {
                 if (isRequiredProperty(actual.get(key))) {
-                    problems.addError(message, key, ADDED, param);
+                    problems.addError(message, key, ADDED_TO, param);
                 } else {
-                    problems.addWarning(message, key, ADDED, param);
+                    problems.addWarning(message, key, ADDED_TO, param);
                 }
             }
         }

@@ -901,7 +901,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 if (isError){
                     boolean isRepoException = problem.getMessage() == CompareTypesI18n.repositoryException;
                     if (!isRepoException) {
-                        message.append(problem.getMessageString()).append("; ");
+                        message.append(problem.getMessageString()).append("\n");
                     }
                 }
             }
