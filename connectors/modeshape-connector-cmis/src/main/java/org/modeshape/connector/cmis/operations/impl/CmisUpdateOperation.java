@@ -3,6 +3,7 @@ package org.modeshape.connector.cmis.operations.impl;
 import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.FileableCmisObject;
+import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
@@ -297,7 +298,7 @@ public class CmisUpdateOperation extends CmisOperation {
      */
     private void rename(CmisObject object, String name) {
         Map<String, Object> properties = new HashMap<String, Object>();
-        properties.put("cmis:name", name);
+        properties.put(PropertyIds.NAME, name);
 
         List<CmisObject> parents = new ArrayList<CmisObject>();
         CmisObject parent = null;

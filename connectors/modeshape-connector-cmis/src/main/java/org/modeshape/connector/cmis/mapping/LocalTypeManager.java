@@ -168,7 +168,7 @@ public class LocalTypeManager {
     // ------------------------------ TYPE MANAGEMENT -----------------------
 
     public ObjectType getTypeDefinition(Session session, String typeId) {
-        if (cachedTypeDefinitions.containsKey(typeId)) {
+        if (!cachedTypeDefinitions.containsKey(typeId)) {
             ObjectType typeDefinition = session.getTypeDefinition(typeId);
             cachedTypeDefinitions.put(typeId, typeDefinition);
         }
