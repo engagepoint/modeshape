@@ -40,6 +40,7 @@ import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
+
 /**
  * Implements mapping between several CMIS and JCR properties. This implementation of the connector suppose conversation between
  * cmis folders and document into jcr folders and files. Such conversation in its order suppose conversation of the names and
@@ -155,11 +156,6 @@ public class Properties {
         if (pdef.getCardinality() == Cardinality.MULTI) {
             System.out.println("FLDFLDFLDFLDFLDFLDFLD::: " + field);
             return field.getValueAsDocument().getArray(field.getName());
-
-// if (field.getValue() instanceof List) {
-// return (List) field.getValue();
-// }
-// return Arrays.asList(field.getValue());
         }
         switch (pdef.getPropertyType()) {
             case STRING:
@@ -169,7 +165,6 @@ public class Properties {
             case DECIMAL:
                 return BigDecimal.valueOf(field.getValueAsInt());
             case INTEGER:
-// return field.getValueAsInt();
                 // override default logic. There is not integer in Jcr
                 Object obj = field.getValue();
                 if (obj == null) return obj;
@@ -238,7 +233,7 @@ public class Properties {
                     break; // Unknown fields
                 }
                 String decimalAsString = decimalDocument.getString(DocumentTranslator.KEY_DECIMAL);
-                if (decimalAsString != null){
+                if (decimalAsString != null) {
                     return new BigDecimal(decimalAsString);
                 }
                 break;
