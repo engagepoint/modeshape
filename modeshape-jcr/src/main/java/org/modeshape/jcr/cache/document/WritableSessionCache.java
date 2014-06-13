@@ -31,9 +31,11 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
@@ -51,6 +53,8 @@ import org.modeshape.common.SystemFailureException;
 import org.modeshape.common.annotation.GuardedBy;
 import org.modeshape.common.annotation.ThreadSafe;
 import org.modeshape.common.i18n.I18n;
+import org.modeshape.common.i18n.I18nResource;
+import org.modeshape.common.i18n.TextI18n;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.CheckArg;
 import org.modeshape.jcr.ExecutionContext;
@@ -579,6 +583,9 @@ public class WritableSessionCache extends AbstractSessionCache {
     @Override
     public void save( SessionCache other,
                       PreSave preSaveOperation ) {
+        long startTime = System.currentTimeMillis();
+        String uuid = UUID.randomUUID().toString();
+        LOGGER.info(new TextI18n("WritableSessionCache::save::Start method.  Key: {0}."), uuid); 
 
         // Try getting locks on both sessions ...
         final WritableSessionCache that = (WritableSessionCache)other.unwrap();
@@ -591,10 +598,10 @@ public class WritableSessionCache extends AbstractSessionCache {
         try {
             thisLock.lock();
             thatLock.lock();
-
+            
             // Before we start the transaction, apply the pre-save operations to the new and changed nodes ...
             runPreSaveBeforeTransaction(preSaveOperation);
-
+            
             final int numNodes = this.changedNodes.size() + that.changedNodes.size();
 
             int repeat = txns.isCurrentlyInTransaction() ? 1 : MAX_REPEAT_FOR_LOCK_ACQUISITION_TIMEOUT;
@@ -607,8 +614,10 @@ public class WritableSessionCache extends AbstractSessionCache {
                     final Monitor monitor = txn.createMonitor();
                     try {
                         // Lock the nodes in Infinispan
+                        long lockStart = System.currentTimeMillis();
                         lockAndPurgeCache(this.changedNodesInOrder);
                         that.lockAndPurgeCache(that.changedNodesInOrder);
+                        LOGGER.info(new TextI18n("WritableSessionCache::save::Lock aquiring. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - lockStart);            
 
                         // process after locking
                         runPreSaveAfterLocking(preSaveOperation);
@@ -620,6 +629,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                                              that.changedNodes);
                         events1 = persistChanges(this.changedNodesInOrder, monitor);
                         events2 = that.persistChanges(that.changedNodesInOrder, monitor);
+                        LOGGER.info(new TextI18n("WritableSessionCache::save::After persistChanges. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);                        
                     } catch (org.infinispan.util.concurrent.TimeoutException e) {
                         txn.rollback();
                         if (repeat <= 0) throw new TimeoutException(e.getMessage(), e);
@@ -659,6 +669,8 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                     // Commit the transaction ...
                     txn.commit();
+                    
+                    LOGGER.info(new TextI18n("WritableSessionCache::save::After commit. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
 
                     this.clearState();
                     that.clearState();
@@ -704,6 +716,7 @@ public class WritableSessionCache extends AbstractSessionCache {
         // Notify the workspaces of the changes made. This is done outside of our lock but still before the save returns ...
         txns.updateCache(this.workspaceCache(), events1, txn);
         txns.updateCache(that.workspaceCache(), events2, txn);
+        LOGGER.info(new TextI18n("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
     }
 
     private void checkNodeNotRemovedByAnotherTransaction( MutableCachedNode node ) {
@@ -731,7 +744,10 @@ public class WritableSessionCache extends AbstractSessionCache {
     @Override
     public void save( Set<NodeKey> toBeSaved,
                       SessionCache other,
-                      PreSave preSaveOperation ) {
+                      PreSave preSaveOperation ) {        
+        long startTime = System.currentTimeMillis();
+        String uuid = UUID.randomUUID().toString();
+        LOGGER.info(new TextI18n("WritableSessionCache::save::Start method.  Key: {0}."), uuid); 
 
         // Try getting locks on both sessions ...
         final WritableSessionCache that = (WritableSessionCache)other.unwrap();
@@ -830,10 +846,10 @@ public class WritableSessionCache extends AbstractSessionCache {
                     });
 
                     LOGGER.debug("Altered {0} node(s)", numNodes);
-
+                    
                     // Commit the transaction ...
                     txn.commit();
-
+                    
                     clearState(savedNodesInOrder);
                     that.clearState();
 
@@ -877,6 +893,8 @@ public class WritableSessionCache extends AbstractSessionCache {
         // TODO: Events ... these events should be combined, but cannot each ChangeSet only has a single workspace
         txns.updateCache(this.workspaceCache(), events1, txn);
         txns.updateCache(that.workspaceCache(), events2, txn);
+        
+        LOGGER.info(new TextI18n("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);            
     }
 
     /**
@@ -893,6 +911,10 @@ public class WritableSessionCache extends AbstractSessionCache {
     @GuardedBy( "lock" )
     protected ChangeSet persistChanges( Iterable<NodeKey> changedNodesInOrder,
                                         Monitor monitor ) {
+        long startTime = System.currentTimeMillis();
+        String uuid = UUID.randomUUID().toString();
+        LOGGER.info(new TextI18n("WritableSessionCache::persistChanges::Start method.  Key: {0}."), uuid); 
+
         // Compute the save meta-info ...
         ExecutionContext context = context();
         String userId = context.getSecurityContext().getUserName();
@@ -1351,6 +1373,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
         changes.setChangedNodes(changedNodes.keySet()); // don't need to make a copy
         changes.freeze(userId, userData, timestamp);
+        LOGGER.info(new TextI18n("WritableSessionCache::persistChanges::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime); 
         return changes;
     }
 

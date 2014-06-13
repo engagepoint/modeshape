@@ -35,6 +35,7 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -49,17 +50,22 @@ import org.infinispan.schematic.document.EditableArray;
 import org.infinispan.schematic.document.EditableDocument;
 import org.infinispan.schematic.document.Null;
 import org.modeshape.common.annotation.Immutable;
+import org.modeshape.common.i18n.I18nResource;
+import org.modeshape.common.i18n.TextI18n;
+import org.modeshape.common.logging.Logger;
 import org.modeshape.common.text.NoOpEncoder;
 import org.modeshape.common.text.TextDecoder;
 import org.modeshape.common.text.TextEncoder;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.ExecutionContext;
+import org.modeshape.jcr.GenericCacheContainer;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.cache.CachedNode.ReferenceType;
 import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.ChildReferences;
 import org.modeshape.jcr.cache.NodeKey;
+import static org.modeshape.jcr.cache.document.DocumentConstants.KEY;
 import org.modeshape.jcr.cache.document.SessionNode.ChangedAdditionalParents;
 import org.modeshape.jcr.cache.document.SessionNode.ChangedChildren;
 import org.modeshape.jcr.cache.document.SessionNode.Insertions;
@@ -91,6 +97,8 @@ import org.modeshape.jcr.value.binary.InMemoryBinaryValue;
  * A utility class that encapsulates all the logic for reading from and writing to {@link Document} instances.
  */
 public class DocumentTranslator implements DocumentConstants {
+    
+    private static final Logger LOGGER = Logger.getLogger(DocumentTranslator.class);
 
     public static final String KEY_DECIMAL = "$dec";
     public static final String KEY_DATE = "$date";
@@ -877,19 +885,23 @@ public class DocumentTranslator implements DocumentConstants {
 
     public ChildReferences getChildReferences( WorkspaceCache cache,
                                                Document document ) {
+        long startTime = System.currentTimeMillis();
+        String uuid = UUID.randomUUID().toString();
+        LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Start method.  Key: {0}."), uuid);
+        
         List<?> children = document.getArray(CHILDREN);
         List<?> externalSegments = document.getArray(FEDERATED_SEGMENTS);
 
         if (children == null && externalSegments == null) {
             return ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
         }
-
+        
         // Materialize the ChildReference objects in the 'children' document ...
         List<ChildReference> internalChildRefsList = childReferencesListFromArray(children);
 
         // Materialize the ChildReference objects in the 'federated segments' document ...
         List<ChildReference> externalChildRefsList = childReferencesListFromArray(externalSegments);
-
+                        
         // Now look at the 'childrenInfo' document for info about the next block of children ...
         ChildReferencesInfo info = getChildReferencesInfo(document);
         if (info != null) {
@@ -897,13 +909,17 @@ public class DocumentTranslator implements DocumentConstants {
             ChildReferences internalChildRefs = ImmutableChildReferences.create(internalChildRefsList);
             ChildReferences externalChildRefs = ImmutableChildReferences.create(externalChildRefsList);
 
-            return ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
+            ChildReferences result = ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
+            LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);                
+            return result;
         }
         if (externalSegments != null) {
             // There is no segmenting, so just add the federated references at the end
             internalChildRefsList.addAll(externalChildRefsList);
         }
-        return ImmutableChildReferences.create(internalChildRefsList);
+        ChildReferences result = ImmutableChildReferences.create(internalChildRefsList);
+        LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);           
+        return result;
     }
 
     /**
@@ -990,7 +1006,11 @@ public class DocumentTranslator implements DocumentConstants {
             String keyStr = doc.getString(KEY);
             NodeKey key = new NodeKey(keyStr);
             String nameStr = doc.getString(NAME);
-            Name name = names.create(nameStr, decoder);
+            Name name = (Name) GenericCacheContainer.getInstance().get(nameStr+"_name");
+            if (name == null) {
+                name = names.create(nameStr, decoder);
+                GenericCacheContainer.getInstance().put(nameStr+"_name", name);
+            }
             // We always use 1 for the SNS index, since the SNS index is dependent upon SNS nodes before it
             return new ChildReference(key, name, 1);
         }
