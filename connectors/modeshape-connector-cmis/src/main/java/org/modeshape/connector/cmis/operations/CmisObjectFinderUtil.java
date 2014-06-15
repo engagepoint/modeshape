@@ -1,6 +1,5 @@
 package org.modeshape.connector.cmis.operations;
 
-import java.text.MessageFormat;
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
@@ -11,12 +10,19 @@ import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
 
 import java.util.List;
+import java.util.regex.Pattern;
+import org.modeshape.common.i18n.TextI18n;
+import org.modeshape.common.logging.Logger;
+import org.modeshape.jcr.cache.document.DocumentTranslator;
 
 /*
  * after try to get object by id
  * does additional search with query by specified property
  */
 public class CmisObjectFinderUtil {
+    
+    private static final Logger LOGGER = Logger.getLogger(DocumentTranslator.class);
+    private static final Pattern INTERNAL_OBJECT_ID_PATTERN = Pattern.compile(".*_.{4}_.{4}_.{4}_.{12}");
 
     private Session session;
     private SingleVersionOptions singleVersionOptions;
@@ -91,11 +97,27 @@ public class CmisObjectFinderUtil {
     }
 
     public CmisObject find(String suggestedId) {
-        try {
-            return session.getObject(suggestedId);
-        } catch (CmisObjectNotFoundException nfe) {
-            return findByCommonId(suggestedId);
+        long startTime = System.currentTimeMillis();
+        CmisObject result;
+        LOGGER.info(new TextI18n("CmisObjectFinderUtil::find::Start by objectId = {0}."), suggestedId == null ? "null" : suggestedId);
+        
+        if (suggestedId == null) {
+            LOGGER.info(new TextI18n("CmisObjectFinderUtil::find::Method finished due to objectId == null. Time: {0} ms."), System.currentTimeMillis() - startTime);                
+            return null;
         }
+        try {
+            if (INTERNAL_OBJECT_ID_PATTERN.matcher(suggestedId).matches()){
+                result = findByCommonId(suggestedId);
+            } else {
+                return session.getObject(suggestedId);
+            }                      
+        } catch (CmisObjectNotFoundException nfe) {
+            LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::CmisObjectNotFoundException exception. Error content {0}."), nfe.getErrorContent());
+            result = findByCommonId(suggestedId);
+        }
+        LOGGER.info(new TextI18n("CmisObjectFinderUtil::find::Method finished by objectId = {0}. Time: {1} ms."), suggestedId, System.currentTimeMillis() - startTime);                
+        return result;
+
     }
 
     private CmisObject findByCommonId(String id) {
@@ -112,26 +134,25 @@ public class CmisObjectFinderUtil {
         ItemIterable<QueryResult> queryResult = session.query(query, false);
         
         if (queryResult == null) {
-            System.out.println("Query result is empty");
+            LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query result is empty. Return null"));            
             return null;
         }
 
         long totalNumItems = queryResult.getTotalNumItems();
 
-        if (totalNumItems <= 0 || totalNumItems > 1) {
-            System.out.println(MessageFormat.format("Query total items number is [{0}] but must be 1. Return null!!!", totalNumItems));
+        if (totalNumItems <= 0) {
+            LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query total items number is [{0}] but must be 1 or more. Return null!!!"), totalNumItems);  
             return null;
         }
-
-        System.out.println("got someth from query");
         QueryResult next = queryResult.iterator().next();
         PropertyData<Object> cmisObjectId = next.getPropertyById(PropertyIds.OBJECT_ID);
-        System.out.println(MessageFormat.format("Query [{0}]. Time: {1} ms", query, (System.currentTimeMillis()-startTime)));
+        LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query [{0}] return {1} items. Time: {2} ms"), query, totalNumItems, (System.currentTimeMillis()-startTime));  
         try {
-            System.out.println("gettting object by id: " + cmisObjectId.getFirstValue().toString());
-            return session.getObject(cmisObjectId.getFirstValue().toString());
+            String remoteId = cmisObjectId.getFirstValue().toString();
+            LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Gettting object from remote repository by id {0}"), remoteId); 
+            return session.getObject(remoteId);
         } catch (CmisObjectNotFoundException nfe) {
-            System.out.println("Failed to find object by " + singleVersionOptions.getCommonIdPropertyName() + " = " + searchValue);
+            LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0} = {1}. Error content: {2}"), singleVersionOptions.getCommonIdPropertyName(), searchValue, nfe.getErrorContent());            
             return null;
         }
     }
