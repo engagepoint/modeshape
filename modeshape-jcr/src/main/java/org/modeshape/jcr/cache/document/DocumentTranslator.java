@@ -887,7 +887,7 @@ public class DocumentTranslator implements DocumentConstants {
                                                Document document ) {
         long startTime = System.currentTimeMillis();
         String uuid = UUID.randomUUID().toString();
-        LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Start method.  Key: {0}."), uuid);
+        LOGGER.debug("DocumentTranslator::getChildReferences::Start method.  Key: {0}.", uuid);
         
         List<?> children = document.getArray(CHILDREN);
         List<?> externalSegments = document.getArray(FEDERATED_SEGMENTS);
@@ -910,7 +910,7 @@ public class DocumentTranslator implements DocumentConstants {
             ChildReferences externalChildRefs = ImmutableChildReferences.create(externalChildRefsList);
 
             ChildReferences result = ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
-            LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);                
+            LOGGER.debug("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);                
             return result;
         }
         if (externalSegments != null) {
@@ -918,7 +918,7 @@ public class DocumentTranslator implements DocumentConstants {
             internalChildRefsList.addAll(externalChildRefsList);
         }
         ChildReferences result = ImmutableChildReferences.create(internalChildRefsList);
-        LOGGER.info(new TextI18n("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);           
+        LOGGER.debug("DocumentTranslator::getChildReferences::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);           
         return result;
     }
 

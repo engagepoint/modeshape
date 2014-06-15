@@ -913,7 +913,7 @@ public class WritableSessionCache extends AbstractSessionCache {
                                         Monitor monitor ) {
         long startTime = System.currentTimeMillis();
         String uuid = UUID.randomUUID().toString();
-        LOGGER.info(new TextI18n("WritableSessionCache::persistChanges::Start method.  Key: {0}."), uuid); 
+        LOGGER.debug("WritableSessionCache::persistChanges::Start method.  Key: {0}.", uuid); 
 
         // Compute the save meta-info ...
         ExecutionContext context = context();
@@ -1373,7 +1373,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
         changes.setChangedNodes(changedNodes.keySet()); // don't need to make a copy
         changes.freeze(userId, userData, timestamp);
-        LOGGER.info(new TextI18n("WritableSessionCache::persistChanges::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime); 
+        LOGGER.debug("WritableSessionCache::persistChanges::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime); 
         return changes;
     }
 
