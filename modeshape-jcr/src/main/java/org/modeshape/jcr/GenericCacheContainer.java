@@ -9,7 +9,7 @@ public class GenericCacheContainer {
     
     public static synchronized CacheService<String, Object> getInstance() {
         if (instance == null) {
-            instance = new GenericCacheService<String, Object>(100000, Integer.MAX_VALUE);
+            instance = new GenericCacheService<String, Object>(10000, Integer.MAX_VALUE);
         }
         return instance;
     }
