@@ -23,6 +23,7 @@ import org.modeshape.jcr.value.BinaryValue;
 import javax.jcr.nodetype.NodeType;
 import java.io.InputStream;
 import java.util.*;
+import org.apache.chemistry.opencmis.commons.data.ContentStream;
 
 public class CmisGetObjectOperation extends CmisOperation {
 
@@ -144,11 +145,12 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.setPrimaryType(NodeType.NT_RESOURCE);
         writer.setParent(id);
 
-        if (doc.getContentStream() != null) {
-            InputStream is = doc.getContentStream().getStream();
+        ContentStream stream = doc.getContentStream();
+        if (stream != null) {
+            InputStream is = stream.getStream();
             BinaryValue content = localTypeManager.getFactories().getBinaryFactory().create(is);
             writer.addProperty(JcrConstants.JCR_DATA, content);
-            writer.addProperty(JcrConstants.JCR_MIME_TYPE, doc.getContentStream().getMimeType());
+            writer.addProperty(JcrConstants.JCR_MIME_TYPE, stream.getMimeType());
         }
 
         // reference
