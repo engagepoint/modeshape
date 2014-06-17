@@ -10,7 +10,6 @@ import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
 
 import java.util.List;
-import java.util.regex.Pattern;
 import org.modeshape.common.i18n.TextI18n;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
@@ -22,7 +21,6 @@ import org.modeshape.jcr.cache.document.DocumentTranslator;
 public class CmisObjectFinderUtil {
     
     private static final Logger LOGGER = Logger.getLogger(DocumentTranslator.class);
-    private static final Pattern INTERNAL_OBJECT_ID_PATTERN = Pattern.compile(".*_.{4}_.{4}_.{4}_.{12}");
 
     private Session session;
     private SingleVersionOptions singleVersionOptions;
@@ -98,6 +96,7 @@ public class CmisObjectFinderUtil {
 
     public CmisObject find(String suggestedId) {
         long startTime = System.currentTimeMillis();
+        boolean isVirtualId = singleVersionOptions.getCommonIdProcessorInstance().isProcessedId(suggestedId);
         CmisObject result;
         LOGGER.info(new TextI18n("CmisObjectFinderUtil::find::Start by objectId = {0}."), suggestedId == null ? "null" : suggestedId);
         
@@ -106,7 +105,7 @@ public class CmisObjectFinderUtil {
             return null;
         }
         try {
-            if (INTERNAL_OBJECT_ID_PATTERN.matcher(suggestedId).matches()){
+            if (isVirtualId){
                 result = findByCommonId(suggestedId);
             } else {
                 return session.getObject(suggestedId);
