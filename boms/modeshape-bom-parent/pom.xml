@@ -114,7 +114,7 @@
 
     </properties>
 
-    <distributionManagement>
+<!--    <distributionManagement>
       <repository>
         <id>jboss-releases-repository</id>
         <name>JBoss Releases Repository</name>
@@ -125,5 +125,5 @@
         <name>JBoss Snapshots Repository</name>
         <url>${jboss.snapshots.repo.url}</url>
       </snapshotRepository>
-    </distributionManagement>
+    </distributionManagement>-->
 </project>
