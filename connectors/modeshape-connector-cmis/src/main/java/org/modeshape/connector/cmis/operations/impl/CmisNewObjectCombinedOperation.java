@@ -144,7 +144,8 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
             if (sidDefinition.getCardinality() == Cardinality.MULTI) {
                 List<String> secondaryIds = new ArrayList<String>();
                 secondaryIds.add(identifier);
-                if (cmisProperties.get(secondaryIdPropertyName) != null ) {
+                Object secondaryId = cmisProperties.get(secondaryIdPropertyName);
+                if (secondaryId != null && secondaryId instanceof List && !isAlreadyAdded((List<String>) secondaryId, identifier)) {
                     secondaryIds.addAll((List<String>) cmisProperties.get(secondaryIdPropertyName));
                 }
                 cmisProperties.put(secondaryIdPropertyName, secondaryIds);
@@ -174,6 +175,17 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
         }
         debug("Finish CmisNewObjectCombinedOperation:storeDocument for parentId = ", parentId, " and name = ", name.getLocalName(), " with result = ", getPossibleNullString(result), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
+    
+    private boolean isAlreadyAdded(List<String> values, String commonId) {
+        boolean result = false;
+        for (String id : values) {
+            if (commonId.contains(id) || id.equals(commonId)) {
+                result = true;
+                break;
+            }
+        }
+        return result;
+    }     
 
     private ContentStream getContentStream(Document document, String filename, BinaryContentProducerInterface binaryProducer) {
         // original object is here so converting binary value and
