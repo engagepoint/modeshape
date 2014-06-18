@@ -12,6 +12,7 @@ import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
 import java.util.List;
 import org.modeshape.common.i18n.TextI18n;
 import org.modeshape.common.logging.Logger;
+import org.modeshape.connector.cmis.api.SecondaryIdProcessor;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
 
 /*
@@ -96,7 +97,11 @@ public class CmisObjectFinderUtil {
 
     public CmisObject find(String suggestedId) {
         long startTime = System.currentTimeMillis();
-        boolean isVirtualId = singleVersionOptions.getCommonIdProcessorInstance().isProcessedId(suggestedId);
+        SecondaryIdProcessor idProcessor = singleVersionOptions.getCommonIdProcessorInstance();
+        boolean isVirtualId = false;
+        if (idProcessor != null) {
+            isVirtualId = singleVersionOptions.getCommonIdProcessorInstance().isProcessedId(suggestedId);        
+        }
         CmisObject result;
         LOGGER.info(new TextI18n("CmisObjectFinderUtil::find::Start by objectId = {0}."), suggestedId == null ? "null" : suggestedId);
         
