@@ -13,7 +13,6 @@ import java.util.List;
 import org.modeshape.common.i18n.TextI18n;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.connector.cmis.api.SecondaryIdProcessor;
-import org.modeshape.jcr.cache.document.DocumentTranslator;
 
 /*
  * after try to get object by id
@@ -21,6 +20,7 @@ import org.modeshape.jcr.cache.document.DocumentTranslator;
  */
 public interface CmisObjectFinderUtil {
     
+    private static final Logger LOGGER = Logger.getLogger(CmisObjectFinderUtil.class);
 
 
     /*
