@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
@@ -57,8 +58,10 @@ public class CmisUpdateOperation extends CmisOperation {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
-        debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());        
-
+        debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());   
+        VersioningState versioningState = VersioningState.valueOf(config.getVersioningOnUpdateMetadata());
+        boolean major = versioningState == VersioningState.MAJOR;
+                    
         // this action depends from object type
         switch (objectId.getType()) {
             case REPOSITORY_INFO:
@@ -84,7 +87,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                 if (!changes.getRemoved().isEmpty()) {
                     if (isVersioned(cmisObject)) {
-                        CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, null);   // todo check if it removes
+                        CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, null, true);   // todo check if it removes
                     } else {
                         asDocument(cmisObject).deleteContentStream();
                     }
@@ -95,7 +98,7 @@ public class CmisUpdateOperation extends CmisOperation {
                     if (stream != null) {
                         if (isVersioned(cmisObject)) {
                             if (isVersioned(cmisObject)) {
-                                CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream);
+                                CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream, true);
                             }
                         } else {
                             asDocument(cmisObject).setContentStream(stream, true);
@@ -143,7 +146,7 @@ public class CmisUpdateOperation extends CmisOperation {
                                 after += "-temp";
                             }
 
-                            rename(child, after);
+                            rename(child, after, versioningState, major);
                         }
                     }
                 }
@@ -215,7 +218,11 @@ public class CmisUpdateOperation extends CmisOperation {
                     debug("Properties to update ", updateProperties.toString());
                     if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
                         debug("cmisObject is versioned Document");
-                        CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null);
+                        if (versioningState == VersioningState.NONE) {
+                            cmisObject.updateProperties(updateProperties);
+                        } else {
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
+                        }                        
                     } else if (cmisObject instanceof org.apache.chemistry.opencmis.client.api.Folder) {
                         debug("cmisObject is Folder");
                         try {
@@ -229,7 +236,7 @@ public class CmisUpdateOperation extends CmisOperation {
                             cmisObject.updateProperties(updateProperties);
                         } catch (CmisUpdateConflictException e) {
                             System.out.println(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
-                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null);                            
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
                         }
                     }
                 }
@@ -241,7 +248,7 @@ public class CmisUpdateOperation extends CmisOperation {
                     // rename temporary name to a original
                     String name = cmisObject.getName();
                     if (name.endsWith("-temp")) {
-                        rename(cmisObject, name.replace("-temp", ""));
+                        rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
 
@@ -267,7 +274,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                         debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
 
-                        rename(child, after);
+                        rename(child, after, versioningState, major);
                     }
                 }
         }
@@ -295,7 +302,7 @@ public class CmisUpdateOperation extends CmisOperation {
      * @param object CMIS object to rename
      * @param name new name
      */
-    private void rename(CmisObject object, String name) {
+    private void rename(CmisObject object, String name, VersioningState versioningState, boolean major) {
         Map<String, Object> properties = new HashMap<String, Object>();
         properties.put("cmis:name", name);
 
@@ -307,7 +314,11 @@ public class CmisUpdateOperation extends CmisOperation {
             parent = parents.get(0);
         }
         if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
-            CmisOperationCommons.updateVersionedDoc(session, object, properties, null);
+            if (versioningState == VersioningState.NONE) {
+                object.updateProperties(properties);
+            } else {
+                CmisOperationCommons.updateVersionedDoc(session, object, properties, null, major);
+            }
         } else object.updateProperties(properties);
     }
 

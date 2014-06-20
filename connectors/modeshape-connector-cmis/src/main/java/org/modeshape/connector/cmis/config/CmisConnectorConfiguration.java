@@ -1,6 +1,5 @@
 package org.modeshape.connector.cmis.config;
 
-import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 
 /*
@@ -30,6 +29,7 @@ public class CmisConnectorConfiguration {
 
     SingleVersionOptions singleVersionOptions;
     private boolean hideRootFolderReference;
+    private String versioningOnUpdateMetadata;
 
     boolean debug;
 
@@ -39,7 +39,7 @@ public class CmisConnectorConfiguration {
                                       boolean folderSetUnknownChildren, long pageSize, long pageSizeUnfiled,
                                       SingleVersionOptions singleVersionOptions,
                                       boolean hideRootFolderReference,
-                                      boolean debug) {
+                                      boolean debug, String versioningOnUpdateMetadata) {
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.snsCommonIndex = snsCommonIndex;
@@ -51,6 +51,7 @@ public class CmisConnectorConfiguration {
         this.singleVersionOptions = singleVersionOptions;
         this.hideRootFolderReference = hideRootFolderReference;
         this.debug = debug;
+        this.versioningOnUpdateMetadata = versioningOnUpdateMetadata;
     }
 
     public boolean isIgnoreEmptyPropertiesOnCreate() {
@@ -96,4 +97,9 @@ public class CmisConnectorConfiguration {
     public boolean isDebug() {
         return debug;
     }
+
+    public String getVersioningOnUpdateMetadata() {
+        return versioningOnUpdateMetadata;
+    }    
+        
 }

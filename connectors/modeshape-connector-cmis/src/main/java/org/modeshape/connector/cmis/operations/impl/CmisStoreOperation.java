@@ -12,6 +12,7 @@ import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
 
 import java.util.HashMap;
 import java.util.Map;
+import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.*;
 
@@ -59,7 +60,7 @@ public class CmisStoreOperation extends CmisOperation {
                 // updating original cmis:document
                 ContentStream stream = binaryProducer.jcrBinaryContent(document, filename);
                 if (stream != null) {
-                    if (isVersioned(cmisObject)) CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream);
+                    if (isVersioned(cmisObject)) CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream, true);
                     else asDocument(cmisObject).setContentStream(stream, true, true);
                 }
                 break;
@@ -153,7 +154,13 @@ public class CmisStoreOperation extends CmisOperation {
                 // finally execute update action
                 if (!updateProperties.isEmpty()) {
                     if (isDocument(cmisObject) && isVersioned(cmisObject)) {
-                        CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null);
+                        VersioningState versioningState = VersioningState.valueOf(config.getVersioningOnUpdateMetadata());
+                        boolean major = versioningState == VersioningState.MAJOR;
+                        if (versioningState == VersioningState.NONE) {
+                            cmisObject.updateProperties(updateProperties);
+                        } else {
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
+                        }                         
                     } else {
                         cmisObject.updateProperties(updateProperties);
                     }

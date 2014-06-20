@@ -157,6 +157,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // id of remote unfiled storage if any
     // for FileNet normally = NULL
     private String remoteUnfiledNodeId;
+    private String versioningOnUpdateMetadata = "MAJOR";
     // debug
     private boolean debug = false;
 
@@ -256,7 +257,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 snsCommonIndex, remoteUnfiledNodeId, unfiledQueryTemplate, folderSetUnknownChildren,
                 pageSize, pageSizeUnfiled, singleVersionOptions,
                 hideRootFolderReference,
-                debug);
+                debug, versioningOnUpdateMetadata);
 
         // setup CMIS connection
         Session session = getCmisConnection();
