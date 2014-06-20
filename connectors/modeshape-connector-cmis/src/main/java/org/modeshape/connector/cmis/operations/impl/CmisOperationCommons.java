@@ -49,9 +49,9 @@ public class CmisOperationCommons {
                 : result.getPropertyValueById(PropertyIds.OBJECT_ID).toString();
     }
 
-    public static String updateVersionedDoc(Session session, CmisObject cmisObject, Map<String, ?> properties, ContentStream contentStream) {
+    public static String updateVersionedDoc(Session session, CmisObject cmisObject, Map<String, ?> properties, ContentStream contentStream, boolean major) {
         org.apache.chemistry.opencmis.client.api.Document pwc = checkout(session, cmisObject);
-        return checkin(pwc, properties, contentStream);
+        return checkin(pwc, properties, contentStream, major);
     }
 
     public static boolean isDocument(CmisObject cmisObject) {
@@ -94,9 +94,9 @@ public class CmisOperationCommons {
     }
 
 
-    public static String checkin(org.apache.chemistry.opencmis.client.api.Document pwc, Map<String, ?> properties, ContentStream contentStream) {
+    public static String checkin(org.apache.chemistry.opencmis.client.api.Document pwc, Map<String, ?> properties, ContentStream contentStream, boolean major) {
         try {
-            return pwc.checkIn(true, properties, contentStream, "connector's check in").getId();
+            return pwc.checkIn(major, properties, contentStream, "connector's check in").getId();
         } catch (CmisBaseException e) {
             pwc.cancelCheckOut();
             throw new CmisRuntimeException(e.getMessage(), e);
