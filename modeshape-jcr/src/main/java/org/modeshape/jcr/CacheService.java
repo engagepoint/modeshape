@@ -33,4 +33,6 @@ public interface CacheService<K, T> {
      * @param key
      */
     void remove(K key);
+    
+    int size();
 }
