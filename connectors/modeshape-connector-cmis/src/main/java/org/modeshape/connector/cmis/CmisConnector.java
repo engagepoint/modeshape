@@ -190,6 +190,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // indicates storage which connector looks at
     private String languageDialect;
 
+    // name of class with search realization
+   private String cmisObjectFinderUtil;
 
     public CmisConnector() {
         super();
@@ -285,14 +287,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             throw new RepositoryException(e);
         }
         // extended getObject logic
-        CmisObjectFinderUtil cmisObjectFinderUtil = new CmisObjectFinderUtil(session, localTypeManager, singleVersionOptions);
+
 
         SingleVersionDocumentsCache singleVersionCache = new SingleVersionDocumentsCache();
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
 
 
-        runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionCache,
+        runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
                 documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
     }
 
