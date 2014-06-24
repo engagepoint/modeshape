@@ -51,7 +51,7 @@ public class RuntimeSnapshot {
 
     private CmisObjectFinderUtil initFinder(String cmisObjectFinderUtil, SingleVersionOptions singleVersionOptions) {
         if (StringUtils.isEmpty(cmisObjectFinderUtil)) {
-            LOG.warn(String.format("Property cmisObjectFinderUtil is not defined,default realization '%s' will be used", FilenetObjectFinderUtil.class.toString()));
+            LOG.warn(String.format("cmisObjectFinderUtil parameter is not defined, default realization '%s' will be used", FilenetObjectFinderUtil.class.toString()));
             return new FilenetObjectFinderUtil(session, localTypeManager, singleVersionOptions);
         }
         try {
