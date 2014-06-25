@@ -384,7 +384,8 @@
              JBOSS AS/EAP constants
          -->
         <!--Version of the artifacts (API) needed by the EAP subsystem and provided as part of EAP-->
-        <version.org.jboss.eap>7.4.0.Final-redhat-11</version.org.jboss.eap>
+        <version.org.jboss.eap>7.2.1.Final-redhat-10</version.org.jboss.eap>
+        <version.org.wildfly.eap>8.1.0.Final</version.org.wildfly.eap>
         <version.org.jboss.eap.bom>6.3.0.Beta1</version.org.jboss.eap.bom>
 
         <!--Properties which must be used when installing locally an EAP ZIP distribution -->
@@ -2205,12 +2206,7 @@
               JBOSS AS subsystem
              -->
             <!--These dependencies are NOT PUBLIC nor are they present in the BOM (see version), so they must be local to ModeShape -->
-            <dependency>
-                <groupId>org.jboss.as</groupId>
-                <artifactId>jboss-as-controller</artifactId>
-                <version>${version.org.jboss.eap}</version>
-                <scope>provided</scope>
-            </dependency>
+
             <dependency>
                 <groupId>org.jboss.as</groupId>
                 <artifactId>jboss-as-naming</artifactId>
@@ -2224,9 +2220,15 @@
                 <scope>provided</scope>
             </dependency>
             <dependency>
-                <groupId>org.jboss.as</groupId>
-                <artifactId>jboss-as-subsystem-test-framework</artifactId>
-                <version>${version.org.jboss.eap}</version>
+                <groupId>org.wildfly</groupId>
+                <artifactId>wildfly-subsystem-test-framework</artifactId>
+                <version>${version.org.wildfly.eap}</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.wildfly</groupId>
+                <artifactId>wildfly-controller</artifactId>
+                <version>${version.org.wildfly.eap}</version>
                 <scope>test</scope>
             </dependency>
 

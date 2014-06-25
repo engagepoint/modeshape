@@ -11,7 +11,7 @@
     <name>ModeShape for JBoss AS</name>
     <description>ModeShape deployment as a subsystem within the JBoss Application Server</description>
     <url>http://www.modeshape.org</url>
-    
+
     <dependencies>
         <dependency>
             <groupId>org.modeshape</groupId>
@@ -24,21 +24,35 @@
 
         <!-- Set these AS7 resources as 'provided' here rather than in parent POM, since other distributions may need to include them -->
         <!-- (Actually, we can't set these as 'provided' because the JavaDoc doesn't seem to build correctly, since it needs 'compile' scope) -->
-        <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-controller</artifactId>
-        </dependency>
+
         <dependency>
             <groupId>org.jboss.as</groupId>
             <artifactId>jboss-as-naming</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.jboss.as</groupId>
+                    <artifactId>jboss-as-controller</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>org.jboss.as</groupId>
             <artifactId>jboss-as-clustering-jgroups</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.jboss.as</groupId>
+                    <artifactId>jboss-as-controller</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
-            <groupId>org.jboss.as</groupId>
-            <artifactId>jboss-as-subsystem-test-framework</artifactId>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-subsystem-test-framework</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.wildfly</groupId>
+            <artifactId>wildfly-controller</artifactId>
+            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>org.infinispan</groupId>

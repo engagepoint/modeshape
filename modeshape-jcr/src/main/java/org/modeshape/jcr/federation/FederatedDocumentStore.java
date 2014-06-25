@@ -503,9 +503,8 @@ public class FederatedDocumentStore implements DocumentStore {
 
     private boolean isLocalSource(String key) {
         return !NodeKey.isValidFormat(key) // the key isn't a std key format (probably some internal format)
-
-                    || StringUtil.isBlank(localSourceKey) // there isn't a local source configured yet (e.g. system startup)
-                    || key.startsWith(localSourceKey); // the sources differ
+                            || StringUtil.isBlank(localSourceKey) // there isn't a local source configured yet (e.g. system startup)
+                            || key.startsWith(localSourceKey); // the sources differ
         }
 
     private boolean isSystemUnfiled(String key) {
