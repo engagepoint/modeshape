@@ -19,9 +19,6 @@ import org.modeshape.connector.cmis.api.SecondaryIdProcessor;
  * does additional search with query by specified property
  */
 public interface CmisObjectFinderUtil {
-    
-    private static final Logger LOGGER = Logger.getLogger(CmisObjectFinderUtil.class);
-
 
     /*
     * tests target type to define whether it has to be saved as singleVersion
