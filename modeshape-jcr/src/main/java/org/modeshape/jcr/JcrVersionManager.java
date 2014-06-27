@@ -892,15 +892,6 @@ final class JcrVersionManager implements VersionManager {
                                                Collections.singleton(existingNode.path()), Collections.<Version>emptySet(),
                                                labelToRestore, removeExisting);
         op.execute();
-
-        clearCheckoutStatus(existingNode.mutable(), jcrVersion.key(), cache, propertyFactory());
-        ReferenceFactory refFactory = session.referenceFactory();
-        Reference baseVersionRef = refFactory.create(jcrVersion.key(), true);
-
-        MutableCachedNode mutable = existingNode.mutable();
-        mutable.setProperty(cache, propFactory.create(JcrLexicon.IS_CHECKED_OUT, Boolean.FALSE));
-        mutable.setProperty(cache, propFactory.create(JcrLexicon.BASE_VERSION, baseVersionRef));
-
         session.save();
     }
 
@@ -1729,7 +1720,7 @@ final class JcrVersionManager implements VersionManager {
          */
         private void doLeave( AbstractJcrNode targetNode ) throws RepositoryException {
             if (!isShallow) {
-                for (NodeIterator iter = targetNode.getNodes(); iter.hasNext();) {
+                for (NodeIterator iter = targetNode.getNodesInternal(); iter.hasNext();) {
                     doMerge((AbstractJcrNode)iter.nextNode());
                 }
             }
@@ -1758,7 +1749,7 @@ final class JcrVersionManager implements VersionManager {
             Set<AbstractJcrNode> targetNodesPresentInBoth = new LinkedHashSet<AbstractJcrNode>();
             Set<AbstractJcrNode> sourceNodesPresentInBoth = new LinkedHashSet<AbstractJcrNode>();
 
-            for (NodeIterator iter = targetNode.getNodes(); iter.hasNext();) {
+            for (NodeIterator iter = targetNode.getNodesInternal(); iter.hasNext();) {
                 AbstractJcrNode targetChild = (AbstractJcrNode) iter.nextNode();
                 try {
                     Path srcPath = targetChild.correspondingNodePath(sourceWorkspaceName);
@@ -1771,7 +1762,7 @@ final class JcrVersionManager implements VersionManager {
                     targetOnly.add(targetChild);
                 }
             }
-            for (NodeIterator iter = sourceNode.getNodes(); iter.hasNext();) {
+            for (NodeIterator iter = sourceNode.getNodesInternal(); iter.hasNext();) {
                 AbstractJcrNode sourceChild = (AbstractJcrNode) iter.nextNode();
                 if (!sourceNodesPresentInBoth.contains(sourceChild)) {
                     sourceOnly.add(sourceChild);
@@ -1836,7 +1827,7 @@ final class JcrVersionManager implements VersionManager {
             failures.add(targetNode);
 
             if (!isShallow) {
-                for (NodeIterator iter = targetNode.getNodes(); iter.hasNext();) {
+                for (NodeIterator iter = targetNode.getNodesInternal(); iter.hasNext();) {
                     AbstractJcrNode childNode = (AbstractJcrNode)iter.nextNode();
 
                     if (childNode.isNodeType(JcrMixLexicon.VERSIONABLE)) {

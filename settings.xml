@@ -50,13 +50,13 @@
         </profile>
 
         <profile>
-            <id>jboss-eap-repository</id>
+            <id>jboss-thirdpartyuploads-repository</id>
             <repositories>
-                <!--This is a non-standard repository, where EAP/AS components artifacts are located-->
                 <repository>
-                    <id>jboss-eap-techpreview</id>
-                    <name>JBoss.org Public EAP Repository</name>
-                    <url>http://maven.repository.redhat.com/techpreview/eap6/6.1.1/maven-repository</url>
+                    <!--This repository is required for the Fungal artifact used by ModeShape JCA -->
+                    <id>jboss-thirdpartyuploads-repository</id>
+                    <name>JBoss Third Party Uploads Repository</name>
+                    <url>https://repository.jboss.org/nexus/content/repositories/thirdparty-uploads/</url>
                     <layout>default</layout>
                     <releases>
                         <enabled>true</enabled>
@@ -69,10 +69,31 @@
                 </repository>
             </repositories>
         </profile>
+        <profile>
+            <id>eap</id>
+            <repositories>
+                <repository>
+                    <id>eap</id>
+                    <name>EAP Repository</name>
+                    <url>http://maven.repository.redhat.com/techpreview/eap6/6.3.0.Beta/maven-repository</url>
+                    <layout>default</layout>
+                    <releases>
+                        <enabled>true</enabled>
+                        <updatePolicy>never</updatePolicy>
+                    </releases>
+                    <snapshots>
+                        <checksumPolicy>ignore</checksumPolicy>
+                        <enabled>false</enabled>
+                        <updatePolicy>never</updatePolicy>
+                    </snapshots>
+                </repository>
+            </repositories>
+        </profile>
     </profiles>
 
     <activeProfiles>
         <activeProfile>jboss-public-repository</activeProfile>
-        <activeProfile>jboss-eap-repository</activeProfile>
+        <activeProfile>eap</activeProfile>
+        <activeProfile>jboss-thirdpartyuploads-repository</activeProfile>
     </activeProfiles>
 </settings>

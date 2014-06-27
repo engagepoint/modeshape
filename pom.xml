@@ -4,7 +4,7 @@
   <parent>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-	<version>3.7.32-EP-SNAPSHOT</version>
+<version>3.7.32-EP-SNAPSHOT</version>
     <relativePath>modeshape-parent/pom.xml</relativePath>
   </parent>
 
@@ -106,11 +106,11 @@
         <profile>
             <id>assembly</id>
             <modules>
+                <module>modeshape-jca-rar</module>
                 <module>modeshape-client</module>
                 <module>demos</module>
                 <module>integration</module>
             </modules>
         </profile>
-		
 	</profiles>
 </project>

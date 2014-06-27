@@ -25,6 +25,8 @@ package org.modeshape.jcr;
 
 import static org.hamcrest.core.Is.is;
 import static org.hamcrest.core.IsNull.notNullValue;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertThat;
 import java.io.File;
@@ -38,11 +40,15 @@ import javax.jcr.Binary;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.Session;
+import javax.jcr.nodetype.NodeType;
 import javax.jcr.query.Query;
 import javax.jcr.query.QueryResult;
 import org.junit.Test;
+import org.modeshape.common.FixFor;
 import org.modeshape.common.util.FileUtil;
+import org.modeshape.common.util.IoUtil;
 import org.modeshape.jcr.api.JcrTools;
+import org.modeshape.jcr.api.NamespaceRegistry;
 
 /**
  * A test the verifies that a repository will persist content (including binaries).
@@ -51,10 +57,66 @@ public class RepositoryPersistenceTest extends MultiPassAbstractTest {
 
     @Test
     public void shouldPersistBinariesAcrossRestart() throws Exception {
+        String repositoryConfigFile = "config/repo-config-persistent-cache.json";
+        File persistentFolder = new File("target/persistent_repository");
+        // remove all persisted content ...
+        FileUtil.delete(persistentFolder);
+        assertDataPersistenceAcrossRestarts(repositoryConfigFile);
+    }
+
+    @FixFor( "MODE-2212" )
+    @Test
+    public void shouldPersistGeneratedNamespacesAcrossRestart() throws Exception {
+        String repositoryConfigFile = "config/repo-config-persistent-cache.json";
         File persistentFolder = new File("target/persistent_repository");
         // remove all persisted content ...
         FileUtil.delete(persistentFolder);
 
+        startRunStop(new RepositoryOperation() {
+
+            @Override
+            public Void call() throws Exception {
+                Session session = repository.login();
+
+                final NamespaceRegistry namespaceRegistry = (NamespaceRegistry)session.getWorkspace().getNamespaceRegistry();
+
+                namespaceRegistry.registerNamespace("info:a#");
+                namespaceRegistry.registerNamespace("info:b#");
+                namespaceRegistry.registerNamespace("info:c#");
+                assertEquals("ns001", namespaceRegistry.getPrefix("info:a#"));
+                assertEquals("ns002", namespaceRegistry.getPrefix("info:b#"));
+                assertEquals("ns003", namespaceRegistry.getPrefix("info:c#"));
+
+                final Node node = session.getRootNode().addNode("ns001:xyz", NodeType.NT_UNSTRUCTURED);
+                node.setProperty("ns002:abc", "abc");
+                node.setProperty("ns003:def", "def");
+
+                session.save();
+                session.logout();
+                return null;
+            }
+        }, repositoryConfigFile);
+
+        startRunStop(new RepositoryOperation() {
+
+            @Override
+            public Void call() throws Exception {
+                Session session = repository.login();
+
+                final NamespaceRegistry namespaceRegistry = (NamespaceRegistry)session.getWorkspace().getNamespaceRegistry();
+
+                assertEquals("ns001", namespaceRegistry.getPrefix("info:a#"));
+                assertEquals("ns002", namespaceRegistry.getPrefix("info:b#"));
+                assertEquals("ns003", namespaceRegistry.getPrefix("info:c#"));
+                session.save();
+                session.logout();
+                return null;
+            }
+        }, repositoryConfigFile);
+
+    }
+
+    private void assertDataPersistenceAcrossRestarts( String repositoryConfigFile ) throws Exception {
         final List<File> testFiles = new ArrayList<File>();
         final Map<String, Long> testFileSizesInBytes = new HashMap<String, Long>();
         testFiles.add(getFile("mimetype/test.xml"));
@@ -67,7 +129,6 @@ public class RepositoryPersistenceTest extends MultiPassAbstractTest {
             testFileSizesInBytes.put(testFile.getName(), testFile.length());
         }
 
-        String repositoryConfigFile = "config/repo-config-persistent-cache.json";
         final JcrTools tools = new JcrTools();
 
         startRunStop(new RepositoryOperation() {
@@ -92,7 +153,9 @@ public class RepositoryPersistenceTest extends MultiPassAbstractTest {
                     Node fileNode = testNode.getNode(name);
                     assertThat(fileNode, is(notNullValue()));
                     Binary binary = fileNode.getNode("jcr:content").getProperty("jcr:data").getBinary();
-                    assertThat(binary.getSize(), is(testFileSizesInBytes.get(name)));
+                    byte[] expectedBytes = IoUtil.readBytes(testFile);
+                    byte[] actualBytes = IoUtil.readBytes(binary.getStream());
+                    assertArrayEquals(expectedBytes, actualBytes);
                 }
 
                 Query query = session.getWorkspace().getQueryManager().createQuery("SELECT * FROM [nt:file]", Query.JCR_SQL2);
@@ -141,7 +204,12 @@ public class RepositoryPersistenceTest extends MultiPassAbstractTest {
                 return null;
             }
         }, repositoryConfigFile);
+    }
 
+    @Test
+    public void shouldPersistDataUsingDB() throws Exception {
+        // make sure the DB is clean (empty) when running this test; there is no effective teardown
+        assertDataPersistenceAcrossRestarts("config/db/repo-config-jdbc.json");
     }
 
     protected File getFile( String resourcePath ) throws URISyntaxException {

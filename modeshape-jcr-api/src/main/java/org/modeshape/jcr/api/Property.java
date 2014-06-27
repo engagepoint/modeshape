@@ -54,6 +54,7 @@ public interface Property extends javax.jcr.Property {
      *     <li>{@link javax.jcr.Node}</li>
      *     <li>{@link javax.jcr.NodeIterator}</li>
      * </ul>
+
      * The list of supported types for multi-valued properties is:
      * <ul>
      *     <li>{@link String}{@code []}</li>

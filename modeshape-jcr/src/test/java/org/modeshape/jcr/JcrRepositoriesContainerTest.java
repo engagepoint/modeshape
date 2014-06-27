@@ -23,9 +23,10 @@
  */
 package org.modeshape.jcr;
 
-import static junit.framework.Assert.assertNull;
-import static junit.framework.Assert.assertTrue;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -39,6 +40,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.modeshape.common.FixFor;
 import org.modeshape.jcr.api.RepositoriesContainer;
 import org.modeshape.jcr.api.RepositoryFactory;
 
@@ -78,6 +80,20 @@ public class JcrRepositoriesContainerTest extends JcrRepositoryFactoryTest {
     }
 
     @Test
+    @FixFor( "MODE-2201" )
+    public void shouldReturnRepositoryUsingConfigurationInJarFile() throws Exception {
+        String url = "jar:file:src/test/resources/config/wrapped-config.jar!/com/acme/repo-config.json";
+        Map<String, String> params = Collections.singletonMap(RepositoryFactory.URL, url);
+        Repository repository = repositoryFor("RepoFromJarFileConfiguration", params);
+        assertNotNull(repository);
+        // execute the call one more time
+        Repository repository2 = repositoryFor("RepoFromJarFileConfiguration", params);
+        assertNotNull(repository2);
+        // The same Repository instance should be returned from both calls ...
+        assertSame(repository, repository2);
+    }
+
+    @Test
     public void shouldNotReturnRepositoryIfNamesDontMatch() throws Exception {
         String url = "file:src/test/resources/config/simple-repo-config.json";
         Map<String, String> params = Collections.singletonMap(RepositoryFactory.URL, url);
@@ -104,14 +120,14 @@ public class JcrRepositoriesContainerTest extends JcrRepositoryFactoryTest {
         Map<String, String> params = new HashMap<String, String>();
         params.put(RepositoryFactory.URL, url);
         Set<String> repositoryNames = repositoriesContainer.getRepositoryNames(params);
-        Assert.assertTrue(repositoryNames.contains("Another Test Repository"));
+        assertTrue(repositoryNames.contains("Another Test Repository"));
 
         url = "file:src/test/resources/config/repo-config.json";
         params.put(RepositoryFactory.URL, url);
         repositoryNames = repositoriesContainer.getRepositoryNames(params);
         Assert.assertEquals(2, repositoryNames.size());
-        Assert.assertTrue(repositoryNames.contains("Another Test Repository"));
-        Assert.assertTrue(repositoryNames.contains("CND Sequencer Test Repository"));
+        assertTrue(repositoryNames.contains("Another Test Repository"));
+        assertTrue(repositoryNames.contains("CND Sequencer Test Repository"));
     }
 
     @Override

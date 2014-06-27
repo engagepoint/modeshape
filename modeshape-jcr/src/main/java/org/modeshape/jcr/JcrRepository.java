@@ -698,7 +698,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             }
 
             // Need to make sure that the user has access to this session
-            session.checkPermission(workspaceName, null, ModeShapePermissions.READ);
+            session.checkWorkspacePermission(workspaceName,ModeShapePermissions.READ);
             running.addSession(session, false);
             return session;
         } catch (AccessDeniedException ace) {
@@ -1818,11 +1818,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                     lock.unlock();
                 }
 
-                // Create a system session and delegate to its logic ...
-                SessionCache systemSession = createSystemSession(context(), false);
-                SystemContent system = new SystemContent(systemSession);
-                system.cleanUpLocks(activeSessionIds);
-                system.save();
+                this.lockManager().cleanupLocks(activeSessionIds);
             } catch (Throwable e) {
                 logger.error(e, JcrI18n.errorDuringGarbageCollection, e.getMessage());
             }

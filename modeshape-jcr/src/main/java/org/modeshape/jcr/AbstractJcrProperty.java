@@ -329,9 +329,10 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
     @Override
     public void remove() throws VersionException, LockException, ConstraintViolationException, RepositoryException {
         checkSession();
+        checkNotProtected();
         checkForLock();
         checkForCheckedOut();
-        session.checkPermission(path(), ModeShapePermissions.REMOVE);
+        session.checkPermission(this, ModeShapePermissions.REMOVE);
         AbstractJcrNode parentNode = getParent();
         if (parentNode.isLocked()) {
             Lock parentLock = parentNode.getLock();
@@ -345,6 +346,12 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
         }
 
         node.removeProperty(this);
+    }
+
+    private void checkNotProtected() throws RepositoryException {
+        if (this.getDefinition().isProtected()) {
+            throw new ConstraintViolationException(JcrI18n.propertyIsProtected.text(getPath()));
+        }
     }
 
     @Override
@@ -465,7 +472,7 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
                 convertedValue = context().getValueFactories().getDecimalFactory().create(value);
             } else if (java.io.InputStream.class.equals(type)) {
                 BinaryValue binary = context().getValueFactories().getBinaryFactory().create(value);
-                convertedValue = new SelfClosingInputStream(binary);
+                convertedValue = binary.getStream();
             } else if (javax.jcr.Binary.class.isAssignableFrom(type)) {
                 convertedValue = context().getValueFactories().getBinaryFactory().create(value);
             } else if (Node.class.equals(type)) {

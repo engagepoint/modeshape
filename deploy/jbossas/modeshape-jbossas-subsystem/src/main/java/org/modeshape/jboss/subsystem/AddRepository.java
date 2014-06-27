@@ -44,12 +44,13 @@ import org.jboss.as.naming.service.BinderService;
 import org.jboss.as.server.Services;
 import org.jboss.dmr.ModelNode;
 import org.jboss.dmr.Property;
+import org.jboss.logging.Logger;
 import org.jboss.modules.ModuleLoader;
 import org.jboss.msc.service.ServiceBuilder;
 import org.jboss.msc.service.ServiceController;
 import org.jboss.msc.service.ServiceName;
 import org.jboss.msc.service.ServiceTarget;
-import org.modeshape.common.logging.Logger;
+import org.modeshape.common.util.StringUtil;
 import org.modeshape.jboss.metric.ModelMetrics;
 import org.modeshape.jboss.metric.MonitorService;
 import org.modeshape.jboss.service.BinaryStorage;
@@ -68,8 +69,7 @@ public class AddRepository extends AbstractAddStepHandler {
 
     public static final AddRepository INSTANCE = new AddRepository();
 
-    private static final org.jboss.logging.Logger LOG = org.jboss.logging.Logger.getLogger(AddRepository.class.getPackage()
-                                                                                                              .getName());
+    private static final Logger LOG = Logger.getLogger(AddRepository.class.getPackage().getName());
 
     private AddRepository() {
     }
@@ -271,12 +271,12 @@ public class AddRepository extends AbstractAddStepHandler {
             ContextNames.BindInfo aliasInfo = ContextNames.bindInfoFor(jndiAlias);
             ServiceName alias = aliasInfo.getBinderServiceName();
             binderBuilder.addAliases(alias);
-            Logger.getLogger(getClass()).debug("Binding repository '{0}' to JNDI name '{1}' and '{2}'",
+            LOG.debugv("Binding repository: {0} to JNDI name: {1} and alias: {2}",
                                                repositoryName,
                                                bindInfo.getAbsoluteJndiName(),
                                                aliasInfo.getAbsoluteJndiName());
         } else {
-            Logger.getLogger(getClass()).debug("Binding repository '{0}' to JNDI name '{1}'",
+            LOG.debugv("Binding repository: {0} to JNDI name: {1}",
                                                repositoryName,
                                                bindInfo.getAbsoluteJndiName());
         }
@@ -328,6 +328,11 @@ public class AddRepository extends AbstractAddStepHandler {
         newControllers.add(monitorBuilder.install());
     }
 
+    @Override
+    protected boolean requiresRuntime( OperationContext context ) {
+        return true;
+    }
+
     private void parseClustering( String clusterChannelName,
                                   EditableDocument configDoc ) {
         if (clusterChannelName != null) {
@@ -352,9 +357,14 @@ public class AddRepository extends AbstractAddStepHandler {
         boolean useAnonIfFailed = attribute(context, model, ModelAttributes.USE_ANONYMOUS_IF_AUTH_FAILED).asBoolean();
         anon.set(FieldName.ANONYMOUS_USERNAME, anonUsername);
         anon.set(FieldName.USE_ANONYMOUS_ON_FAILED_LOGINS, useAnonIfFailed);
-        if (model.hasDefined(ModelKeys.ANONYMOUS_ROLES)) {
-            for (ModelNode roleNode : model.get(ModelKeys.ANONYMOUS_ROLES).asList()) {
-                anon.getOrCreateArray(FieldName.ANONYMOUS_ROLES).addString(roleNode.asString());
+        List<ModelNode> modelNodes = model.hasDefined(ModelKeys.ANONYMOUS_ROLES) ?
+                                     model.get(ModelKeys.ANONYMOUS_ROLES).asList():
+                                     ModelAttributes.ANONYMOUS_ROLES.getDefaultValue().asList();
+        for (ModelNode roleNode : modelNodes) {
+            EditableArray anonymousRolesArray = anon.getOrCreateArray(FieldName.ANONYMOUS_ROLES);
+            String roleName = roleNode.asString();
+            if (!StringUtil.isBlank(roleName)) {
+                anonymousRolesArray.addString(roleName);
             }
         }
 

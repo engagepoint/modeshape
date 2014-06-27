@@ -132,10 +132,12 @@ public final class JcrI18n {
     public static I18n unableToUnregisterReservedNamespacePrefix;
     public static I18n unableToUnregisterReservedNamespaceUri;
     public static I18n unableToUnregisterPrefixForNamespaceThatIsNotRegistered;
+    public static I18n unableToUnregisterPrefixForNamespaceUsedByNodeType;
 
     public static I18n errorWhileInitializingTheNamespaceRegistry;
     public static I18n errorCleaningUpLocks;
     public static I18n errorRefreshingLocks;
+    public static I18n lockNotFound;
     public static I18n cleaningUpLocks;
     public static I18n cleanedUpLocks;
     public static I18n invalidRelativePath;
@@ -186,6 +188,7 @@ public final class JcrI18n {
     public static I18n valueMayNotContainNull;
     public static I18n propertyNoLongerSatisfiesConstraints;
     public static I18n propertyNoLongerHasValidDefinition;
+    public static I18n propertyIsProtected;
 
     public static I18n cannotRemoveRootNode;
     public static I18n cannotRemoveParentNodeOfTarget;
@@ -210,6 +213,7 @@ public final class JcrI18n {
     public static I18n unableToCopySourceNotExternal;
     public static I18n unableToCloneSameWsContainsExternalNode;
     public static I18n unableToCloneExternalNodesRequireRoot;
+    public static I18n aclsOnExternalNodesNotAllowed;
 
     public static I18n typeNotFound;
     public static I18n supertypeNotFound;
@@ -347,6 +351,8 @@ public final class JcrI18n {
     public static I18n warningsParsingNodeTypeDefinitions;
     public static I18n warningsParsingStreamOfNodeTypeDefinitions;
 
+    public static I18n referentialIntegrityException;
+
     // Lock messages
     public static I18n nodeNotLockable;
     public static I18n cannotRemoveLockToken;
@@ -438,6 +444,7 @@ public final class JcrI18n {
     public static I18n errorStoringMimeType;
     public static I18n errorStoringExtractedText;
     public static I18n errorReadingExtractedText;
+    public static I18n unableToCreateDirectoryForBinaryStore;
 
     public static I18n unableToReadTemporaryDirectory;
     public static I18n unableToWriteTemporaryDirectory;
@@ -520,6 +527,8 @@ public final class JcrI18n {
     public static I18n upgrade3_6_0Running;
     public static I18n upgrade3_6_0CannotUpdateNodeTypes;
     public static I18n upgrade3_6_0CannotUpdateLocks;
+    public static I18n upgrade3_7_4Running;
+    public static I18n upgrade3_7_4Failed;
 
     static {
         try {

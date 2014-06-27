@@ -165,7 +165,6 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         }
     }
 
-    protected static final Pattern WILDCARD_PATTERN = Pattern.compile(".*");
     private static final Set<Name> INTERNAL_NODE_TYPE_NAMES = Collections.singleton(ModeShapeLexicon.SHARE);
 
     protected final NodeKey key;
@@ -268,6 +267,15 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
      */
     protected final boolean isForeign() {
         return session().isForeignKey(key());
+    }
+
+    /**
+     * Checks if this node belongs to an external source.
+     *
+     * @return true if the node is not repository-local
+     */
+    protected final boolean isExternal() {
+        return !key().getSourceKey().equals(session().cache().getRootKey().getSourceKey());
     }
 
     protected final boolean isInTheSameProcessAs( String otherProcessId ) {
@@ -795,7 +803,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         
         if (relativePath.equals("..")) {
             if (!aclScope) {
-                session().checkPermission(this.getParent().path(), ModeShapePermissions.READ);
+                session().checkPermission(this.getParent(), ModeShapePermissions.READ);
             }
             return this.getParent();
         }
@@ -817,7 +825,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                 
                 if (path.getLastSegment().isParentReference()) {
                     if (!aclScope) {
-                        session().checkPermission(this.getParent().path(), ModeShapePermissions.READ);
+                        session().checkPermission(this.getParent(), ModeShapePermissions.READ);
                     }
                     return this.getParent();
                 }
@@ -826,7 +834,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             if (path.size() > 1) {
                 AbstractJcrNode node = session().node(node(), path);
                 if (!aclScope) {
-                    session().checkPermission(node.path(), ModeShapePermissions.READ);
+                    session().checkPermission(node, ModeShapePermissions.READ);
                 }
                 return node;
             }
@@ -845,7 +853,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         try {
             AbstractJcrNode node = session().node(ref.getKey(), null, key());
             if (!aclScope) {
-                session().checkPermission(node.path(), ModeShapePermissions.READ);
+                session().checkPermission(node, ModeShapePermissions.READ);
             }
             return node;
         } catch (ItemNotFoundException e) {
@@ -875,7 +883,13 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     public NodeIterator getNodes() throws RepositoryException {
         ChildReferences childReferences = node().getChildReferences(sessionCache());
         if (childReferences.isEmpty()) return JcrEmptyNodeIterator.INSTANCE;
-        return new JcrChildNodeIterator(new ChildNodeResolver(session, key()), childReferences);
+        return new JcrChildNodeIterator(new ChildNodeResolver(session, key()), childReferences.iterator());
+    }
+
+    protected NodeIterator getNodesInternal() throws RepositoryException {
+        ChildReferences childReferences = node().getChildReferences(sessionCache());
+        if (childReferences.isEmpty()) return JcrEmptyNodeIterator.INSTANCE;
+        return new JcrChildNodeIterator(new ChildNodeResolver(session, key(), false), childReferences);
     }
 
     @Override
@@ -885,6 +899,14 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         if (namePattern.length() == 0) return JcrEmptyNodeIterator.INSTANCE;
         if ("*".equals(namePattern)) return getNodes();
         return getNodes(patternStringToGlobArray(namePattern));
+    }
+
+    protected NodeIterator getNodesInternal( String namePattern ) throws RepositoryException {
+        CheckArg.isNotNull(namePattern, "namePattern");
+        checkSession();
+        if (namePattern.length() == 0) return JcrEmptyNodeIterator.INSTANCE;
+        if ("*".equals(namePattern)) return getNodesInternal();
+        return getNodesInternal(patternStringToGlobArray(namePattern));
     }
 
     @Override
@@ -903,6 +925,23 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             iter = node().getChildReferences(sessionCache()).iterator(patterns, registry);
         }
         return new JcrChildNodeIterator(new ChildNodeResolver(session, key()), iter);
+    }
+
+    protected NodeIterator getNodesInternal( String... nameGlobs ) throws RepositoryException {
+        CheckArg.isNotNull(nameGlobs, "nameGlobs");
+        if (nameGlobs.length == 0) return JcrEmptyNodeIterator.INSTANCE;
+
+        List<?> patterns = createPatternsFor(nameGlobs);
+        Iterator<ChildReference> iter = null;
+        if (patterns.size() == 1 && patterns.get(0) instanceof String) {
+            // This is a literal, so just look up by name ...
+            Name literal = nameFrom((String)patterns.get(0));
+            iter = node().getChildReferences(sessionCache()).iterator(literal);
+        } else {
+            NamespaceRegistry registry = session.namespaces();
+            iter = node().getChildReferences(sessionCache()).iterator(patterns, registry);
+        }
+        return new JcrChildNodeIterator(new ChildNodeResolver(session, key(), false), iter);
     }
 
     protected static String[] patternStringToGlobArray( String namePattern ) {
@@ -1065,7 +1104,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
         // Otherwise, the path has size == 1 and it specifies the child ...
         if (!aclScope) {
-            session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
+            session.checkPermission(this, ModeShapePermissions.ADD_NODE);
         }
         Name childName = path.getLastSegment().getName();
         return addChildNode(childName, childPrimaryTypeName, desiredKey, false, aclScope);
@@ -1105,7 +1144,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkNodeTypeCanBeModified();
 
         if (!aclScope) {
-            session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
+            session.checkPermission(this, ModeShapePermissions.ADD_NODE);
         }
 
         if (isLocked() && !getLock().isLockOwningSession()) {
@@ -1400,7 +1439,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             throw new ItemNotFoundException(JcrI18n.invalidPathParameter.text(srcChildRelPath, "srcChildRelPath"));
         }
 
-        session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
+        session.checkPermission(this, ModeShapePermissions.ADD_NODE);
 
         SessionCache cache = session.cache();
         ChildReferences childRefs = node().getChildReferences(cache);
@@ -1671,7 +1710,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     }
 
     /**
-     * Removes an existing property with the supplied name. Note that if a propert with the given name does not exist, then this
+     * Removes an existing property with the supplied name. Note that if a property with the given name does not exist, then this
      * method returns null and does not throw an exception.
      * 
      * @param name the name of the property; may not be null
@@ -1719,7 +1758,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkNodeTypeCanBeModified();
 
         if (!skipPermissionCheck) {
-            session.checkPermission(path(), ModeShapePermissions.SET_PROPERTY);
+            session.checkPermission(this, ModeShapePermissions.SET_PROPERTY);
         }
 
         // Check for an existing JCR property object; note that this will load the internal property if necessary ...
@@ -1893,7 +1932,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkNodeTypeCanBeModified();
 
         if (!skipPermissionsCheck) {
-            session.checkPermission(path(), ModeShapePermissions.SET_PROPERTY);
+            session.checkPermission(this, ModeShapePermissions.SET_PROPERTY);
         }
 
         values = compactValues(values);
@@ -2442,7 +2481,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkSession();
         checkForLock();
         checkForCheckedOut();
-        session.checkPermission(path(), ModeShapePermissions.SET_PROPERTY);
+        session.checkPermission(this, ModeShapePermissions.SET_PROPERTY);
 
         if (isRoot()) {
             throw new ConstraintViolationException(JcrI18n.setPrimaryTypeOnRootNodeIsNotSupported.text());
@@ -2538,10 +2577,9 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkSession();
         checkForLock();
         checkForCheckedOut();
-        Path path = path();
 
         if (checkPermissions) {
-            session.checkPermission(path, ModeShapePermissions.SET_PROPERTY);
+            session.checkPermission(this, ModeShapePermissions.SET_PROPERTY);
         }
 
         if (!canAddMixin(mixinName)) {
@@ -2599,7 +2637,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         checkSession();
         checkForLock();
         checkForCheckedOut();
-        session.checkPermission(path(), ModeShapePermissions.SET_PROPERTY);
+        session.checkPermission(this, ModeShapePermissions.SET_PROPERTY);
 
         if (getDefinition().isProtected()) {
             throw new ConstraintViolationException(JcrI18n.cannotRemoveFromProtectedNode.text(getPath()));
@@ -2700,7 +2738,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         // Check that any remaining child nodes that use the mixin type to be removed
         // match the residual definition for the node.
         // ------------------------------------------------------------------------------
-        for (NodeIterator iter = getNodes(); iter.hasNext();) {
+        for (NodeIterator iter = getNodesInternal(); iter.hasNext();) {
             AbstractJcrNode child = (AbstractJcrNode)iter.nextNode();
             int snsCount = (int)childCount(child.name());
             NodeDefinition childDefinition = child.getDefinition();
@@ -2755,7 +2793,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         for (AbstractJcrProperty prop : this.jcrProperties.values()) {
             prop.releasePropertyDefinitionId();
         }
-        for (NodeIterator iter = getNodes(); iter.hasNext();) {
+        for (NodeIterator iter = getNodesInternal(); iter.hasNext();) {
             AbstractJcrNode child = (AbstractJcrNode)iter.nextNode();
             child.releaseNodeDefinitionId();
         }
@@ -2829,6 +2867,11 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                     return false;
                 }
             }
+        }
+
+        //do not allow versionable mixin on external nodes
+        if (isExternal() && mixinName.equalsIgnoreCase(JcrMixLexicon.VERSIONABLE.getString())) {
+            return false;
         }
 
         return true;
@@ -3098,7 +3141,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                         Name newNodeName ) throws RepositoryException {
         assert session == shareableNode.session;
 
-        session.checkPermission(path(), ModeShapePermissions.ADD_NODE);
+        session.checkPermission(this, ModeShapePermissions.ADD_NODE);
         if (isLocked() && !getLock().isLockOwningSession()) {
             throw new LockException(JcrI18n.lockTokenNotHeld.text(location()));
         }
@@ -3145,8 +3188,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                     try {
                         AbstractJcrNode parent = nodeInSharedSet.getParent();
                         parent.checkForLock();
-                        Path path = nodeInSharedSet.path();
-                        session.checkPermission(path, ModeShapePermissions.REMOVE);
+                        session.checkPermission(nodeInSharedSet, ModeShapePermissions.REMOVE);
 
                         if (nodeInSharedSet != this) {
                             // Okay to remove ...
@@ -3198,10 +3240,10 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         }
 
         Path path = null;
+
         try {
             parent.checkForLock();
-            path = path();
-            session.checkPermission(path, ModeShapePermissions.REMOVE);
+            session.checkPermission(this, ModeShapePermissions.REMOVE);
             // MODE-1920: check permission to remove child nodes
             session.checkPermission(parent.path(), ModeShapePermissions.REMOVE_CHILD_NODES);
         } catch (NodeNotFoundInParentException e) {
@@ -3219,7 +3261,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
                 // The OPV is not 'ignore', so we can't create the new node ...
                 String opvStr = OnParentVersionAction.nameFromValue(opv);
                 I18n msg = JcrI18n.cannotRemoveChildOnCheckedInNodeSinceOpvOfChildDefinitionIsNotIgnore;
-                throw new VersionException(msg.text(path, defn.getName(), opvStr));
+                throw new VersionException(msg.text(path(), defn.getName(), opvStr));
             }
             // Otherwise, child node definition is 'ignore', so okay to remove ...
         }
@@ -3630,17 +3672,28 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     protected static final class ChildNodeResolver implements JcrChildNodeIterator.NodeResolver {
         private final JcrSession session;
         private final NodeKey parentKey;
+        private final boolean checkPermission;
+
+        public ChildNodeResolver( JcrSession session, NodeKey parentKey, boolean checkPermission ) {
+            this.session = session;
+            this.parentKey = parentKey;
+            // we only need to check permissions if ACLs are enabled
+            this.checkPermission = checkPermission && session.repository().repositoryCache().isAccessControlEnabled();
+        }
 
         protected ChildNodeResolver( JcrSession session,
                                      NodeKey parentKey ) {
-            this.session = session;
-            this.parentKey = parentKey;
+            this(session, parentKey, true);
         }
 
         @Override
         public Node nodeFrom( ChildReference ref ) {
             try {
-                return session.node(ref.getKey(), null, parentKey);
+                AbstractJcrNode node =  session.node(ref.getKey(), null, parentKey);
+                if (checkPermission  && !node.isExternal() && !session.hasPermission(node.getPath(), ModeShapePermissions.READ)) {
+                    return null;
+                }
+                return node;
             } catch (RepositoryException e) {
                 return null;
             }

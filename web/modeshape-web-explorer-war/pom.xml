@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.7.32-EP-SNAPSHOT</version>
+<version>3.7.32-EP-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-web-explorer-war</artifactId>
@@ -26,7 +26,6 @@
         <dependency>
             <groupId>org.modeshape</groupId>
             <artifactId>modeshape-web-explorer</artifactId>
-            <version>${project.version}</version>
             <type>war</type>
         </dependency>
     </dependencies>

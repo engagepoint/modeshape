@@ -421,6 +421,7 @@ public class JcrWorkspaceTest extends SingleUseAbstractTest {
         assertNotEquals(nodeB.getIdentifier(), otherSession.getNode("/B").getIdentifier());
     }
 
+
     @Test
     @FixFor( "MODE-2114" )
     public void copiedReferencesShouldHaveUpdatedUUIDs() throws Exception {
@@ -520,6 +521,7 @@ public class JcrWorkspaceTest extends SingleUseAbstractTest {
         assertEquals(folder2.getIdentifier(), otherFolder2.getIdentifier());
         assertEquals(folder2CreatedTs, otherFolder2.getProperty("jcr:created").getDate().getTimeInMillis());
     }
+
 
     @SkipLongRunning
     @FixFor( "MODE-2012" )

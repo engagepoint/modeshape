@@ -209,6 +209,7 @@ public class LazyCachedNode implements CachedNode, Serializable {
                 // We are the root and this never changes. Therefore, our 'parentRefToSelf' is always valid ...
                 return prts.childReferenceInParent();
             }
+
             if (prts.isValid(currentParent)) {
                 // Our cached form still looks okay ...
                 return prts.childReferenceInParent();
@@ -237,6 +238,7 @@ public class LazyCachedNode implements CachedNode, Serializable {
             // Directly look up the ChildReference by going to the cache (and possibly connector) ...
             NodeKey parentKey = getParentKey(cache);
             parentRefToMe = cache.getChildReference(parentKey, key);
+
         }
         if (parentRefToMe != null) {
             // We found a new ChildReference instance from the current parent, so cache it ...
@@ -248,7 +250,6 @@ public class LazyCachedNode implements CachedNode, Serializable {
         // in the midst of being moved or removed. Either way, we don't have much choice but to throw an exception about
         // us not being found...
         throw new NodeNotFoundInParentException(key, getParentKey(cache));
-
     }
 
     protected Map<Name, Property> properties() {
@@ -466,13 +467,11 @@ public class LazyCachedNode implements CachedNode, Serializable {
     /**
      * A single object used to cache the parent's {@link ChildReference} that points to this node and methods that determine
      * whether this cached information is still valid.
-     *
      * @author Randall Hauch (rhauch@redhat.com)
      */
     protected static interface ParentReferenceToSelf {
         /**
          * Get the cached {@link ChildReference} instance.
-         *
          * @return the child reference; never null
          */
         ChildReference childReferenceInParent();
@@ -480,7 +479,6 @@ public class LazyCachedNode implements CachedNode, Serializable {
         /**
          * Determine if this object is still complete. Some implementations use weak references that can eventually become nulled
          * as the target is garbage collected. When that happens, this method should return true.
-         *
          * @return true if this object is still complete, or false if any information becomes garbage collected
          */
         boolean isComplete();
@@ -488,7 +486,6 @@ public class LazyCachedNode implements CachedNode, Serializable {
         /**
          * Determine if this instance is still valid, given the supplied {@link CachedNode} instance that represents the
          * most-recently acquired parent node representation.
-         *
          * @param recentParent the most recent cached node for the parent
          * @return true if this object is still valid, or false if the parent's information has changed since this object was
          *         created
@@ -497,7 +494,7 @@ public class LazyCachedNode implements CachedNode, Serializable {
 
         /**
          * Get whether this represents the {@link #childReferenceInParent() child reference} pointing to the root node.
-         *
+
          * @return true if the object that owns this is the root node, or false otherwise
          */
         boolean isRoot();
@@ -512,7 +509,6 @@ public class LazyCachedNode implements CachedNode, Serializable {
      * This class is immutable, and it is only used for the root {@link LazyCachedNode} instance (which can indeed change as
      * properties and children are added/removed/changed.
      * </p>
-     *
      * @author Randall Hauch (rhauch@redhat.com)
      */
     @Immutable
@@ -556,7 +552,6 @@ public class LazyCachedNode implements CachedNode, Serializable {
      * This class is immutable, because it is simply discarded when it is out of date; see
      * {@link LazyCachedNode#parentReferenceToSelf(WorkspaceCache)}).
      * </p>
-     *
      * @author Randall Hauch (rhauch@redhat.com)
      */
     @Immutable

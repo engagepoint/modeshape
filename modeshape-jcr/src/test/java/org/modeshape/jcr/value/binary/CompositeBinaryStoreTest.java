@@ -1,5 +1,13 @@
 package org.modeshape.jcr.value.binary;
 
+import static org.hamcrest.CoreMatchers.hasItems;
+import static org.hamcrest.core.Is.is;
+import static org.junit.Assert.assertArrayEquals;
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNull;
+import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
@@ -13,18 +21,11 @@ import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.modeshape.common.annotation.ThreadSafe;
+import org.modeshape.common.junit.SkipOnOS;
 import org.modeshape.common.util.FileUtil;
 import org.modeshape.common.util.IoUtil;
 import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.BinaryValue;
-import static org.hamcrest.core.Is.is;
-import static org.junit.Assert.assertArrayEquals;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNull;
-import static org.junit.Assert.assertThat;
-import static org.junit.Assert.assertTrue;
-import static org.junit.matchers.JUnitMatchers.hasItems;
 
 /**
  * Unit test for {@link CompositeBinaryStore}
@@ -199,6 +200,13 @@ public class CompositeBinaryStoreTest extends AbstractBinaryStoreTest {
                                                                   "this-hint-doesnt-reference-a-store");
 
         assertTrue(alternativeStore.hasBinary(v.getKey()));
+    }
+
+    @Override
+    @SkipOnOS(value = SkipOnOS.WINDOWS, description = "Sometimes file locks prevent the cleanup thread from removing values")
+    @Test
+    public void shouldCleanupUnunsedValues() throws Exception {
+        super.shouldCleanupUnunsedValues();
     }
 
     private byte[] randomContent() {

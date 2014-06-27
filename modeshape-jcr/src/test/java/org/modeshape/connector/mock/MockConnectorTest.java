@@ -37,8 +37,11 @@ import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.Value;
+import javax.jcr.nodetype.ConstraintViolationException;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.query.Query;
+import javax.jcr.security.AccessControlList;
+import javax.jcr.security.AccessControlManager;
 import org.junit.Before;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
@@ -835,6 +838,52 @@ public class MockConnectorTest extends SingleUseAbstractTest {
         assertPermission(true, "/testRoot/fed2/federated3", ModeShapePermissions.READ);
         assertPermission(true, "/testRoot/fed2/federated3", ModeShapePermissions.INDEX_WORKSPACE);
         assertPermission(true, "/testRoot/fed2/federated3", ModeShapePermissions.INDEX_WORKSPACE, ModeShapePermissions.READ);
+    }
+
+    @Test
+    @FixFor( "MODE-2147" )
+    public void shouldNotAllowVersionableMixinOnExternalNodes() throws Exception {
+        federationManager.createProjection("/testRoot", SOURCE_NAME, MockConnector.DOC2_LOCATION, "fed1");
+        Node projectionRoot = session.getNode("/testRoot/fed1");
+        try {
+            projectionRoot.addMixin("mix:versionable");
+            fail("Should not allow versionable mixin on external nodes");
+        } catch (ConstraintViolationException e) {
+            //expected
+        }
+
+        try {
+            Node externalChild = projectionRoot.addNode("child");
+            externalChild.addMixin("mix:versionable");
+            session.save();
+            fail("Should not allow versionable mixin on external nodes");
+        } catch (ConstraintViolationException e) {
+            //expected
+        }
+
+        Node externalChild = projectionRoot.addNode("child");
+        session.save();
+        try {
+            ((Node) session.getNode("/testRoot/child")).addMixin("mix:versionable");
+            fail("Should not allow versionable mixin on external nodes");
+        } catch (RepositoryException e) {
+            // expected
+        }
+    }
+
+    @Test
+    public void shouldNotAllowACLsOnExternalNodes() throws Exception {
+        AccessControlManager acm = session.getAccessControlManager();
+        federationManager.createProjection("/testRoot", SOURCE_NAME, MockConnector.DOC2_LOCATION, "fed1");
+        session.getNode("/testRoot/fed1");
+        AccessControlList acl = acl("/testRoot/fed1");
+
+        try {
+            acm.setPolicy("/testRoot/fed1", acl);
+            fail("Should not allow ACLs on external nodes");
+        } catch (RepositoryException e) {
+            //expected
+        }
     }
 
     private void assertPermission(boolean shouldHave, String absPath, String...actions) throws RepositoryException {

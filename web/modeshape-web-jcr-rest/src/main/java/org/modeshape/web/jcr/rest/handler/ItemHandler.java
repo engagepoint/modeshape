@@ -4,6 +4,7 @@ import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
@@ -337,21 +338,49 @@ public class ItemHandler extends AbstractHandler {
         }
 
         if (hasChildren(jsonNode)) {
-            JSONObject children = getChildren(jsonNode);
+            List<JSONChild> children = getChildren(jsonNode);
 
-            for (Iterator<?> iter = children.keys(); iter.hasNext();) {
-                String childName = (String)iter.next();
-                JSONObject child = children.getJSONObject(childName);
-
-                addNode(newNode, childName, child);
+            for (JSONChild child : children) {
+                addNode(newNode, child.getName(), child.getBody());
             }
         }
 
         return newNode;
     }
 
-    protected JSONObject getChildren( JSONObject jsonNode ) throws JSONException {
-        return jsonNode.getJSONObject(CHILD_NODE_HOLDER);
+    protected List<JSONChild> getChildren( JSONObject jsonNode ) throws JSONException {
+        List<JSONChild> children;
+        try {
+            JSONObject childrenObject = jsonNode.getJSONObject(CHILD_NODE_HOLDER);
+            children = new ArrayList<JSONChild>(childrenObject.length());
+            for (Iterator<?> iterator = childrenObject.keys(); iterator.hasNext();) {
+                String childName = iterator.next().toString();
+                //it is not possible to have SNS in the object form, so the index will always be 1
+                children.add(new JSONChild(childName, childrenObject.getJSONObject(childName), 1));
+            }
+            return children;
+        } catch (JSONException e) {
+            JSONArray childrenArray = jsonNode.getJSONArray(CHILD_NODE_HOLDER);
+            children = new ArrayList<JSONChild>(childrenArray.length());
+            Map<String, Integer> visitedNames = new HashMap<String, Integer>(childrenArray.length());
+
+            for (int i = 0; i < childrenArray.length(); i++) {
+                JSONObject child = childrenArray.getJSONObject(i);
+                if (child.length() == 0) {
+                    continue;
+                }
+                if (child.length() > 1) {
+                    logger.warn("The child object {0} has more than 1 elements, only the first one will be taken into account",
+                                child);
+                }
+                String childName = child.keys().next().toString();
+                int sns = visitedNames.containsKey(childName) ? visitedNames.get(childName) + 1 : 1;
+                visitedNames.put(childName, sns);
+
+                children.add(new JSONChild(childName, child.getJSONObject(childName), sns));
+            }
+            return children;
+        }
     }
 
     protected boolean hasChildren( JSONObject jsonNode ) {
@@ -405,20 +434,28 @@ public class ItemHandler extends AbstractHandler {
             propName = newLength > 0 ? propName.substring(0, newLength) : "";
         }
 
-        Value[] values = convertToJcrValues(node, value, encoded);
-        if (values.length == 0) {
+        Object values = convertToJcrValues(node, value, encoded);
+        if (values == null) {
             // remove the property
-            node.setProperty(propName, (Value[])null);
-        } else if (values.length == 1) {
-            node.setProperty(propName, values[0]);
+            node.setProperty(propName, (Value) null);
+        } else if (values instanceof Value) {
+            node.setProperty(propName, (Value) values);
         } else {
-            node.setProperty(propName, values);
+            node.setProperty(propName, (Value[]) values);
         }
     }
 
     private Set<String> updateMixins( Node node,
                                       Object mixinsJsonValue ) throws JSONException, RepositoryException {
-        Value[] values = convertToJcrValues(node, mixinsJsonValue, false);
+        Object valuesObject = convertToJcrValues(node, mixinsJsonValue, false);
+        Value[] values = null;
+        if (valuesObject == null) {
+            values = new Value[0];
+        } else if (valuesObject instanceof Value[]) {
+            values = (Value[])valuesObject;
+        } else {
+            values = new Value[]{(Value)valuesObject};
+        }
 
         Set<String> jsonMixins = new HashSet<String>(values.length);
         for (Value theValue : values) {
@@ -442,12 +479,12 @@ public class ItemHandler extends AbstractHandler {
         return mixinsToRemove;
     }
 
-    private Value[] convertToJcrValues( Node node,
+    private Object convertToJcrValues( Node node,
                                         Object value,
                                         boolean encoded ) throws RepositoryException, JSONException {
         if (value == JSONObject.NULL || (value instanceof JSONArray && ((JSONArray)value).length() == 0)) {
             // for any null value of empty json array, return an empty array which will mean the property will be removed
-            return new Value[0];
+            return null;
         }
         org.modeshape.jcr.api.ValueFactory valueFactory = (org.modeshape.jcr.api.ValueFactory)node.getSession().getValueFactory();
         if (value instanceof JSONArray) {
@@ -463,10 +500,8 @@ public class ItemHandler extends AbstractHandler {
             }
             return values;
         }
-        if (encoded) {
-            return new Value[] {createBinaryValue(value.toString(), valueFactory)};
-        }
-        return new Value[] {RestHelper.jsonValueToJCRValue(value, valueFactory)};
+
+        return encoded ? createBinaryValue(value.toString(), valueFactory) : RestHelper.jsonValueToJCRValue(value, valueFactory);
     }
 
     /**
@@ -662,7 +697,6 @@ public class ItemHandler extends AbstractHandler {
     private void updateChildren( Node node,
                                  JSONObject jsonNode,
                                  VersionableChanges changes ) throws JSONException, RepositoryException {
-        JSONObject children = getChildren(jsonNode);
         Session session = node.getSession();
 
         // Get the existing children ...
@@ -678,9 +712,10 @@ public class ItemHandler extends AbstractHandler {
         //keep track of the old/new order of children to be able to perform reorderings
         List<String> newChildrenToUpdate = new ArrayList<String>();
 
-        for (Iterator<?> iter = children.keys(); iter.hasNext();) {
-            String childName = (String)iter.next();
-            JSONObject child = children.getJSONObject(childName);
+        List<JSONChild> children = getChildren(jsonNode);
+        for (JSONChild jsonChild : children) {
+            String childName = jsonChild.getNameWithSNS();
+            JSONObject child = jsonChild.getBody();
             // Find the existing node ...
             if (node.hasNode(childName)) {
                 // The node exists, so get it and update it ...
@@ -753,6 +788,39 @@ public class ItemHandler extends AbstractHandler {
         int index = node.getIndex();
         String childName = node.getName();
         return index == 1 ? childName : childName + "[" + index + "]";
+    }
+
+    protected static class JSONChild {
+        private final String name;
+        private final JSONObject body;
+        private final int snsIdx;
+
+        protected JSONChild( String name, JSONObject body, int snsIdx ) {
+            this.name = name;
+            this.body = body;
+            this.snsIdx = snsIdx;
+        }
+
+        public String getName() {
+            return name;
+        }
+
+        public String getNameWithSNS() {
+            return snsIdx > 1 ? name + "[" + snsIdx + "]" : name;
+        }
+
+        public JSONObject getBody() {
+            return body;
+        }
+
+        @Override
+        public String toString() {
+            final StringBuilder sb = new StringBuilder("JSONChild{");
+            sb.append("name='").append(getNameWithSNS()).append('\'');
+            sb.append(", body=").append(body);
+            sb.append('}');
+            return sb.toString();
+        }
     }
 
     protected static class VersionableChanges {

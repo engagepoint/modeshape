@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>3.7.32-EP-SNAPSHOT</version>
+<version>3.7.32-EP-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-webdav</artifactId>
@@ -20,8 +20,9 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.servlet</groupId>
-            <artifactId>servlet-api</artifactId>
+            <groupId>org.jboss.spec.javax.servlet</groupId>
+            <artifactId>jboss-servlet-api_3.0_spec</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!--  TESTING DEPENDENCIES -->
@@ -41,10 +42,9 @@
             <groupId>org.jmock</groupId>
             <artifactId>jmock</artifactId>
         </dependency>
-
         <dependency>
             <groupId>junit</groupId>
-            <artifactId>junit-dep</artifactId>
+            <artifactId>junit</artifactId>
         </dependency>
         <dependency>
             <groupId>org.springframework</groupId>

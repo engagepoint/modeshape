@@ -148,6 +148,10 @@ public class DocumentTranslator implements DocumentConstants {
         assert this.largeStringSize.get() >= 0;
     }
 
+    public DocumentTranslator withLargeStringSize( long largeStringSize ) {
+        return new DocumentTranslator(context, documentStore, largeStringSize);
+    }
+
     public final ValueFactory<String> getStringFactory() {
         return strings;
     }
@@ -816,7 +820,7 @@ public class DocumentTranslator implements DocumentConstants {
         List<?> children = document.getArray(CHILDREN);
         EditableArray newChildren = Schematic.newArray();
         if (children != null) {
-            //process existing children
+            // process existing children
             for (Object value : children) {
                 ChildReference ref = childReferenceFrom(value);
                 if (ref == null) {
@@ -846,16 +850,17 @@ public class DocumentTranslator implements DocumentConstants {
         }
 
         if (!insertionsByBeforeKey.isEmpty()) {
-            //there are transient insertions (due to reordering of transient nodes) that have to be inserted in a correct order
-            //if any reorderings involved existing children, they would have already been removed by the previous block
-            //note that these insertions have to be added as child because *they do not appear* in the appended list
+            // there are transient insertions (due to reordering of transient nodes) that have to be inserted in a correct order
+            // if any reorderings involved existing children, they would have already been removed by the previous block
+            // note that these insertions have to be added as child because *they do not appear* in the appended list
             LinkedList<ChildReference> toBeInsertedInOrder = new LinkedList<ChildReference>();
             for (Insertions insertion : insertionsByBeforeKey.values()) {
-                //process the remaining insertions-before, which indicate transient & reordered children (reordering removes children
-                //from the appended list
+                // process the remaining insertions-before, which indicate transient & reordered children (reordering removes
+                // children
+                // from the appended list
                 for (ChildReference activeReference : insertion.inserted()) {
                     if (toBeInsertedInOrder.contains(activeReference)) {
-                        //the current reference is already in the list
+                        // the current reference is already in the list
                         continue;
                     }
                     Insertions insertionsBeforeActive = insertionsByBeforeKey.get(activeReference.getKey());
@@ -1209,6 +1214,7 @@ public class DocumentTranslator implements DocumentConstants {
 
             String refString = ref instanceof NodeKeyReference ? ((NodeKeyReference)ref).getNodeKey().toString() :
                     this.strings.create(ref);
+
             boolean isForeign = ref.isForeign();
             return Schematic.newDocument(key, refString, "$foreign", isForeign);
         }
@@ -1278,38 +1284,47 @@ public class DocumentTranslator implements DocumentConstants {
      *
      * @param fieldValue the value in the document that may contain a binary value reference; may be null
      * @param unusedBinaryKeys the set of binary keys that are considered unused; may be null
-     * @return true if the binary value is no longer referenced, or false otherwise
      */
-    protected boolean decrementBinaryReferenceCount( Object fieldValue,
-                                                     Set<BinaryKey> unusedBinaryKeys ) {
+    protected void decrementBinaryReferenceCount( Object fieldValue,
+                                                  Set<BinaryKey> unusedBinaryKeys ) {
         if (fieldValue instanceof List<?>) {
             for (Object value : (List<?>)fieldValue) {
                 decrementBinaryReferenceCount(value, unusedBinaryKeys);
             }
-        } else if (fieldValue instanceof Document) {
-            Document docValue = (Document)fieldValue;
-            String sha1 = docValue.getString(SHA1);
+        } else if (fieldValue instanceof Object[]) {
+            for (Object value : (Object[])fieldValue) {
+                decrementBinaryReferenceCount(value, unusedBinaryKeys);
+            }
+        } else {
+            String sha1 = null;
+            if (fieldValue instanceof Document) {
+                Document docValue = (Document)fieldValue;
+                sha1 = docValue.getString(SHA1_FIELD);
+            } else if (fieldValue instanceof BinaryKey) {
+                sha1 = fieldValue.toString();
+            } else if (fieldValue instanceof org.modeshape.jcr.api.Binary && !(fieldValue instanceof InMemoryBinaryValue)) {
+                sha1 = ((org.modeshape.jcr.api.Binary)fieldValue).getHexHash();
+            }
+
             if (sha1 != null) {
-                // Find the document metadata and increment the usage count ...
-                SchematicEntry entry = documentStore.get(sha1 + "-usage");
+                // Find the document metadata and decrement the usage count ...
+                SchematicEntry entry = documentStore.get(keyForBinaryReferenceDocument(sha1));
                 EditableDocument sha1Usage = entry.editDocumentContent();
                 Long countValue = sha1Usage.getLong(REFERENCE_COUNT);
-                if (countValue == null) {
-                    return true;
-                }
+                assert countValue != null;
+
                 long count = countValue - 1;
-                if (count < 0) {
-                    count = 0;
+                assert count >= 0;
+
+                if (count == 0) {
                     // We're not using the binary value anymore ...
                     if (unusedBinaryKeys != null) {
                         unusedBinaryKeys.add(new BinaryKey(sha1));
                     }
                 }
                 sha1Usage.setNumber(REFERENCE_COUNT, count);
-                return count <= 1;
             }
         }
-        return false;
     }
 
     public Object valueFromDocument( Object value ) {

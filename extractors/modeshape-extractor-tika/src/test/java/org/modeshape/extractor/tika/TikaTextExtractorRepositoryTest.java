@@ -24,7 +24,7 @@
 
 package org.modeshape.extractor.tika;
 
-import static junit.framework.Assert.assertEquals;
+import static org.junit.Assert.assertEquals;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -33,7 +33,6 @@ import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
 import javax.jcr.query.QueryResult;
-import org.junit.Assert;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.jcr.SingleUseAbstractTest;
@@ -74,7 +73,7 @@ public class TikaTextExtractorRepositoryTest extends SingleUseAbstractTest {
 
     @Test
     @FixFor( "MODE-1561" )
-    public void shouldNotExtractPastWriteLimit() throws Exception {
+    public void shouldExtractPartiallyPastWriteLimit() throws Exception {
         startRepositoryWithConfiguration(getResource("repo-config-text-extraction-limit.json"));
         // configured in the cfg file
         int configuredWriteLimit = 100;
@@ -94,14 +93,14 @@ public class TikaTextExtractorRepositoryTest extends SingleUseAbstractTest {
         session.save();
 
         sql = "select [jcr:path] from [nt:base] where contains([nt:base].*, '" + randomString + "')";
-        queryAndExpectResults(sql, 0);
+        queryAndExpectResults(sql, 1);
     }
 
     private void queryAndExpectResults(String queryString, int howMany) throws RepositoryException {
         QueryManager queryManager = ((javax.jcr.Workspace)session.getWorkspace()).getQueryManager();
         Query query = queryManager.createQuery(queryString, Query.JCR_SQL2);
         NodeIterator nodes = query.execute().getNodes();
-        Assert.assertEquals(howMany, nodes.getSize());
+        assertEquals(howMany, nodes.getSize());
     }
 
     @Test
