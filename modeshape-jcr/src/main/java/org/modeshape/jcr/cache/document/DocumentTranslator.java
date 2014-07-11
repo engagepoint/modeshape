@@ -62,11 +62,11 @@ import org.modeshape.jcr.cache.CachedNode.ReferenceType;
 import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.ChildReferences;
 import org.modeshape.jcr.cache.NodeKey;
-import static org.modeshape.jcr.cache.document.DocumentConstants.KEY;
 import org.modeshape.jcr.cache.document.SessionNode.ChangedAdditionalParents;
 import org.modeshape.jcr.cache.document.SessionNode.ChangedChildren;
 import org.modeshape.jcr.cache.document.SessionNode.Insertions;
 import org.modeshape.jcr.cache.document.SessionNode.ReferrerChanges;
+import org.modeshape.jcr.federation.FederatedDocumentStore;
 import org.modeshape.jcr.value.BinaryFactory;
 import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.DateTimeFactory;
@@ -1266,8 +1266,11 @@ public class DocumentTranslator implements DocumentConstants {
         SchematicEntry entry = documentStore.get(key);
         if (entry == null) {
             // The document doesn't yet exist, so create it ...
-            Document content = Schematic.newDocument(SHA1, sha1, REFERENCE_COUNT, 1L);
-            documentStore.localStore().put(key, content);
+            if (!(documentStore instanceof FederatedDocumentStore) || isLocalSource(key)) {
+
+                Document content = Schematic.newDocument(SHA1, sha1, REFERENCE_COUNT, 1L);
+                documentStore.localStore().put(key, content);
+            }
         } else {
             EditableDocument sha1Usage = entry.editDocumentContent();
             Long countValue = sha1Usage.getLong(REFERENCE_COUNT);
@@ -1277,6 +1280,12 @@ public class DocumentTranslator implements DocumentConstants {
         if (unusedBinaryKeys != null) {
             unusedBinaryKeys.remove(binaryKey);
         }
+    }
+
+    private boolean isLocalSource(String key) {
+        return !NodeKey.isValidFormat(key) // the key isn't a std key format (probably some internal format)
+                || StringUtil.isBlank(documentStore.getLocalSourceKey()) // there isn't a local source configured yet (e.g. system startup)
+                || key.startsWith(documentStore.getLocalSourceKey()); // the sources differ
     }
 
     /**

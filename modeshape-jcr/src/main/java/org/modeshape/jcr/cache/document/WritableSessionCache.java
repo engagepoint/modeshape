@@ -31,7 +31,6 @@ import java.util.Iterator;
 import java.util.LinkedHashSet;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
@@ -53,7 +52,6 @@ import org.modeshape.common.SystemFailureException;
 import org.modeshape.common.annotation.GuardedBy;
 import org.modeshape.common.annotation.ThreadSafe;
 import org.modeshape.common.i18n.I18n;
-import org.modeshape.common.i18n.I18nResource;
 import org.modeshape.common.i18n.TextI18n;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.CheckArg;
@@ -121,6 +119,7 @@ public class WritableSessionCache extends AbstractSessionCache {
     private static final SessionNode REMOVED = new SessionNode(REMOVED_KEY, false);
     private static final int MAX_REPEAT_FOR_LOCK_ACQUISITION_TIMEOUT = 4;
     private static final long PAUSE_TIME_BEFORE_REPEAT_FOR_LOCK_ACQUISITION_TIMEOUT = 50L;
+    private static final String UNFILED_NODE_KEY= "jcr:unfiled";
 
     private final ReadWriteLock lock = new ReentrantReadWriteLock();
     private Map<NodeKey, SessionNode> changedNodes;
@@ -615,6 +614,8 @@ public class WritableSessionCache extends AbstractSessionCache {
                         // Lock the nodes in Infinispan
                         long lockStart = System.currentTimeMillis();
 
+                        removeExternalUnfiledNodeKey(this.changedNodesInOrder);
+
                         WorkspaceCache thisPersistedCache = lockNodes(this.changedNodesInOrder);
                         WorkspaceCache thatPersistedCache = that.lockNodes(that.changedNodesInOrder);
                         LOGGER.info(new TextI18n("WritableSessionCache::save::Lock aquiring. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - lockStart);
@@ -727,6 +728,28 @@ public class WritableSessionCache extends AbstractSessionCache {
         // if the node is not new and also missing from the document, another transaction has deleted it
         if (!node.isNew() && !workspaceCache().documentStore().containsKey(keyString)) {
             throw new DocumentNotFoundException(keyString);
+        }
+    }
+
+    /**
+     * This method finds and removes external unfiled @NodeKey from #changedNodes and #changedNodesInOrder
+     */
+    private synchronized void removeExternalUnfiledNodeKey(Set<NodeKey> changedNodesInOrder) {
+
+        NodeKey unfiledKey = null;
+        for (NodeKey key : changedNodesInOrder) {
+
+            String id = key.getIdentifier();
+
+            if (id.contains(UNFILED_NODE_KEY) && !id.equals(UNFILED_NODE_KEY)) {
+                unfiledKey = key;
+            }
+        }
+
+        if (unfiledKey != null && !this.changedNodes.get(unfiledKey).isNew()) {
+            this.changedNodesInOrder.remove(unfiledKey);
+            this.changedNodes.remove(unfiledKey);
+
         }
     }
 
