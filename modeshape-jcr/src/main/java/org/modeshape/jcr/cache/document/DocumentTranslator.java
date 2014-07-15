@@ -1266,6 +1266,8 @@ public class DocumentTranslator implements DocumentConstants {
         SchematicEntry entry = documentStore.get(key);
         if (entry == null) {
             // The document doesn't yet exist, so create it ...
+            // if key are external, entry exist but documentStore.get() always return null,
+            // so it don't need to overwrite for exclude concurrency write to local store
             if (!(documentStore instanceof FederatedDocumentStore) || isLocalSource(key)) {
 
                 Document content = Schematic.newDocument(SHA1, sha1, REFERENCE_COUNT, 1L);

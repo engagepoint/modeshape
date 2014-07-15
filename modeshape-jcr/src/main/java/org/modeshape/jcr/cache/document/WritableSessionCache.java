@@ -741,11 +741,13 @@ public class WritableSessionCache extends AbstractSessionCache {
 
             String id = key.getIdentifier();
 
+            // find external unfiled node key and exclude inner unfiled node
             if (id.contains(UNFILED_NODE_KEY) && !id.equals(UNFILED_NODE_KEY)) {
                 unfiledKey = key;
             }
         }
 
+        // don't remove from changedNodes unfiled node key if it's new for creating it
         if (unfiledKey != null && !this.changedNodes.get(unfiledKey).isNew()) {
             this.changedNodesInOrder.remove(unfiledKey);
             this.changedNodes.remove(unfiledKey);
