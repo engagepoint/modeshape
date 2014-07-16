@@ -211,7 +211,7 @@ public class RepositoryConfiguration {
 
     private static final Logger LOGGER = Logger.getLogger(RepositoryConfiguration.class);
 
-    public static class FieldName {
+    public static class FieldName {       
         /**
          * The name for the field specifying the repository's name.
          */
@@ -244,6 +244,11 @@ public class RepositoryConfiguration {
          * The name for the optional field specifying whether the monitoring system is enabled or disabled.
          */
         public static final String MONITORING_ENABLED = "enabled";
+        
+        /**
+         * The name for the optional field specifying whether the metrics of JCR repository will be collected
+         */
+        public static final String USE_REPOSITORY_METRICS = "useRepositoryMetrics";
 
         /**
          * The name for the field whose value is a document containing the Infinispan storage information.
@@ -568,6 +573,8 @@ public class RepositoryConfiguration {
         public static final boolean FULL_TEXT_SEARCH_ENABLED = true;
 
         public static final boolean MONITORING_ENABLED = true;
+        
+        public static final boolean USE_REPOSITORY_METRICS = true;                
 
         @Deprecated
         public static final boolean REMOVE_DERIVED_CONTENT_WITH_ORIGINAL = true;
@@ -1697,6 +1704,16 @@ public class RepositoryConfiguration {
          */
         public boolean enabled() {
             return monitoring.getBoolean(FieldName.MONITORING_ENABLED, Default.MONITORING_ENABLED);
+        }
+        
+        /**
+         * Determine whether the metrics of JCR repository will be collected. The default is to enable metrics, but this can be used to turn off support
+         * for metrics should it not be necessary.
+         * 
+         * @return true if metrics is enabled, or false if it is disabled
+         */
+        public boolean useRepositoryMetrics() {
+            return monitoring.getBoolean(FieldName.USE_REPOSITORY_METRICS, Default.USE_REPOSITORY_METRICS);
         }
     }
 

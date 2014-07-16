@@ -37,6 +37,11 @@
                     "default" : true,
                     "description" : "The flag specifying whether the repositories should record monitoring statistics. This is enabled by default."
                 },
+                "useRepositoryMetrics" : {
+                    "type" : "boolean",
+                     "default" : true,
+                    "description" : "The flag specifying whether the metrics of JCR repository will be collected"
+                },        
                 "description" : {
                     "type" : "string",
                     "description" : "The optional description of this section of the configuration. It is unused by ModeShape."
