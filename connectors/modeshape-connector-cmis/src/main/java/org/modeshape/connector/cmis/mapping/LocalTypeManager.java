@@ -18,6 +18,8 @@ import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.ValueFactories;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
@@ -41,6 +43,11 @@ import java.util.Set;
 
 public class LocalTypeManager {
 
+    /**
+     * SLF logger.
+     */
+    private final org.slf4j.Logger LOG = LoggerFactory.getLogger(this.getClass());
+
     private ValueFactories factories;
     private MappedTypesContainer mappedTypes;
     private Map<String, String> mappedNamespaces = new HashMap<String, String>();
@@ -52,6 +59,7 @@ public class LocalTypeManager {
     private NodeTypeManager nodeTypeManager;
     private NamespaceRegistry registry;
     private boolean debug = true;
+    private Logger log;
     /**
      * Map of all registered properties, where key is "external name"
      * and value is "jcr name".
@@ -80,7 +88,6 @@ public class LocalTypeManager {
             this.globalIgnoredExtProperties
                     .addAll(customMapping.getGlobalIgnoredExtProperties());
         }
-
     }
 
     public MappedTypesContainer getCompleteMappings(TypeCustomMappingList customMapping) {
@@ -566,10 +573,11 @@ public class LocalTypeManager {
     // DEBUG. this method will be removed todo
     public void debug(String... values) {
         if (debug) {
+            StringBuilder stringBuilder = new StringBuilder();
             for (String value : values) {
-                System.out.print(value + " ");
+                stringBuilder.append(value).append(" ");
             }
-            System.out.println();
+            LOG.debug(stringBuilder.toString());
         }
     }
 

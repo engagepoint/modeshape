@@ -7,8 +7,15 @@ import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
+import org.modeshape.jcr.api.Logger;
+import org.slf4j.LoggerFactory;
 
 public abstract class CmisOperation {
+
+    /**
+     * SLF logger.
+     */
+    private final org.slf4j.Logger LOG = LoggerFactory.getLogger(this.getClass());
 
     protected RuntimeSnapshot snapshot;
     protected CmisConnectorConfiguration config;
@@ -32,17 +39,25 @@ public abstract class CmisOperation {
     }
 
     // DEBUG. this method will be removed todo
-    public void debug(String... values) {
+    public void debug(final String... values) {
         if (config.isDebug()) {
+            StringBuilder sb = new StringBuilder();
             for (String value : values) {
-                System.out.print(value + " ");
+                sb.append(value).append(" ");
             }
-            System.out.println();
+            log().debug(sb.toString());
         }
     }
     
     protected String getPossibleNullString(String input) {
         return input == null ? "null" : input;
     }
-    
+
+    /**
+     * logger.
+     * @return slf logger
+     */
+    protected org.slf4j.Logger log() {
+        return LOG;
+    }
 }

@@ -4,11 +4,7 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.jcr.value.Name;
 
 /**
- * Created with IntelliJ IDEA.
- * User: dr_nickson
- * Date: 1/18/14
- * Time: 9:27 PM
- * To change this template use File | Settings | File Templates.
+ * temporary document container.
  */
 public class TempDocument {
 

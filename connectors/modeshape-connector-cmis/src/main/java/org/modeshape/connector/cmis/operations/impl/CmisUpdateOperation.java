@@ -229,14 +229,14 @@ public class CmisUpdateOperation extends CmisOperation {
                         try {
                             cmisObject.updateProperties(updateProperties);
                         } catch (CmisUpdateConflictException e) {
-                            System.out.println(MessageFormat.format("Skip update properties [{0}] for folder [{1}] due to error {2}", updateProperties.toString(), cmisObject.getName(), e.getMessage()));                            
+                            log().info(MessageFormat.format("Skip update properties [{0}] for folder [{1}] due to error {2}", updateProperties.toString(), cmisObject.getName(), e.getMessage()));
                         }
                     } else {
                         debug("cmisObject is not versioned");
                         try {
                             cmisObject.updateProperties(updateProperties);
                         } catch (CmisUpdateConflictException e) {
-                            System.out.println(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
+                            log().info(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
                             CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
                         }
                     }

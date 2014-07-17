@@ -46,6 +46,7 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.common.collection.Problem;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
+import org.modeshape.common.logging.Logger;
 import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
@@ -66,6 +67,7 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.*;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
+import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
 import javax.jcr.NamespaceRegistry;
@@ -142,6 +144,11 @@ import static org.modeshape.connector.cmis.util.CompareTypeDefinitionsUtil.compa
  */
 public class CmisConnector extends Connector implements Pageable, UnfiledSupportConnector, EnhancedConnector, SelfCheckConnector {
 
+    /**
+     * SLF logger.
+     */
+    public final org.slf4j.Logger LOG = LoggerFactory.getLogger(this.getClass());
+
     // path and id for the repository node
     private Session session;
     // -----  json settings -------------
@@ -206,7 +213,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String languageDialect;
 
     // name of class with search realization
-   private String cmisObjectFinderUtil;
+    private String cmisObjectFinderUtil;
 
     public CmisConnector() {
         super();
@@ -273,7 +280,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public void initialize(NamespaceRegistry registry,
-                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException,IllegalArgumentException {
+                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException, IllegalArgumentException {
         super.initialize(registry, nodeTypeManager);
 
         // pack settings into containers for easy passing to sub-classes
@@ -308,7 +315,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         ConnectorDocumentProducer documentProducer = new ConnectorDocumentProducer();
 
 
-
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
                 documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
     }
@@ -318,7 +324,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Document getDocumentById(String id) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
-        System.out.println("GET-DOCUMENT-BY-ID : " + id);
+        log().info("GET-DOCUMENT-BY-ID : " + id);
         ObjectId objectId = ObjectId.valueOf(id);
 
         CmisGetObjectOperation cmisGetObjectOperation = getCmisGetOperation();
@@ -391,7 +397,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public String getDocumentId(String path) {
-        System.out.println("GET-DOCUMENT-BY-PATH : " + path);
+        log().info("GET-DOCUMENT-BY-PATH : " + path);
         // establish relation between path and object identifier
         String id = runtimeSnapshot.getSession().getObjectByPath(path).getId();
         // try to catch and save first projection's folderId to stick unfiled to it..
@@ -424,6 +430,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     /**
      * Utility method for checking if CMIS object exists at defined path
+     *
      * @param path path for object
      * @return <code>true</code> if exists, <code>false</code> otherwise
      */
@@ -431,24 +438,23 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         try {
             session.getObjectByPath(path);
             return true;
-        }
-        catch (CmisObjectNotFoundException e) {
+        } catch (CmisObjectNotFoundException e) {
             return false;
         }
     }
 
     /**
      * Utility method for renaming CMIS object
+     *
      * @param object CMIS object to rename
-     * @param name new name
+     * @param name   new name
      */
-    private void rename(CmisObject object, String name){
+    private void rename(CmisObject object, String name) {
         Map<String, Object> newName = new HashMap<String, Object>();
         newName.put("cmis:name", name);
 
         object.updateProperties(newName);
     }
-
 
 
     // -------------------  CRUD implementation ------------------
@@ -609,10 +615,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /**
      * Validate {@link #connectorProblems} for writen errors.
      * In normal state {@link #connectorProblems} must bee <code>null</code>
-     * @throws org.modeshape.jcr.federation.spi.ConnectorException with messages from {@link #connectorProblems}
+     *
+     * @throws org.modeshape.jcr.federation.spi.ConnectorException
+     *          with messages from {@link #connectorProblems}
      */
-    private void validateConnectorForErrors(){
-        if (connectorProblems != null){
+    private void validateConnectorForErrors() {
+        if (connectorProblems != null) {
             throw new ConnectorException(connectorProblems);
         }
     }
@@ -686,20 +694,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
     // DEBUG
-    public void debug(String... values) {
-//        if (debug) {
-            StringBuilder sb = new StringBuilder();
-            for (String value : values) {
-                sb.append(value).append(" ");
-            }
-            if (getLogger() != null) {
-                getLogger().debug(sb.toString());
-            } else if (log() != null /* simple logger */) {
-                log().debug(sb.toString());
-            } else {
-                System.out.println(sb.toString());
-            }
-//        }
+    public void debug(final String... values) {
+        StringBuilder sb = new StringBuilder();
+        for (String value : values) {
+            sb.append(value).append(" ");
+        }
+
+        log().info(sb.toString());
     }
 
     /*
@@ -723,9 +724,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 //                String fileName = props.getString("name");
                 String mimeType = props.getString("mimeType");
                 if (debug) {
-                    System.out.println("binary: String fileName = props.getString(\"fileName'\" : " + fileName);
-                    System.out.println("binary: String fileName = props.getString(\"mimeType'\" : " + mimeType);
-                    System.out.println("binary: document:: " + document);
+                    log().info("binary: String fileName = props.getString(\"fileName'\" : " + fileName);
+                    log().info("binary: String fileName = props.getString(\"mimeType'\" : " + mimeType);
+                    log().info("binary: document:: " + document);
                 }
 
                 org.modeshape.jcr.value.Property content = reader.getProperty(Constants.JCR_DATA);
@@ -758,16 +759,16 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     /**
      * Import given CMIS type to the JCR repository.
-     * 
-     * @param cmisType cmis object type
+     *
+     * @param cmisType    cmis object type
      * @param typeManager JCR type manager/
      * @param registry
      * @throws RepositoryException if there is a problem importing the types
      */
-    @SuppressWarnings( "unchecked" )
-    public void importType( ObjectType cmisType,
-                             NodeTypeManager typeManager,
-                             NamespaceRegistry registry ) throws RepositoryException {
+    @SuppressWarnings("unchecked")
+    public void importType(ObjectType cmisType,
+                           NodeTypeManager typeManager,
+                           NamespaceRegistry registry) throws RepositoryException {
         // TODO: get namespace information and register
         // registry.registerNamespace(cmisType.getLocalNamespace(), cmisType.getLocalNamespace());
 
@@ -792,14 +793,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             PropertyDefinitionTemplate pt = typeManager.createPropertyDefinitionTemplate();
             pt.setRequiredType(properties.getJcrType(pd.getPropertyType()));
             pt.setAutoCreated(false);
-            pt.setAvailableQueryOperators(new String[] {});
+            pt.setAvailableQueryOperators(new String[]{});
             pt.setName(name);
             pt.setMandatory(pd.isRequired());
             type.getPropertyDefinitionTemplates().add(pt);
         }
 
         // register type
-        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[] {type};
+        NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[]{type};
         typeManager.registerNodeTypes(nodeDefs, true);
     }
 
@@ -809,16 +810,16 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
      * @param cmisType given CMIS type
      * @return supertypes in JCR lexicon.
      */
-    private String[] superTypes( ObjectType cmisType ) {
+    private String[] superTypes(ObjectType cmisType) {
         if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_FOLDER) {
-            return new String[] {JcrConstants.NT_FOLDER};
+            return new String[]{JcrConstants.NT_FOLDER};
         }
 
         if (cmisType.getBaseTypeId() == BaseTypeId.CMIS_DOCUMENT) {
-            return new String[] {JcrConstants.NT_FILE};
+            return new String[]{JcrConstants.NT_FILE};
         }
 
-        return new String[] {cmisType.getParentType().getId()};
+        return new String[]{cmisType.getParentType().getId()};
     }
 
     public Document getChildReference(String parentKey,
@@ -835,14 +836,14 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
         CmisObject object = runtimeSnapshot.getCmisObjectFinderUtil().find(childKey);
         if (parentKey == null) {
-            System.out.println("you got problem :: getChildReference -> parentKey == null");
+            log().info("you got problem :: getChildReference -> parentKey == null");
         }
         if (object == null && ObjectId.isUnfiledStorage(childKey) && (StringUtils.equals(parentKey, getUnfiledParentId()))) {
             return newChildReference(childKey, ObjectId.Type.UNFILED_STORAGE.getValue());
         }
         String mappedId = runtimeSnapshot.getCmisObjectFinderUtil().getObjectMappingId(object);
         if (!childKey.equals(mappedId))
-            System.out.println("getting reference childKey [" + childKey + "] is not equal to actual mapped id [" + mappedId + "]!!");
+            log().info("getting reference childKey [" + childKey + "] is not equal to actual mapped id [" + mappedId + "]!!");
         return newChildReference(childKey, object.getName());
     }
 
@@ -890,7 +891,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 parentKey,
                 childName.getLocalName());
 
-        System.out.println(query + "<<<< ");
+        log().info(query + "<<<< ");
 
         OperationContext ctx = getChildrenQueryOperationContext();
         ctx.setFilter(getIDsFilter());
@@ -899,7 +900,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
         if (snsIndex > 1)
             result.skipTo(snsIndex - 1);
-        System.out.println(String.format("And I've found <%s> sns Items", result.getTotalNumItems()));
+        log().info(String.format("And I've found <%s> sns Items", result.getTotalNumItems()));
 
         QueryResult next = result.iterator().next();
         if (next == null)
@@ -921,13 +922,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 name.getLocalName());
 
         //String query = String.format("select cmis:objectId from cmis:document where cmis:name='%s'", name.getLocalName());
-        System.out.println(query + "<<<<    I've been called!!!!!! ");
-
+        log().info(query + "<<<<    I've been called!!!!!! ");
         OperationContext ctx = getChildrenQueryOperationContext();
 
         ItemIterable<QueryResult> query1 = runtimeSnapshot.getSession().query(query, false, ctx);
         long totalNumItems = query1.getTotalNumItems();
-        System.out.println(String.format("And I've found <%s> sns Items", totalNumItems));
+        log().info(String.format("And I've found <%s> sns Items", totalNumItems));
         return (int) totalNumItems;
     }
 
@@ -947,13 +947,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             if (runtimeSnapshot.getPreconfiguredProjections() == null)
                 throw new RuntimeException("Projections are null!!");
 
-            System.out.print("preconfiguredProjections  ");
-            System.out.println(runtimeSnapshot.getPreconfiguredProjections());
+            log().info("preconfiguredProjections  ");
+            log().info(runtimeSnapshot.getPreconfiguredProjections().toString());
 
             List<RepositoryConfiguration.ProjectionConfiguration> projectionConfigurations =
                     runtimeSnapshot.getPreconfiguredProjections().values().iterator().next();
-            System.out.print("projectionConfigurations  ");
-            System.out.println(projectionConfigurations);
+            log().info("projectionConfigurations  ");
+            log().info(projectionConfigurations.toString());
 
             RepositoryConfiguration.ProjectionConfiguration projectionConfiguration = projectionConfigurations.get(0);
 
@@ -974,7 +974,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
      */
     public Problems getSelfCheckStatus() {
 
-        System.out.println("Started self check in CmisConnector!");
+        log().info("Started self check in CmisConnector!");
         Problems problems;
 
         Map<String, ObjectType> cachedTypes = getCachedTypeDefinitions();
@@ -1002,6 +1002,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     /**
      * Set to {@link #connectorProblems} messages from funded problems for {@link #getSelfCheckStatus()}
      * without connection problem
+     *
      * @param problems current problems
      */
     private void setConnectorProblemsIfErrors(Problems problems) {
@@ -1010,7 +1011,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             for (Problem problem : problems) {
                 boolean isError = problem.getStatus() == Problem.Status.ERROR;
 
-                if (isError){
+                if (isError) {
                     boolean isRepoException = problem.getMessage() == CompareTypesI18n.repositoryException;
                     if (!isRepoException) {
                         message.append(problem.getMessageString()).append("\n");
@@ -1021,7 +1022,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             String errors = message.toString();
             if (!errors.isEmpty()) {
                 connectorProblems = errors;
-                System.out.println("Found problems in connector: " + connectorProblems);
+                log().info("Found problems in connector: " + connectorProblems);
             }
         } else {
             connectorProblems = null;
@@ -1046,8 +1047,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         }
     }
 
-    public LanguageDialect getLanguageDialect(){
-       return runtimeSnapshot.getLanguageDialect();
+    public LanguageDialect getLanguageDialect() {
+        return runtimeSnapshot.getLanguageDialect();
     }
 
 }

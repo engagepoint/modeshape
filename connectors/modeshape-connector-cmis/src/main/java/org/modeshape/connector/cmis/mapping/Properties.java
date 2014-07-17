@@ -40,6 +40,8 @@ import org.modeshape.jcr.api.value.DateTime;
 import org.modeshape.jcr.value.ValueFactories;
 import org.modeshape.jcr.value.ValueFactory;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Implements mapping between several CMIS and JCR properties. This implementation of the connector suppose conversation between
@@ -50,6 +52,9 @@ import org.modeshape.jcr.cache.document.DocumentTranslator;
  */
 @SuppressWarnings("synthetic-access")
 public class Properties {
+
+    public static final Logger LOG = LoggerFactory.getLogger(Properties.class);
+
     // table which establishes relations between cmis and jcr names
     // used for properties of teh folders and documents
     // Relations are defined as list of strings. This way seems preffered because
@@ -154,7 +159,6 @@ public class Properties {
     public Object cmisValue(PropertyDefinition<?> pdef,
                             Field field) {
         if (pdef.getCardinality() == Cardinality.MULTI) {
-            System.out.println("FLDFLDFLDFLDFLDFLDFLD::: " + field);
             return field.getValueAsDocument().getArray(field.getName());
         }
         switch (pdef.getPropertyType()) {
@@ -202,12 +206,12 @@ public class Properties {
                                    Document document) {
         if (pdef.getCardinality() == Cardinality.MULTI) {
             List array = document.getArray(jcrName);
-            System.out.println("arrays value: " + array);
+            LOG.info("arrays value: " + array);
             if (array == null) {
                 Object singleValue = getSingleValue(pdef, jcrName, document);
                 if (singleValue != null) {
                     array = new BasicArray(singleValue);
-                    System.out.println("custom sv arrays value: " + array);
+                    LOG.info("custom single value arrays value: " + array);
                 }
             }
             return array;
@@ -268,6 +272,7 @@ public class Properties {
                 try {
                     return new URI(document.getString(jcrName));
                 } catch (Exception e) {
+                    // ignore
                 }
                 break;
             case ID:

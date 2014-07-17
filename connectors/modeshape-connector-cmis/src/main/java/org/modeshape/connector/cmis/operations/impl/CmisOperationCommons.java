@@ -16,11 +16,18 @@ import org.apache.chemistry.opencmis.commons.exceptions.CmisBaseException;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisInvalidArgumentException;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisRuntimeException;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Map;
 
 public class CmisOperationCommons {
+
+    /**
+     * SLF logger.
+     */
+    private static final org.slf4j.Logger LOG = LoggerFactory.getLogger(CmisOperationCommons.class);
 
     /*
      *  connectors do not support versioning, so make document be referenced with versionSeriesId (if exists)
@@ -61,7 +68,7 @@ public class CmisOperationCommons {
     public static org.apache.chemistry.opencmis.client.api.Document asDocument(CmisObject cmisObject) {
         if (!isDocument(cmisObject))
             if (cmisObject == null) {
-                System.out.println("Object is null");
+                log().info("Object is null");
                 throw new CmisInvalidArgumentException("Object is null");
             } else {
                 throw new CmisInvalidArgumentException("Object is not a document: "
@@ -77,13 +84,13 @@ public class CmisOperationCommons {
     */
     public static boolean isVersioned(CmisObject cmisObject) {
         ObjectType objectType = cmisObject.getType();
-        System.out.println(MessageFormat.format("cmisObject name [{0}] type class [{1}]",  cmisObject.getName(), objectType.getClass().getCanonicalName()));
+        log().info(MessageFormat.format("cmisObject name [{0}] type class [{1}]", cmisObject.getName(), objectType.getClass().getCanonicalName()));
         if (objectType instanceof DocumentTypeDefinition) {
             DocumentTypeDefinition docType = (DocumentTypeDefinition) objectType;
-            System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", docType.isVersionable()));
+            log().info(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", docType.isVersionable()));
             return docType.isVersionable();
         }
-        System.out.println(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", false));
+        log().info(MessageFormat.format("cmisObject docType.isVersionable() = [{0}]", false));
         return false;
     }
 
@@ -109,5 +116,9 @@ public class CmisOperationCommons {
         if (remotePropDefinition.getCardinality() == Cardinality.MULTI)
             return Collections.singletonList("");
         return remotePropDefinition.getId();
+    }
+
+    protected static Logger log() {
+        return LOG;
     }
 }

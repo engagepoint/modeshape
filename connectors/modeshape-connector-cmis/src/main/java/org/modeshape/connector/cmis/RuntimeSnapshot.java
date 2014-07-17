@@ -12,15 +12,22 @@ import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.operations.FilenetObjectFinderUtil;
 import org.modeshape.jcr.RepositoryConfiguration;
+import org.slf4j.LoggerFactory;
 
 
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
 
-// Cmis Connector runtime container
+/**
+ * Cmis Connector runtime container.
+ */
 public class RuntimeSnapshot {
-    private final static Logger LOG = Logger.getLogger(RuntimeSnapshot.class);
+
+    /**
+     * lsf4j logger.
+     */
+    protected static org.slf4j.Logger LOG = LoggerFactory.getLogger(RuntimeSnapshot.class);
 
     private Session session;
     private String caughtProjectedId;
@@ -117,4 +124,7 @@ public class RuntimeSnapshot {
         this.preconfiguredProjections = preconfiguredProjections;
     }
 
+    public static org.slf4j.Logger getLOG() {
+        return LOG;
+    }
 }

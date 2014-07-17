@@ -188,7 +188,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.setPrimaryType(NodeType.NT_FOLDER);
         if (caughtProjectedId == null) {
             // replace with logger lately
-            System.out.println("Caught ROOT node as NULL when filling Unfiled node!!..!!");
+            log().info("Caught ROOT node as NULL when filling Unfiled node!!..!!");
         }
         writer.setParent(caughtProjectedId);
 //        writer.setParent("[root]");
