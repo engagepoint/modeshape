@@ -246,9 +246,24 @@ public class RepositoryConfiguration {
         public static final String MONITORING_ENABLED = "enabled";
         
         /**
+         * The section for Metrics configuration parameters
+         */        
+        public static final String METRICS = "metrics";
+        
+        /**
          * The name for the optional field specifying whether the metrics of JCR repository will be collected
          */
         public static final String USE_REPOSITORY_METRICS = "useRepositoryMetrics";
+        
+        /**
+         * The number of minutes between writing metrics to log. By default the interval is 15 minutes
+         */
+        public static final String LOG_REPORTER_PERIOD_IN_MINUTES = "logReporterPeriodInMinutes";
+        
+        /**
+         * The number of minutes between writing metrics to csv files. By default the interval is 15 minutes
+         */
+        public static final String CSV_REPORTER_PERIOD_IN_MINUTES = "csvReporterPeriodInMinutes";       
 
         /**
          * The name for the field whose value is a document containing the Infinispan storage information.
@@ -612,6 +627,9 @@ public class RepositoryConfiguration {
 
         public static final String OPTIMIZATION_INITIAL_TIME = "02:00";
         public static final int OPTIMIZATION_INTERVAL_IN_HOURS = 24;
+        
+        public static final int LOG_REPORTER_PERIOD_IN_MINUTES = 15;
+        public static final int CSV_REPORTER_PERIOD_IN_MINUTES = 15;
     }
 
     public static final class FieldValue {
@@ -1707,14 +1725,54 @@ public class RepositoryConfiguration {
         }
         
         /**
-         * Determine whether the metrics of JCR repository will be collected. The default is to enable metrics, but this can be used to turn off support
-         * for metrics should it not be necessary.
-         * 
-         * @return true if metrics is enabled, or false if it is disabled
+         * Get the configuration for the document optimization for this
+         * repository.
+         *
+         * @return the document optimization configuration; never null
          */
-        public boolean useRepositoryMetrics() {
-            return monitoring.getBoolean(FieldName.USE_REPOSITORY_METRICS, Default.USE_REPOSITORY_METRICS);
+        public Metrics getMetrics() {
+            return new Metrics(monitoring.getDocument(FieldName.METRICS));
         }
+        
+        @Immutable
+        public class Metrics {
+
+            private final Document metrics;
+
+            protected Metrics(Document metrics) {
+                this.metrics = metrics != null ? metrics : EMPTY;
+            }
+
+            /**
+             * Determine whether the metrics of JCR repository will be
+             * collected. The default is to enable metrics, but this can be used
+             * to turn off support for metrics should it not be necessary.
+             *
+             * @return true if metrics is enabled, or false if it is disabled
+             */
+            public boolean useRepositoryMetrics() {
+                return metrics.getBoolean(FieldName.USE_REPOSITORY_METRICS, Default.USE_REPOSITORY_METRICS);
+            }
+
+            /**
+             * Get number of minutes between writing metrics to log.
+             *
+             * @return the interval; never null
+             */
+            public int getLogReporterPeriodInMinutes() {
+                return metrics.getInteger(FieldName.LOG_REPORTER_PERIOD_IN_MINUTES, Default.LOG_REPORTER_PERIOD_IN_MINUTES);
+            }
+
+            /**
+             * Get number of minutes between writing metrics to csv files.
+             *
+             * @return the interval; never null
+             */
+            public int getCsvReporterPeriodInMinutes() {
+                return metrics.getInteger(FieldName.CSV_REPORTER_PERIOD_IN_MINUTES, Default.CSV_REPORTER_PERIOD_IN_MINUTES);
+            }
+        }                
+        
     }
 
     /**
