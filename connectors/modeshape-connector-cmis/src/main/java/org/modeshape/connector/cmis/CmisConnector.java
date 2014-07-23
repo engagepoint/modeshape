@@ -46,7 +46,6 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.common.collection.Problem;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
-import org.modeshape.common.logging.Logger;
 import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
@@ -56,7 +55,6 @@ import org.modeshape.connector.cmis.features.TempDocument;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
-import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.connector.cmis.operations.impl.*;
 import org.modeshape.connector.cmis.util.CryptoUtils;
@@ -151,6 +149,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // path and id for the repository node
     private Session session;
+    private Session soapSession;
     // -----  json settings -------------
     // binding parameters
     private String aclService;
@@ -162,6 +161,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String relationshipService;
     private String repositoryService;
     private String versioningService;
+    
+    private String atomPubUrl;
+    
     private Properties properties;
     // root folder reference flag
     private boolean hideRootFolderReference;
@@ -254,6 +256,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Session getSession() {
         return runtimeSnapshot.getSession();
     }
+    
+    public Session getSoapSession() {
+        return runtimeSnapshot.getSoapSession();
+    }
 
     private LocalTypeManager getLocalTypeManager() {
         return runtimeSnapshot.getLocalTypeManager();
@@ -293,7 +299,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 debug, versioningOnUpdateMetadata);
 
         // setup CMIS connection
-        Session session = getCmisConnection();
+        session = getAtomCmisConnection();
+        soapSession = getSoapCmisConnection();
 
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
@@ -316,7 +323,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, soapSession);
     }
 
 
@@ -643,7 +650,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // ------------------------------ INITIALIZATIONS ----------------------------------
 
 
-    private Session getCmisConnection() throws IOException, RepositoryException {
+    private Session getSoapCmisConnection() throws IOException, RepositoryException {        
         Map<String, String> parameter = new HashMap<String, String>();
 
         // user credentials
@@ -687,6 +694,42 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return null;  //To change body of implemented methods use File | Settings | File Templates.
             }
         }, null);
+    }
+    
+    private Session getAtomCmisConnection() throws IOException, RepositoryException {
+        if (atomPubUrl != null && !atomPubUrl.isEmpty()) {
+            Map<String, String> parameter = new HashMap<String, String>();
+
+            // user credentials
+            if (StringUtils.isNotEmpty(user) && StringUtils.isNotEmpty(password)) {
+                parameter.put(SessionParameter.USER, user);
+                parameter.put(SessionParameter.PASSWORD, getPassword());
+            }
+
+            // connection settings
+            parameter.put(SessionParameter.BINDING_TYPE, BindingType.ATOMPUB.value());
+            parameter.put(SessionParameter.ATOMPUB_URL, atomPubUrl);
+            parameter.put(SessionParameter.REPOSITORY_ID, repositoryId);
+
+            SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
+
+            return factory.createSession(parameter, null, new StandardAuthenticationProvider() {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public Element getSOAPHeaders(Object portObject) {
+                    // Place headers here
+                    return super.getSOAPHeaders(portObject);
+                }
+
+                @Override
+                public HandlerResolver getHandlerResolver() {
+                    return null;  //To change body of implemented methods use File | Settings | File Templates.
+                }
+            }, null);
+        } else {
+            return getSoapCmisConnection();            
+        }                
     }
 
 
@@ -1050,5 +1093,5 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public LanguageDialect getLanguageDialect() {
         return runtimeSnapshot.getLanguageDialect();
     }
-
+    
 }

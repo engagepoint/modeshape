@@ -30,6 +30,7 @@ public class RuntimeSnapshot {
     protected static org.slf4j.Logger LOG = LoggerFactory.getLogger(RuntimeSnapshot.class);
 
     private Session session;
+    private Session soapSession;
     private String caughtProjectedId;
     private LocalTypeManager localTypeManager;
     private SingleVersionDocumentsCache singleVersionCache;
@@ -45,7 +46,7 @@ public class RuntimeSnapshot {
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionOptions singleVersionOptions, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           String cmisObjectFinderUtil, String languageDialect) {
+                           String cmisObjectFinderUtil, String languageDialect, Session soapSession) {
         this.session = session;
         this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
@@ -54,6 +55,7 @@ public class RuntimeSnapshot {
         this.preconfiguredProjections = preconfiguredProjections;
         this.cmisObjectFinderUtil = initFinder(cmisObjectFinderUtil, singleVersionOptions);
         this.languageDialect = initLanguageDialect(languageDialect);
+        this.soapSession = soapSession;
     }
 
     private CmisObjectFinderUtil initFinder(String cmisObjectFinderUtil, SingleVersionOptions singleVersionOptions) {
@@ -84,6 +86,10 @@ public class RuntimeSnapshot {
 
     public Session getSession() {
         return session;
+    }
+    
+    public Session getSoapSession() {
+        return soapSession;
     }
 
     public String getCaughtProjectedId() {
