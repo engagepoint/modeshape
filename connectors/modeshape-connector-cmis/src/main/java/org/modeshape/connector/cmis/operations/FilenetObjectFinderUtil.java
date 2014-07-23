@@ -14,6 +14,9 @@ import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
 
 import java.util.List;
+import java.util.NoSuchElementException;
+import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
+import org.apache.chemistry.opencmis.commons.enums.IncludeRelationships;
 
 /*
  * after try to get object by id
@@ -130,29 +133,48 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
                 singleVersionOptions.getCommonIdTypeName(),
                 singleVersionOptions.getCommonIdPropertyName(),
                 searchValue);
-        ItemIterable<QueryResult> queryResult = session.query(query, false);
+        
+        // Remove all unnecessary data from query results to improve performance 
+        OperationContext queryContext = new OperationContextImpl();
+        queryContext.setCacheEnabled(true);
+        queryContext.setIncludeAllowableActions(false);
+        queryContext.setIncludePathSegments(false);
+        queryContext.setMaxItemsPerPage(1);
+        queryContext.setFilterString("cmis:objectId");
+        
+        ItemIterable<QueryResult> queryResult = session.query(query, false, queryContext);
         
         if (queryResult == null) {
             LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query result is empty. Return null"));            
             return null;
         }
 
-        long totalNumItems = queryResult.getTotalNumItems();
-
-        if (totalNumItems <= 0) {
-            LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query total items number is [{0}] but must be 1 or more. Return null!!!"), totalNumItems);  
-            return null;
-        }
-        QueryResult next = queryResult.iterator().next();
-        PropertyData<Object> cmisObjectId = next.getPropertyById(PropertyIds.OBJECT_ID);
-        LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query [{0}] return {1} items. Time: {2} ms"), query, totalNumItems, (System.currentTimeMillis()-startTime));  
         try {
-            String remoteId = cmisObjectId.getFirstValue().toString();
-            LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Gettting object from remote repository by id {0}"), remoteId); 
-            return session.getObject(remoteId);
-        } catch (CmisObjectNotFoundException nfe) {
-            LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0} = {1}. Error content: {2}"), singleVersionOptions.getCommonIdPropertyName(), searchValue, nfe.getErrorContent());            
+            QueryResult next = queryResult.iterator().next();
+            if (next != null) {
+                PropertyData<Object> cmisObjectId = next.getPropertyById(PropertyIds.OBJECT_ID);
+                LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query [{0}] return atlist 1 item. Time: {1} ms"), query, (System.currentTimeMillis() - startTime));
+                try {
+                    String remoteId = cmisObjectId.getFirstValue().toString();
+                    LOGGER.info(new TextI18n("CmisObjectFinderUtil::findByCommonId::Gettting object from remote repository by id {0}"), remoteId);
+                    OperationContext getObjectContext = new OperationContextImpl();
+                    getObjectContext.setIncludeAllowableActions(false);
+                    getObjectContext.setIncludePathSegments(false);
+                    getObjectContext.setCacheEnabled(true);
+                    getObjectContext.setMaxItemsPerPage(1);
+                    getObjectContext.setLoadSecondaryTypeProperties(true);
+                    return session.getObject(remoteId, getObjectContext);
+                } catch (CmisObjectNotFoundException nfe) {
+                    LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0} = {1}. Error content: {2}"), singleVersionOptions.getCommonIdPropertyName(), searchValue, nfe.getErrorContent());
+                    return null;
+                }
+            } else {
+                LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query total items number is [0] but must be 1 or more. Return null!!!"));  
+                return null;
+            }
+        } catch (NoSuchElementException e) {
+            LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query total items number is [0] but must be 1 or more. Return null!!!"));  
             return null;
-        }
+        }  
     }
 }
