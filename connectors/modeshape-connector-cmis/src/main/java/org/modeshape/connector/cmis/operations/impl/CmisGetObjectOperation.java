@@ -26,6 +26,8 @@ import java.util.*;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 
 public class CmisGetObjectOperation extends CmisOperation {
+    
+    public static final String MIX_CONTENT_STREAM = "{http://www.jcp.org/jcr/mix/1.0}contentStream";
 
     String projectedNodeId;
 
@@ -124,7 +126,17 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = doc.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
+        
+        writer.addMixinType(NodeType.MIX_MIMETYPE);
+        Property<Object> mimeType = doc.getProperty(PropertyIds.CONTENT_STREAM_MIME_TYPE);
+        writer.addProperty(JcrLexicon.MIMETYPE, localTypeManager.getPropertyUtils().jcrValues(mimeType));
 
+        writer.addMixinType(MIX_CONTENT_STREAM);
+        Property<Object> contentStreamLength = doc.getProperty(PropertyIds.CONTENT_STREAM_LENGTH);
+        Property<Object> contentStreamFileName = doc.getProperty(PropertyIds.CONTENT_STREAM_FILE_NAME);
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_LENGTH, localTypeManager.getPropertyUtils().jcrValues(contentStreamLength));
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_FILE_NAME, localTypeManager.getPropertyUtils().jcrValues(contentStreamFileName));
+        
         debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
