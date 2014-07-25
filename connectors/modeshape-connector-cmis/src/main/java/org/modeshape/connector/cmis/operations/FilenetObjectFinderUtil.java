@@ -1,7 +1,9 @@
 package org.modeshape.connector.cmis.operations;
 
 import org.apache.chemistry.opencmis.client.api.*;
+import org.apache.chemistry.opencmis.client.runtime.ObjectIdImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
+import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
@@ -122,14 +124,28 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
 
     }
 
-    private CmisObject findByCommonId(String id) {        
+    @Override
+    public ContentStream getContentStream(String id) {
+        String remoteId = getRemoteId(id);
+
+        if (remoteId == null) {
+            remoteId = id;
+        }
+
+        try {
+            return session.getContentStream(new ObjectIdImpl(remoteId));
+        } catch (CmisObjectNotFoundException e){
+            return null;
+        }
+    }
+
+    private CmisObject findByCommonId(String id) {
         CmisObject result;
         if (!singleVersionOptions.isConfigured()) {
             return null;
         }
-        
-        String searchValue = singleVersionOptions.commonIdValuePreProcess(id);
-        String remoteId = getRemoteId(id, searchValue);
+
+        String remoteId = getRemoteId(id);
         if (remoteId == null) {
             LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Can't find remote Id using query. Return null"));
             return null;
@@ -144,15 +160,16 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             getObjectContext.setCacheEnabled(true);
             result = session.getObject(remoteId, getObjectContext);
         } catch (CmisObjectNotFoundException nfe) {
-            LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0} = {1}. Error content: {2}"), singleVersionOptions.getCommonIdPropertyName(), searchValue, nfe.getErrorContent());
+            LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0}. Error content: {1}"), singleVersionOptions.getCommonIdPropertyName(), nfe.getErrorContent());
             return null;
         }
 
         return result;
     }
     
-    private String getRemoteId(String id, String searchValue) {        
+    private String getRemoteId(String id) {
         String remoteId = (String) GenericCacheContainer.getInstance().get(id);
+        String searchValue = singleVersionOptions.commonIdValuePreProcess(id);
         if (remoteId == null) {
             long startTime = System.currentTimeMillis();
             String query = String.format(

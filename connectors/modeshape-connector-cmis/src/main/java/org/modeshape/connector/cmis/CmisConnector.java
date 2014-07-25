@@ -29,6 +29,7 @@ import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.*;
 
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
+import org.apache.chemistry.opencmis.client.runtime.ObjectIdImpl;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
@@ -49,12 +50,14 @@ import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
+import org.modeshape.connector.cmis.features.CmisBinaryValue;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.features.TempDocument;
 import org.modeshape.connector.cmis.mapping.LocalTypeManager;
 import org.modeshape.connector.cmis.mapping.MappedTypesContainer;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
+import org.modeshape.connector.cmis.operations.CmisObjectFinderUtil;
 import org.modeshape.connector.cmis.operations.DocumentProducer;
 import org.modeshape.connector.cmis.operations.impl.*;
 import org.modeshape.connector.cmis.util.CryptoUtils;
@@ -65,6 +68,7 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.*;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
+import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
@@ -134,7 +138,7 @@ import static org.modeshape.connector.cmis.util.CompareTypeDefinitionsUtil.compa
  * <td><code>/filesAndFolder</code></td>
  * <td>The structure of the folders and files in the projected repository</td>
  * </tr>
- * <table>
+ * </table>
  *
  * @author Oleg Kulikov
  * @author Ivan Vasyliev
@@ -296,7 +300,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 snsCommonIndex, remoteUnfiledNodeId, unfiledQueryTemplate, folderSetUnknownChildren,
                 pageSize, pageSizeUnfiled, singleVersionOptions,
                 hideRootFolderReference,
-                debug, versioningOnUpdateMetadata);
+                debug, versioningOnUpdateMetadata,
+                getSourceName(), getMimeTypeDetector());
 
         // setup CMIS connection
         session = getAtomCmisConnection();
@@ -355,7 +360,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 // the cmis:document object. This action searches original
                 // cmis:document and converts its content property into jcr node
                 // result object should have same id as requested
-                return cmisGetObjectOperation.cmisContent(objectId.getIdentifier());
+                return cmisGetObjectOperation.cmisContent(objectId);
+                //return null;
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
                 return cmisObject(objectId.getIdentifier());
@@ -364,6 +370,17 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return null;
         }
     }
+
+    @Override
+    public ExternalBinaryValue getBinaryValue(String id) {
+        try {
+            CmisObjectFinderUtil finderUtil = runtimeSnapshot.getCmisObjectFinderUtil();
+            return new CmisBinaryValue(id, finderUtil, getSourceName(), getMimeTypeDetector());
+        } catch (CmisObjectNotFoundException e) {
+            return null;
+        }
+    }
+
 
     /*
     * look up local temp storage for proposed id

@@ -2,6 +2,7 @@ package org.modeshape.connector.cmis.operations;
 
 import org.apache.chemistry.opencmis.client.api.*;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
+import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
 import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
@@ -26,18 +27,19 @@ public interface CmisObjectFinderUtil {
     *
     * there is another option that might be applied while read objects is to process all the descendants of commonIdType
     */
-    public boolean doAsSingleVersion(String cmisTypeId);
-
+    boolean doAsSingleVersion(String cmisTypeId);
 
     /*
     * complete logic for id extraction for cmisObject
     */
-    public String getObjectMappingId(CmisObject cmisObject);
+    String getObjectMappingId(CmisObject cmisObject);
 
-    public String getObjectMappingId(String cmisTypeId, PropertyData<Object> commonIdProp);
+    String getObjectMappingId(String cmisTypeId, PropertyData<Object> commonIdProp);
 
-    public String getObjectMappingId(QueryResult queryResult);
+    String getObjectMappingId(QueryResult queryResult);
 
-    public CmisObject find(String suggestedId);
+    CmisObject find(String suggestedId);
+
+    ContentStream getContentStream(String id);
 
 }
