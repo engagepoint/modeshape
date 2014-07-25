@@ -141,6 +141,7 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             getObjectContext.setIncludeAllowableActions(false);
             getObjectContext.setIncludePathSegments(false);
             getObjectContext.setMaxItemsPerPage(1);
+            getObjectContext.setCacheEnabled(true);
             result = session.getObject(remoteId, getObjectContext);
         } catch (CmisObjectNotFoundException nfe) {
             LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0} = {1}. Error content: {2}"), singleVersionOptions.getCommonIdPropertyName(), searchValue, nfe.getErrorContent());

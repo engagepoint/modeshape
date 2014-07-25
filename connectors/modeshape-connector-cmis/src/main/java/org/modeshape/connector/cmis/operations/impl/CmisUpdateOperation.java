@@ -58,7 +58,7 @@ public class CmisUpdateOperation extends CmisOperation {
         long startTime = System.currentTimeMillis();
         // object id is a composite key which holds information about
         // unique object identifier and about its type
-        ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
+        ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());        
         debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());   
         VersioningState versioningState = VersioningState.valueOf(config.getVersioningOnUpdateMetadata());
         boolean major = versioningState == VersioningState.MAJOR;
@@ -74,7 +74,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 // the cmis:document object. so to perform this operation we need
                 // to restore identifier of the original cmis:document. it is easy
                 String cmisId = objectId.getIdentifier();
-
+                
                 // now let's get the reference to this object
                 CmisObject cmisObject = finderUtil.find(cmisId);
 
@@ -252,6 +252,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
+                cmisObject.refresh();
 
                 break;
             case UNFILED_STORAGE:
