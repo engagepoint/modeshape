@@ -19,12 +19,9 @@ import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 import org.modeshape.jcr.federation.spi.PageWriter;
-import org.modeshape.jcr.value.BinaryValue;
 
 import javax.jcr.nodetype.NodeType;
-import java.io.InputStream;
 import java.util.*;
-import org.apache.chemistry.opencmis.commons.data.ContentStream;
 
 public class CmisGetObjectOperation extends CmisOperation {
     

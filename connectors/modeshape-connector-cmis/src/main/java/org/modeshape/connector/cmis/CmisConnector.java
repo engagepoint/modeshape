@@ -360,7 +360,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 // the cmis:document object. This action searches original
                 // cmis:document and converts its content property into jcr node
                 // result object should have same id as requested
-                return cmisGetObjectOperation.cmisContent(objectId);
+                return cmisGetObjectOperation.cmisContent(objectId.getIdentifier());
                 //return null;
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
