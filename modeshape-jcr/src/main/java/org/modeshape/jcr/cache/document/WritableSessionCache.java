@@ -965,8 +965,8 @@ WorkspaceCache persistedCache ) {
         DateTime timestamp = context.getValueFactories().getDateFactory().create();
         String workspaceName = persistedCache.getWorkspaceName();
         String repositoryKey = persistedCache.getRepositoryKey();
-        String processKey = persistedCache.getProcessKey();
-        RecordingChanges changes = new RecordingChanges(processKey, repositoryKey, workspaceName);
+        RecordingChanges changes = new RecordingChanges(context.getId(),
+                context.getProcessId(), repositoryKey, workspaceName);
 
         // Get the documentStore ...
         DocumentStore documentStore = persistedCache.documentStore();
