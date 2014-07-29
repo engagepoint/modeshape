@@ -105,6 +105,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
             ctx.setMaxItemsPerPage(1000); // check if it affects performance
+            ctx.setCacheEnabled(true); 
             children = parent.getChildren(ctx);
 
             ItemIterable<?> page = children.skipTo(offset);
