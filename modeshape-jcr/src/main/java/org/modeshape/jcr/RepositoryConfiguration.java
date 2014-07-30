@@ -635,7 +635,6 @@ public class RepositoryConfiguration {
         
         public static final int LOG_REPORTER_PERIOD_IN_MINUTES = 15;
         public static final int CSV_REPORTER_PERIOD_IN_MINUTES = 15;
-        public static final String INMEMORY_CACHE_NAME = "infinispan_inmemory";
     }
 
     public static final class FieldValue {
@@ -1018,9 +1017,9 @@ public class RepositoryConfiguration {
     public String getInmemoryCacheName() {
         Document storage = doc.getDocument(FieldName.STORAGE);
         if (storage != null) {
-            return storage.getString(FieldName.INMEMORY_CACHE_NAME, Default.INMEMORY_CACHE_NAME);
+            return storage.getString(FieldName.INMEMORY_CACHE_NAME, "");
         }
-        return Default.INMEMORY_CACHE_NAME;
+        return "";
     }
 
     public String getCacheConfiguration() {

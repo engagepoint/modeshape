@@ -523,7 +523,10 @@ public final class Connectors {
         RepositoryConfiguration config = repository.getRepositoryConfiguration();
         CacheContainer container = config.getContentCacheContainer();
         String cacheName = config.getInmemoryCacheName();
-        Cache cache = container.getCache(cacheName);
+        Cache cache = null;
+        if (cacheName != null && !cacheName.isEmpty()) {
+            cache = container.getCache(cacheName);
+        }
         
         connector.initialize(registry, nodeTypeManager, cache);
 
