@@ -106,7 +106,9 @@ public class CmisUpdateOperation extends CmisOperation {
                         }
                     }
                 }
-                snapshot.getCache().remove(cmisId);
+                if (snapshot.getCache() != null) {
+                    snapshot.getCache().remove(cmisId);
+                }
                 break;
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
@@ -254,7 +256,9 @@ public class CmisUpdateOperation extends CmisOperation {
                         rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
-                snapshot.getCache().remove(cmisId);
+                if (snapshot.getCache() != null) {
+                    snapshot.getCache().remove(cmisId);
+                }
                 
                 break;
             case UNFILED_STORAGE:
