@@ -172,9 +172,7 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
     private String getRemoteId(String id) {
         String remoteId = null;
         if (cache != null) {
-            LOGGER.info(new TextI18n("InmemoryCache::FilenetObjectFinderUtil::get remote ID from cache by hixDocumentId = " + id));
             remoteId = (String) cache.get(id);
-            LOGGER.info(new TextI18n("InmemoryCache::FilenetObjectFinderUtil::remote ID from cache = " + (remoteId == null ? "null" : remoteId) + " by hixDocumentId = " + id));
         }
         String searchValue = singleVersionOptions.commonIdValuePreProcess(id);
         if (remoteId == null) {
@@ -215,7 +213,6 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             }
             if (cache != null) {
                 cache.put(id, remoteId);
-                LOGGER.info(new TextI18n("InmemoryCache::FilenetObjectFinderUtil::put remote ID = " + (remoteId == null ? "null" : remoteId) + " for hixDocumentId = " + id));
             }
         }
         return remoteId;

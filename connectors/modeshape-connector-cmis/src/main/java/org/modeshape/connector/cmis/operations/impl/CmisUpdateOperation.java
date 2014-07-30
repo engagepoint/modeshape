@@ -111,7 +111,6 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
                 if (snapshot.getCache() != null) {
                     snapshot.getCache().remove(cmisId);
-                    log.warn("InmemoryCache::CmisUpdateOperation::remove hixDocumentId = {} from cache ", cmisId);
                 }
                 break;
             case OBJECT:
@@ -262,7 +261,6 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
                 if (snapshot.getCache() != null) {
                     snapshot.getCache().remove(cmisId);
-                    log.info("InmemoryCache::CmisUpdateOperation::remove hixDocumentId = {} from cache ", cmisId);
                 }
                 
                 break;
