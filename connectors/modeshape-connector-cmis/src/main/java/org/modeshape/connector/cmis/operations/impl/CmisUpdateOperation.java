@@ -25,8 +25,11 @@ import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
+import org.slf4j.LoggerFactory;
 
 public class CmisUpdateOperation extends CmisOperation {
+    
+    private final org.slf4j.Logger log = LoggerFactory.getLogger(this.getClass());
 
     public CmisUpdateOperation(RuntimeSnapshot snapshot,
                                CmisConnectorConfiguration config) {
@@ -108,6 +111,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
                 if (snapshot.getCache() != null) {
                     snapshot.getCache().remove(cmisId);
+                    log.warn("InmemoryCache::CmisUpdateOperation::remove hixDocumentId = {} from cache ", cmisId);
                 }
                 break;
             case OBJECT:
@@ -258,6 +262,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 }
                 if (snapshot.getCache() != null) {
                     snapshot.getCache().remove(cmisId);
+                    log.info("InmemoryCache::CmisUpdateOperation::remove hixDocumentId = {} from cache ", cmisId);
                 }
                 
                 break;
