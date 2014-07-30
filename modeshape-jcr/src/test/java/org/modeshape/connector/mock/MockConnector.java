@@ -34,9 +34,11 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.jcr.NamespaceRegistry;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
 import org.modeshape.jcr.JcrNtLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.DocumentChanges;
 import org.modeshape.jcr.federation.spi.DocumentReader;
@@ -84,7 +86,7 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) {
+                            NodeTypeManager nodeTypeManager, Cache cache ) {
         boolean alreadyInitialized = !persistentDocumentsById.isEmpty() || !persistentDocumentsByLocation.isEmpty();
 
         if (!alreadyInitialized || !persistentDataAcrossRestarts) {

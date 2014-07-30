@@ -1,19 +1,8 @@
 package org.modeshape.connector.cmis.operations;
 
 import org.apache.chemistry.opencmis.client.api.*;
-import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.data.PropertyData;
-import org.apache.chemistry.opencmis.commons.enums.BaseTypeId;
-import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
-import org.modeshape.connector.cmis.features.SingleVersionOptions;
-import org.modeshape.connector.cmis.mapping.LocalTypeManager;
-import org.modeshape.connector.cmis.operations.impl.CmisOperationCommons;
-
-import java.util.List;
-import org.modeshape.common.i18n.TextI18n;
-import org.modeshape.common.logging.Logger;
-import org.modeshape.connector.cmis.api.SecondaryIdProcessor;
 
 /*
  * after try to get object by id

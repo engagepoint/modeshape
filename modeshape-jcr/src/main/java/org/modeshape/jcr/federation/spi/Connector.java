@@ -31,6 +31,8 @@ import java.util.Map;
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
 import javax.transaction.TransactionManager;
+import org.infinispan.Cache;
+import org.infinispan.manager.CacheContainer;
 import org.infinispan.schematic.DocumentFactory;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.logging.Logger;
@@ -40,6 +42,7 @@ import org.modeshape.jcr.Environment;
 import org.modeshape.jcr.ExecutionContext;
 import org.modeshape.jcr.JcrI18n;
 import org.modeshape.jcr.JcrLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.cache.DocumentAlreadyExistsException;
 import org.modeshape.jcr.cache.DocumentNotFoundException;
@@ -170,7 +173,7 @@ public abstract class Connector {
      * </p>
      */
     private Environment environment;
-
+    
     /**
      * Ever connector is expected to have a no-argument constructor, although the class should never initialize any of the data at
      * this time. Instead, all initialization should be performed in the {@link #initialize} method.
@@ -338,7 +341,7 @@ public abstract class Connector {
      * @throws IOException if any stream based operations fail (like importing cnd files)
      */
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
+                            NodeTypeManager nodeTypeManager, Cache cache ) throws RepositoryException, IOException {
         // Subclasses may not necessarily call 'super.initialize(...)', but if they do then we can make this assertion ...
         assert !initialized : "The Connector.initialize(...) method should not be called by subclasses; ModeShape has already (and automatically) initialized the Connector";
     }

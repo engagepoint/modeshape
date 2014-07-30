@@ -18,7 +18,7 @@ import org.modeshape.jcr.cache.document.DocumentTranslator;
 import java.util.List;
 import java.util.NoSuchElementException;
 import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
-import org.modeshape.jcr.GenericCacheContainer;
+import org.infinispan.Cache;
 
 /*
  * after try to get object by id
@@ -31,11 +31,13 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
     private Session session;
     private SingleVersionOptions singleVersionOptions;
     private LocalTypeManager localTypeManager;
+    private Cache cache;
 
-    public FilenetObjectFinderUtil(Session session, LocalTypeManager localTypeManager, SingleVersionOptions singleVersionOptions) {
+    public FilenetObjectFinderUtil(Session session, LocalTypeManager localTypeManager, SingleVersionOptions singleVersionOptions, Cache cache) {
         this.session = session;
         this.singleVersionOptions = singleVersionOptions;
         this.localTypeManager = localTypeManager;
+        this.cache = cache;
     }
 
     @Override
@@ -168,7 +170,10 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
     }
     
     private String getRemoteId(String id) {
-        String remoteId = (String) GenericCacheContainer.getInstance().get(id);
+        String remoteId = null;
+        if (cache != null) {
+            remoteId = (String) cache.get(id);
+        }
         String searchValue = singleVersionOptions.commonIdValuePreProcess(id);
         if (remoteId == null) {
             long startTime = System.currentTimeMillis();
@@ -205,8 +210,10 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             } catch (NoSuchElementException e) {
                 LOGGER.warn(new TextI18n("CmisObjectFinderUtil::findByCommonId::Query total items number is [0] but must be 1 or more. Return null!!!"));
                 return null;
-            } 
-            GenericCacheContainer.getInstance().put(id, remoteId);
+            }
+            if (cache != null) {
+                cache.put(id, remoteId);
+            }
         }
         return remoteId;
     }

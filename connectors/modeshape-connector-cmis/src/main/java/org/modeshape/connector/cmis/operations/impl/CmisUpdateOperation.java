@@ -25,7 +25,6 @@ import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
-import org.modeshape.jcr.GenericCacheContainer;
 
 public class CmisUpdateOperation extends CmisOperation {
 
@@ -107,7 +106,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         }
                     }
                 }
-                GenericCacheContainer.getInstance().remove(cmisId);
+                snapshot.getCache().remove(cmisId);
                 break;
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
@@ -255,7 +254,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
-                GenericCacheContainer.getInstance().remove(cmisId);
+                snapshot.getCache().remove(cmisId);
                 
                 break;
             case UNFILED_STORAGE:

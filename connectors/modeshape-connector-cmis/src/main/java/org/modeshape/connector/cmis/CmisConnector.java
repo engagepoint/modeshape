@@ -82,6 +82,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import org.infinispan.Cache;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
@@ -220,7 +221,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // name of class with search realization
     private String cmisObjectFinderUtil;
-
+    
     public CmisConnector() {
         super();
     }
@@ -290,8 +291,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public void initialize(NamespaceRegistry registry,
-                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException, IllegalArgumentException {
-        super.initialize(registry, nodeTypeManager);
+                           NodeTypeManager nodeTypeManager, Cache cache) throws RepositoryException, IOException, IllegalArgumentException {
+        super.initialize(registry, nodeTypeManager, cache);
 
         // pack settings into containers for easy passing to sub-classes
         this.configuration = new CmisConnectorConfiguration(
@@ -328,7 +329,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, soapSession);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, soapSession, cache);
     }
 
 

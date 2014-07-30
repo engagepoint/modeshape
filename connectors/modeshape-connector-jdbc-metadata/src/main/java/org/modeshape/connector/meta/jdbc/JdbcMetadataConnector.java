@@ -20,6 +20,7 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.ReadOnlyConnector;
 import com.mchange.v2.c3p0.ComboPooledDataSource;
+import org.infinispan.Cache;
 
 /**
  * Readonly connector which exposes JDBC metadata.
@@ -141,7 +142,7 @@ public class JdbcMetadataConnector extends ReadOnlyConnector {
 
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
+                            NodeTypeManager nodeTypeManager, Cache cache ) throws RepositoryException, IOException {
         initMetadataCollector();
         initDataSource();
         initNodeTypes(nodeTypeManager);

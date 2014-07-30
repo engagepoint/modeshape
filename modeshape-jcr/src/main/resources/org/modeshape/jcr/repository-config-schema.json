@@ -101,6 +101,10 @@
                     "type" : "string",
                     "description" : "The name of the Infinispan cache that this repository should use. If not specified, the repository's name is used."
                 },
+                "inmemoryCacheName" : {
+                    "type" : "string",
+                    "description" : "The name for the field containing the name of the Infinispan cache that is used for caching runtime objects in memory."
+                },
                 "cacheConfiguration" : {
                     "type" : "string",
                     "description" : "The name of the Infinispan configuration file for creating a new cache manager. If a file could not be found (on the thread context classloader, on the application's classpath, or on the system classpath), then the name is assumed to reference an existing Infinispan CacheContainer instance via a valid JNDI name or as the name of a service as defined by the local environment. If no such container is found, then a default Infinispan configuration (a basic, local mode, non-clustered cache) will be used."
