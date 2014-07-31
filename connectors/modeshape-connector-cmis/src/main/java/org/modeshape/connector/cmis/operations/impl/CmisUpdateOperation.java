@@ -287,7 +287,7 @@ public class CmisUpdateOperation extends CmisOperation {
 
                         rename(child, after, versioningState, major);                        
                     }
-                }                
+                }                  
         }
         debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
@@ -330,7 +330,10 @@ public class CmisUpdateOperation extends CmisOperation {
             } else {
                 CmisOperationCommons.updateVersionedDoc(session, object, properties, null, major);
             }
-        } else object.updateProperties(properties);             
+        } else object.updateProperties(properties);   
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(object.getId());
+        }
     }
 
     /**
@@ -348,6 +351,9 @@ public class CmisUpdateOperation extends CmisOperation {
             return;
         }
 
-        target.move(src, finderUtil.find(dst));        
+        target.move(src, finderUtil.find(dst));   
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(object.getId());
+        }
     }
 }
