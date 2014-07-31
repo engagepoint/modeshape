@@ -920,7 +920,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             unfiledQueryTemplate = (StringUtils.isNotEmpty(remoteUnfiledNodeId))
                     ? "select * from cmis:document where " +
                     "IN_FOLDER('" + remoteUnfiledNodeId + "') AND cmis:name='%s'"
-                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId from cmis:document doc " +
+                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId, doc.cmis:objectTypeId from cmis:document doc " +
                     "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
                     "WHERE rcr.Head is NULL AND doc.cmis:name='%s'";
         }

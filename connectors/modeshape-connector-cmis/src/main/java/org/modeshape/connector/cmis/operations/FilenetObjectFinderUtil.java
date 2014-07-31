@@ -189,7 +189,7 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             queryContext.setIncludeAllowableActions(false);
             queryContext.setIncludePathSegments(false);
             queryContext.setMaxItemsPerPage(1);
-            queryContext.setFilterString("cmis:objectId");
+            queryContext.setFilterString("cmis:objectId, cmis:objectTypeId, cmis:versionSeriesId");
 
             ItemIterable<QueryResult> queryResult = session.query(query, false, queryContext);
 
