@@ -83,6 +83,7 @@ import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.util.*;
 import org.infinispan.Cache;
+import org.modeshape.connector.cmis.cache.DistriburedCmisCacheImpl;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
@@ -301,8 +302,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 getSourceName(), getMimeTypeDetector());
 
         // setup CMIS connection
-        session = getSoapCmisConnection();
-        
+        session = getAtomCmisConnection(cache);
+        soapSession = getSoapCmisConnection(cache);
+
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
                 getContext().getValueFactories(),
@@ -663,7 +665,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // ------------------------------ INITIALIZATIONS ----------------------------------
 
 
-    private Session getSoapCmisConnection() throws IOException, RepositoryException {        
+    private Session getSoapCmisConnection(Cache cache) throws IOException, RepositoryException {        
         Map<String, String> parameter = new HashMap<String, String>();
 
         // user credentials
@@ -692,7 +694,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             parameter.put(SessionParameter.WEBSERVICES_JAXWS_IMPL, clientPortProvider);
 
         SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
-
+        org.apache.chemistry.opencmis.client.runtime.cache.Cache cmisCache = new DistriburedCmisCacheImpl(cache);                
+        cmisCache.initialize(null, parameter);
         return factory.createSession(parameter, null, new StandardAuthenticationProvider() {
             private static final long serialVersionUID = 1L;
 
@@ -706,10 +709,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             public HandlerResolver getHandlerResolver() {
                 return null;  //To change body of implemented methods use File | Settings | File Templates.
             }
-        }, null);
+        }, cmisCache);
     }
     
-    private Session getAtomCmisConnection() throws IOException, RepositoryException {
+    private Session getAtomCmisConnection(Cache cache) throws IOException, RepositoryException {
         if (atomPubUrl != null && !atomPubUrl.isEmpty()) {
             Map<String, String> parameter = new HashMap<String, String>();
 
@@ -726,6 +729,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
             SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
 
+            org.apache.chemistry.opencmis.client.runtime.cache.Cache cmisCache = new DistriburedCmisCacheImpl(cache);                
+            cmisCache.initialize(null, parameter);
             return factory.createSession(parameter, null, new StandardAuthenticationProvider() {
                 private static final long serialVersionUID = 1L;
 
@@ -739,9 +744,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 public HandlerResolver getHandlerResolver() {
                     return null;  //To change body of implemented methods use File | Settings | File Templates.
                 }
-            }, null);
+            }, cmisCache);
         } else {
-            return getSoapCmisConnection();            
+            return getSoapCmisConnection(cache);            
         }                
     }
 

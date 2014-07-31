@@ -40,7 +40,11 @@ public class CmisGetChildrenOperation extends CmisOperation {
             }
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
-            ItemIterable<CmisObject> children = parent.getChildren();
+            OperationContext ctx = session.createOperationContext();
+            ctx.setMaxItemsPerPage(1000); // check if it affects performance
+            ctx.setCacheEnabled(true); 
+            ctx.setIncludeAllowableActions(false);
+            ItemIterable<CmisObject> children = parent.getChildren(ctx);
             Iterator<CmisObject> iterator = children.iterator();
             // try to use next right away in order to save time for hasNext call
             CmisObject item = getNext(iterator);
@@ -105,6 +109,7 @@ public class CmisGetChildrenOperation extends CmisOperation {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
             ctx.setMaxItemsPerPage(1000); // check if it affects performance
+            ctx.setIncludeAllowableActions(false);            
             ctx.setCacheEnabled(true); 
             children = parent.getChildren(ctx);
 
