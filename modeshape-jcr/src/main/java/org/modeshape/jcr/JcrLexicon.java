@@ -50,7 +50,9 @@ public class JcrLexicon {
     public static final Name DATA = new BasicName(Namespace.URI, "data");
     public static final Name LAST_MODIFIED = new BasicName(Namespace.URI, "lastModified");
     public static final Name LAST_MODIFIED_BY = new BasicName(Namespace.URI, "lastModifiedBy");
-
+    public static final Name CONTENT_STREAM_LENGTH = new BasicName(Namespace.URI, "contentStreamLength");
+    public static final Name CONTENT_STREAM_FILE_NAME = new BasicName(Namespace.URI, "contentStreamFileName");
+    
     // Names used in the node type definitions ...
     public static final Name AUTO_CREATED = new BasicName(Namespace.URI, "autoCreated");
     public static final Name CHILD_NODE_DEFINITION = new BasicName(Namespace.URI, "childNodeDefinition");

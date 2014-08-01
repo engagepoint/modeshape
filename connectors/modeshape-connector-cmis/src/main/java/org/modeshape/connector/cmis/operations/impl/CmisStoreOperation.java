@@ -30,6 +30,12 @@ public class CmisStoreOperation extends CmisOperation {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         ObjectId objectId = ObjectId.valueOf(document.getString("key"));
+        
+        // in the jcr domain content is represented by child node of
+        // the nt:file node while in cmis domain it is a property of
+        // the cmis:document object. so to perform this operation we need
+        // to restore identifier of the original cmis:document. it is easy
+        String cmisId = objectId.getIdentifier();
 
         // this action depends from object type
         switch (objectId.getType()) {
@@ -38,12 +44,7 @@ public class CmisStoreOperation extends CmisOperation {
                 debug("Finish CmisStoreOperation:storeDocumen objectId.getType() is REPOSITORY_INFO. Nothing to do. Time: ", String.valueOf(System.currentTimeMillis()-startTime), " ms");
                 return;
             case CONTENT:
-                // in the jcr domain content is represented by child node of
-                // the nt:file node while in cmis domain it is a property of
-                // the cmis:document object. so to perform this operation we need
-                // to restore identifier of the original cmis:document. it is easy
-                String cmisId = objectId.getIdentifier();
-
+                
                 // now let's get the reference to this object
                 CmisObject cmisObject = session.getObject(cmisId);
 
@@ -166,6 +167,9 @@ public class CmisStoreOperation extends CmisOperation {
                     }
                 }
                 break;
+        }
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(cmisId);
         }
         debug("Finish CmisStoreOperation:storeDocumen. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }

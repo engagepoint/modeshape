@@ -275,6 +275,11 @@ public class RepositoryConfiguration {
          * the repository's name is used as the Infinispan cache name.
          */
         public static final String CACHE_NAME = "cacheName";
+        
+        /**
+         * The name for the field containing the name of the Infinispan cache that is used for caching runtime objects in memory.
+         */
+        public static final String INMEMORY_CACHE_NAME = "inmemoryCacheName";
 
         /**
          * The name for the field containing the name of the Infinispan configuration file. If a file could not be found (on the
@@ -1007,6 +1012,14 @@ public class RepositoryConfiguration {
             return storage.getString(FieldName.CACHE_NAME, getName());
         }
         return getName();
+    }
+    
+    public String getInmemoryCacheName() {
+        Document storage = doc.getDocument(FieldName.STORAGE);
+        if (storage != null) {
+            return storage.getString(FieldName.INMEMORY_CACHE_NAME, "");
+        }
+        return "";
     }
 
     public String getCacheConfiguration() {

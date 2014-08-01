@@ -11,6 +11,7 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.Constants;
+import org.modeshape.connector.cmis.features.CmisBinaryValue;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.jcr.JcrLexicon;
@@ -18,14 +19,13 @@ import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.federation.spi.DocumentWriter;
 import org.modeshape.jcr.federation.spi.PageKey;
 import org.modeshape.jcr.federation.spi.PageWriter;
-import org.modeshape.jcr.value.BinaryValue;
 
 import javax.jcr.nodetype.NodeType;
-import java.io.InputStream;
 import java.util.*;
-import org.apache.chemistry.opencmis.commons.data.ContentStream;
 
 public class CmisGetObjectOperation extends CmisOperation {
+    
+    public static final String MIX_CONTENT_STREAM = "{http://www.jcp.org/jcr/mix/1.0}contentStream";
 
     String projectedNodeId;
 
@@ -124,7 +124,17 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = doc.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
+        
+        writer.addMixinType(NodeType.MIX_MIMETYPE);
+        Property<Object> mimeType = doc.getProperty(PropertyIds.CONTENT_STREAM_MIME_TYPE);
+        writer.addProperty(JcrLexicon.MIMETYPE, localTypeManager.getPropertyUtils().jcrValues(mimeType));
 
+        writer.addMixinType(MIX_CONTENT_STREAM);
+        Property<Object> contentStreamLength = doc.getProperty(PropertyIds.CONTENT_STREAM_LENGTH);
+        Property<Object> contentStreamFileName = doc.getProperty(PropertyIds.CONTENT_STREAM_FILE_NAME);
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_LENGTH, localTypeManager.getPropertyUtils().jcrValues(contentStreamLength));
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_FILE_NAME, localTypeManager.getPropertyUtils().jcrValues(contentStreamFileName));
+        
         debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
@@ -145,13 +155,24 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.setPrimaryType(NodeType.NT_RESOURCE);
         writer.setParent(id);
 
-        ContentStream stream = doc.getContentStream();
-        if (stream != null) {
-            InputStream is = stream.getStream();
-            BinaryValue content = localTypeManager.getFactories().getBinaryFactory().create(is);
-            writer.addProperty(JcrConstants.JCR_DATA, content);
-            writer.addProperty(JcrConstants.JCR_MIME_TYPE, stream.getMimeType());
-        }
+        //ContentStream stream = doc.getContentStream();
+        //if (stream != null) {
+            //InputStream is = stream.getStream();
+            CmisBinaryValue cmisBinaryValue = new CmisBinaryValue(id, null, config.getSourceName(), config.getMimeTypeDetector());
+
+            //BinaryValue content = localTypeManager.getFactories().getBinaryFactory().create(is);
+            writer.addProperty(JcrConstants.JCR_DATA, cmisBinaryValue);
+
+
+        writer.addMixinType(NodeType.MIX_MIMETYPE);
+        Property<Object> mimeType = doc.getProperty(PropertyIds.CONTENT_STREAM_MIME_TYPE);
+        writer.addProperty(JcrLexicon.MIMETYPE, localTypeManager.getPropertyUtils().jcrValues(mimeType));
+
+        writer.addMixinType(MIX_CONTENT_STREAM);
+        Property<Object> contentStreamLength = doc.getProperty(PropertyIds.CONTENT_STREAM_LENGTH);
+        Property<Object> contentStreamFileName = doc.getProperty(PropertyIds.CONTENT_STREAM_FILE_NAME);
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_LENGTH, localTypeManager.getPropertyUtils().jcrValues(contentStreamLength));
+        writer.addProperty(JcrLexicon.CONTENT_STREAM_FILE_NAME, localTypeManager.getPropertyUtils().jcrValues(contentStreamFileName));
 
         // reference
         writer.addMixinType(NodeType.MIX_REFERENCEABLE);
@@ -169,7 +190,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
 
-        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
+        debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
     }
 
@@ -275,7 +296,7 @@ public class CmisGetObjectOperation extends CmisOperation {
             Object[] values = localTypeManager.getPropertyUtils().jcrValues(cmisProperty);
             result.put(jcrPropertyName, values);
         }
-        debug("Finish CmisGetObjectOperation:processProperties. Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");                
+        debug("Finish CmisGetObjectOperation:processProperties. Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return result;
     }
 

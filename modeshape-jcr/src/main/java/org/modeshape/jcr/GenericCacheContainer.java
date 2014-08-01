@@ -6,7 +6,7 @@ package org.modeshape.jcr;
  */
 public class GenericCacheContainer {
     private static CacheService<String, Object> instance;
-    private static final int MAX_CACHE_CAPACITY = 100000;
+    private static final int MAX_CACHE_CAPACITY = 10000;
     private static final int INITIAL_CACHE_CAPACITY = 100;
     
     public static synchronized CacheService<String, Object> getInstance() {

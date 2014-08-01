@@ -4,7 +4,6 @@ import org.apache.chemistry.opencmis.client.api.Session;
 
 import org.apache.commons.lang3.StringUtils;
 
-import org.apache.log4j.Logger;
 
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
@@ -18,6 +17,7 @@ import org.slf4j.LoggerFactory;
 import java.lang.reflect.Constructor;
 import java.util.List;
 import java.util.Map;
+import org.infinispan.Cache;
 
 /**
  * Cmis Connector runtime container.
@@ -30,6 +30,7 @@ public class RuntimeSnapshot {
     protected static org.slf4j.Logger LOG = LoggerFactory.getLogger(RuntimeSnapshot.class);
 
     private Session session;
+    private Session soapSession;
     private String caughtProjectedId;
     private LocalTypeManager localTypeManager;
     private SingleVersionDocumentsCache singleVersionCache;
@@ -41,29 +42,33 @@ public class RuntimeSnapshot {
     private CmisObjectFinderUtil cmisObjectFinderUtil;
 
     private LanguageDialect languageDialect;
+    
+    private Cache cache;
 
     public RuntimeSnapshot(Session session, LocalTypeManager localTypeManager, SingleVersionOptions singleVersionOptions, SingleVersionDocumentsCache singleVersionCache,
                            CmisConnector.ConnectorDocumentProducer documentProducer,
                            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections,
-                           String cmisObjectFinderUtil, String languageDialect) {
+                           String cmisObjectFinderUtil, String languageDialect, Session soapSession, Cache cache) {
         this.session = session;
         this.caughtProjectedId = caughtProjectedId;
         this.localTypeManager = localTypeManager;
         this.singleVersionCache = singleVersionCache;
         this.documentProducer = documentProducer;
         this.preconfiguredProjections = preconfiguredProjections;
+        this.cache = cache;
         this.cmisObjectFinderUtil = initFinder(cmisObjectFinderUtil, singleVersionOptions);
         this.languageDialect = initLanguageDialect(languageDialect);
+        this.soapSession = soapSession;        
     }
 
     private CmisObjectFinderUtil initFinder(String cmisObjectFinderUtil, SingleVersionOptions singleVersionOptions) {
         if (StringUtils.isEmpty(cmisObjectFinderUtil)) {
             LOG.warn(String.format("cmisObjectFinderUtil parameter is not defined, default realization '%s' will be used", FilenetObjectFinderUtil.class.toString()));
-            return new FilenetObjectFinderUtil(session, localTypeManager, singleVersionOptions);
+            return new FilenetObjectFinderUtil(session, localTypeManager, singleVersionOptions, cache);
         }
         try {
-            Constructor c = Class.forName(cmisObjectFinderUtil).getConstructor(Session.class, LocalTypeManager.class, SingleVersionOptions.class);
-            CmisObjectFinderUtil finderUtil = (CmisObjectFinderUtil) c.newInstance(session, localTypeManager, singleVersionOptions);
+            Constructor c = Class.forName(cmisObjectFinderUtil).getConstructor(Session.class, LocalTypeManager.class, SingleVersionOptions.class, Cache.class);
+            CmisObjectFinderUtil finderUtil = (CmisObjectFinderUtil) c.newInstance(session, localTypeManager, singleVersionOptions, cache);
             return finderUtil;
         } catch (Exception e) {
             LOG.error(String.format("Instatiation of cmisObjectFinderUtil has failed, %s", e.getMessage()), e);
@@ -84,6 +89,10 @@ public class RuntimeSnapshot {
 
     public Session getSession() {
         return session;
+    }
+    
+    public Session getSoapSession() {
+        return soapSession;
     }
 
     public String getCaughtProjectedId() {
@@ -112,6 +121,10 @@ public class RuntimeSnapshot {
 
     public LanguageDialect getLanguageDialect() {
         return languageDialect;
+    }
+    
+    public Cache getCache() {
+        return cache;
     }
 
     //

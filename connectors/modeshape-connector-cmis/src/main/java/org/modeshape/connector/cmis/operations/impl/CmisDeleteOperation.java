@@ -57,7 +57,9 @@ public class CmisDeleteOperation extends CmisOperation {
         } catch (org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException nfe) {
             return true;
         }
-        
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(id);
+        }
         debug("Finish CmisDeleteOperation:doDeleteObject for objectId = ", id, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
@@ -105,6 +107,9 @@ public class CmisDeleteOperation extends CmisOperation {
             }
 
         }
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(cmisId);
+        }
         debug("Finish CmisDeleteOperation:doDeleteContent for objectId = ", cmisId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
@@ -115,6 +120,9 @@ public class CmisDeleteOperation extends CmisOperation {
         debug("Start CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId());
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteContentStream();
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(object.getId());
+        }
         debug("Finish CmisDeleteOperation:deleteStreamVersioned for objectId = ", object == null ? "null" : object.getId(), " Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 
@@ -127,6 +135,9 @@ public class CmisDeleteOperation extends CmisOperation {
 
         org.apache.chemistry.opencmis.client.api.Document pwc = CmisOperationCommons.checkout(session, object);
         pwc.deleteAllVersions();
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(document.getId());
+        }
         debug("Finish CmisDeleteOperation:deleteVersioned for objectId = ", object == null ? "null" : object.getId(), ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
     }
 

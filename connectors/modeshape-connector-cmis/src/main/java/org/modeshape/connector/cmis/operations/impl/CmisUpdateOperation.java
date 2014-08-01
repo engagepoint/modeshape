@@ -25,8 +25,11 @@ import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
+import org.slf4j.LoggerFactory;
 
 public class CmisUpdateOperation extends CmisOperation {
+    
+    private final org.slf4j.Logger log = LoggerFactory.getLogger(this.getClass());
 
     public CmisUpdateOperation(RuntimeSnapshot snapshot,
                                CmisConnectorConfiguration config) {
@@ -58,7 +61,7 @@ public class CmisUpdateOperation extends CmisOperation {
         long startTime = System.currentTimeMillis();
         // object id is a composite key which holds information about
         // unique object identifier and about its type
-        ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());
+        ObjectId objectId = ObjectId.valueOf(delta.getDocumentId());        
         debug("Start CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier());   
         VersioningState versioningState = VersioningState.valueOf(config.getVersioningOnUpdateMetadata());
         boolean major = versioningState == VersioningState.MAJOR;
@@ -74,7 +77,7 @@ public class CmisUpdateOperation extends CmisOperation {
                 // the cmis:document object. so to perform this operation we need
                 // to restore identifier of the original cmis:document. it is easy
                 String cmisId = objectId.getIdentifier();
-
+                
                 // now let's get the reference to this object
                 CmisObject cmisObject = finderUtil.find(cmisId);
 
@@ -106,10 +109,14 @@ public class CmisUpdateOperation extends CmisOperation {
                         }
                     }
                 }
+                if (snapshot.getCache() != null) {
+                    snapshot.getCache().remove(cmisId);
+                }
                 break;
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
-                cmisObject = finderUtil.find(objectId.getIdentifier());
+                cmisId = objectId.getIdentifier();
+                cmisObject = finderUtil.find(cmisId);
 
                 // checking that object exists
                 if (cmisObject == null) {
@@ -252,7 +259,10 @@ public class CmisUpdateOperation extends CmisOperation {
                         rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
-
+                if (snapshot.getCache() != null) {
+                    snapshot.getCache().remove(cmisId);
+                }
+                
                 break;
             case UNFILED_STORAGE:
                 // process unfiled changes
@@ -275,9 +285,9 @@ public class CmisUpdateOperation extends CmisOperation {
 
                         debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
 
-                        rename(child, after, versioningState, major);
+                        rename(child, after, versioningState, major);                        
                     }
-                }
+                }                  
         }
         debug("Finish CmisUpdateOperation:updateDocument for objectId = ", objectId == null ? "null" : objectId.getIdentifier(), ". Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }
@@ -320,7 +330,10 @@ public class CmisUpdateOperation extends CmisOperation {
             } else {
                 CmisOperationCommons.updateVersionedDoc(session, object, properties, null, major);
             }
-        } else object.updateProperties(properties);
+        } else object.updateProperties(properties);   
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(object.getId());
+        }
     }
 
     /**
@@ -338,6 +351,9 @@ public class CmisUpdateOperation extends CmisOperation {
             return;
         }
 
-        target.move(src, finderUtil.find(dst));
+        target.move(src, finderUtil.find(dst));   
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(object.getId());
+        }
     }
 }

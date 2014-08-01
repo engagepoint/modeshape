@@ -44,6 +44,9 @@ import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.nodetype.NodeTypeManager;
+import javax.naming.NamingException;
+import org.infinispan.Cache;
+import org.infinispan.manager.CacheContainer;
 
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
@@ -489,7 +492,7 @@ public final class Connectors {
     protected void initializeConnector( Connector connector,
                                         NamespaceRegistry registry,
                                         org.modeshape.jcr.api.nodetype.NodeTypeManager nodeTypeManager )
-        throws IOException, RepositoryException {
+        throws IOException, RepositoryException, NamingException {
 
         // Set the execution context instance ...
         ReflectionUtil.setValue(connector, "context", repository.context());
@@ -517,7 +520,15 @@ public final class Connectors {
         ExtraPropertiesStore defaultExtraPropertiesStore = new LocalDocumentStoreExtraProperties(store, sourceKey, translator);
         ReflectionUtil.setValue(connector, "extraPropertiesStore", defaultExtraPropertiesStore);
 
-        connector.initialize(registry, nodeTypeManager);
+        RepositoryConfiguration config = repository.getRepositoryConfiguration();
+        CacheContainer container = config.getContentCacheContainer();
+        String cacheName = config.getInmemoryCacheName();
+        Cache cache = null;
+        if (cacheName != null && !cacheName.isEmpty()) {
+            cache = container.getCache(cacheName);
+        }
+        
+        connector.initialize(registry, nodeTypeManager, cache);
 
         // possible problem with config to workspace
         // this is a temporary fix -> available only for the case with a single workspace and projection

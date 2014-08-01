@@ -29,6 +29,7 @@ import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.*;
 
 import org.apache.chemistry.opencmis.client.bindings.spi.StandardAuthenticationProvider;
+import org.apache.chemistry.opencmis.client.runtime.ObjectIdImpl;
 import org.apache.chemistry.opencmis.client.runtime.SessionFactoryImpl;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.SessionParameter;
@@ -46,10 +47,10 @@ import org.infinispan.schematic.document.Document;
 import org.modeshape.common.collection.Problem;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
-import org.modeshape.common.logging.Logger;
 import org.modeshape.connector.cmis.common.CompareTypesI18n;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
+import org.modeshape.connector.cmis.features.CmisBinaryValue;
 import org.modeshape.connector.cmis.features.SingleVersionDocumentsCache;
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
 import org.modeshape.connector.cmis.features.TempDocument;
@@ -67,6 +68,7 @@ import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.federation.spi.*;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.Name;
+import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 import org.slf4j.LoggerFactory;
 import org.w3c.dom.Element;
 
@@ -80,6 +82,7 @@ import java.io.IOException;
 import java.math.BigInteger;
 import java.security.GeneralSecurityException;
 import java.util.*;
+import org.infinispan.Cache;
 
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isDocument;
@@ -136,7 +139,7 @@ import static org.modeshape.connector.cmis.util.CompareTypeDefinitionsUtil.compa
  * <td><code>/filesAndFolder</code></td>
  * <td>The structure of the folders and files in the projected repository</td>
  * </tr>
- * <table>
+ * </table>
  *
  * @author Oleg Kulikov
  * @author Ivan Vasyliev
@@ -151,6 +154,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // path and id for the repository node
     private Session session;
+    private Session soapSession;
     // -----  json settings -------------
     // binding parameters
     private String aclService;
@@ -162,6 +166,9 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     private String relationshipService;
     private String repositoryService;
     private String versioningService;
+    
+    private String atomPubUrl;
+    
     private Properties properties;
     // root folder reference flag
     private boolean hideRootFolderReference;
@@ -214,7 +221,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // name of class with search realization
     private String cmisObjectFinderUtil;
-
+    
     public CmisConnector() {
         super();
     }
@@ -254,6 +261,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Session getSession() {
         return runtimeSnapshot.getSession();
     }
+    
+    public Session getSoapSession() {
+        return runtimeSnapshot.getSoapSession();
+    }
 
     private LocalTypeManager getLocalTypeManager() {
         return runtimeSnapshot.getLocalTypeManager();
@@ -280,8 +291,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     @Override
     public void initialize(NamespaceRegistry registry,
-                           NodeTypeManager nodeTypeManager) throws RepositoryException, IOException, IllegalArgumentException {
-        super.initialize(registry, nodeTypeManager);
+                           NodeTypeManager nodeTypeManager, Cache cache) throws RepositoryException, IOException, IllegalArgumentException {
+        super.initialize(registry, nodeTypeManager, cache);
 
         // pack settings into containers for easy passing to sub-classes
         this.configuration = new CmisConnectorConfiguration(
@@ -290,10 +301,12 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 snsCommonIndex, remoteUnfiledNodeId, unfiledQueryTemplate, folderSetUnknownChildren,
                 pageSize, pageSizeUnfiled, singleVersionOptions,
                 hideRootFolderReference,
-                debug, versioningOnUpdateMetadata);
+                debug, versioningOnUpdateMetadata,
+                getSourceName(), getMimeTypeDetector());
 
         // setup CMIS connection
-        Session session = getCmisConnection();
+        session = getAtomCmisConnection();
+        soapSession = getSoapCmisConnection();
 
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
@@ -316,7 +329,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, soapSession, cache);
     }
 
 
@@ -349,6 +362,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 // cmis:document and converts its content property into jcr node
                 // result object should have same id as requested
                 return cmisGetObjectOperation.cmisContent(objectId.getIdentifier());
+                //return null;
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
                 return cmisObject(objectId.getIdentifier());
@@ -357,6 +371,17 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return null;
         }
     }
+
+    @Override
+    public ExternalBinaryValue getBinaryValue(String id) {
+        try {
+            CmisObjectFinderUtil finderUtil = runtimeSnapshot.getCmisObjectFinderUtil();
+            return new CmisBinaryValue(id, finderUtil, getSourceName(), getMimeTypeDetector());
+        } catch (CmisObjectNotFoundException e) {
+            return null;
+        }
+    }
+
 
     /*
     * look up local temp storage for proposed id
@@ -643,7 +668,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // ------------------------------ INITIALIZATIONS ----------------------------------
 
 
-    private Session getCmisConnection() throws IOException, RepositoryException {
+    private Session getSoapCmisConnection() throws IOException, RepositoryException {        
         Map<String, String> parameter = new HashMap<String, String>();
 
         // user credentials
@@ -687,6 +712,42 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 return null;  //To change body of implemented methods use File | Settings | File Templates.
             }
         }, null);
+    }
+    
+    private Session getAtomCmisConnection() throws IOException, RepositoryException {
+        if (atomPubUrl != null && !atomPubUrl.isEmpty()) {
+            Map<String, String> parameter = new HashMap<String, String>();
+
+            // user credentials
+            if (StringUtils.isNotEmpty(user) && StringUtils.isNotEmpty(password)) {
+                parameter.put(SessionParameter.USER, user);
+                parameter.put(SessionParameter.PASSWORD, getPassword());
+            }
+
+            // connection settings
+            parameter.put(SessionParameter.BINDING_TYPE, BindingType.ATOMPUB.value());
+            parameter.put(SessionParameter.ATOMPUB_URL, atomPubUrl);
+            parameter.put(SessionParameter.REPOSITORY_ID, repositoryId);
+
+            SessionFactoryImpl factory = SessionFactoryImpl.newInstance();
+
+            return factory.createSession(parameter, null, new StandardAuthenticationProvider() {
+                private static final long serialVersionUID = 1L;
+
+                @Override
+                public Element getSOAPHeaders(Object portObject) {
+                    // Place headers here
+                    return super.getSOAPHeaders(portObject);
+                }
+
+                @Override
+                public HandlerResolver getHandlerResolver() {
+                    return null;  //To change body of implemented methods use File | Settings | File Templates.
+                }
+            }, null);
+        } else {
+            return getSoapCmisConnection();            
+        }                
     }
 
 
@@ -859,7 +920,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
             unfiledQueryTemplate = (StringUtils.isNotEmpty(remoteUnfiledNodeId))
                     ? "select * from cmis:document where " +
                     "IN_FOLDER('" + remoteUnfiledNodeId + "') AND cmis:name='%s'"
-                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId from cmis:document doc " +
+                    : "select doc.cmis:objectId, doc.cmis:versionSeriesId, doc.cmis:objectTypeId from cmis:document doc " +
                     "LEFT JOIN ReferentialContainmentRelationship rcr ON document.This=rcr.Head " +
                     "WHERE rcr.Head is NULL AND doc.cmis:name='%s'";
         }
@@ -1050,5 +1111,5 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public LanguageDialect getLanguageDialect() {
         return runtimeSnapshot.getLanguageDialect();
     }
-
+    
 }

@@ -152,12 +152,16 @@ public class JcrNodeTypeManager implements NodeTypeManager {
      * @see NodeTypes#getNodeType(Name)
      */
     JcrNodeType getNodeType( Name nodeTypeName ) {
-        JcrNodeType nodeType = nodeTypes().getNodeType(nodeTypeName);
+        String identifier = nodeTypeName.getLocalName()+"_"+nodeTypeName.getNamespaceUri();
+        JcrNodeType nodeType = (JcrNodeType) GenericCacheContainer.getInstance().get(identifier);
+        if (nodeType == null) {
+            nodeType = nodeTypes().getNodeType(nodeTypeName);
 
-        if (nodeType != null) {
-            nodeType = nodeType.with(context(), session);
-        }
-
+            if (nodeType != null) {
+                nodeType = nodeType.with(context(), session);
+            }
+            GenericCacheContainer.getInstance().put(identifier, nodeType);
+        }        
         return nodeType;
     }
 

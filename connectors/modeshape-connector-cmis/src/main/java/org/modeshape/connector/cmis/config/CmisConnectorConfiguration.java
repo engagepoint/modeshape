@@ -1,6 +1,7 @@
 package org.modeshape.connector.cmis.config;
 
 import org.modeshape.connector.cmis.features.SingleVersionOptions;
+import org.modeshape.jcr.mimetype.MimeTypeDetector;
 
 /*
   * Container to keep parameters passed to connector
@@ -33,13 +34,18 @@ public class CmisConnectorConfiguration {
 
     boolean debug;
 
+    private String sourceName;
+
+    private MimeTypeDetector mimeTypeDetector;
+
     public CmisConnectorConfiguration(boolean ignoreEmptyPropertiesOnCreate,
                                       boolean addRequiredPropertiesOnRead, int snsCommonIndex,
                                       String remoteUnfiledNodeId, String unfiledQueryTemplate,
                                       boolean folderSetUnknownChildren, long pageSize, long pageSizeUnfiled,
                                       SingleVersionOptions singleVersionOptions,
                                       boolean hideRootFolderReference,
-                                      boolean debug, String versioningOnUpdateMetadata) {
+                                      boolean debug, String versioningOnUpdateMetadata,
+                                      String sourceName, MimeTypeDetector mimeTypeDetector) {
         this.ignoreEmptyPropertiesOnCreate = ignoreEmptyPropertiesOnCreate;
         this.addRequiredPropertiesOnRead = addRequiredPropertiesOnRead;
         this.snsCommonIndex = snsCommonIndex;
@@ -52,6 +58,8 @@ public class CmisConnectorConfiguration {
         this.hideRootFolderReference = hideRootFolderReference;
         this.debug = debug;
         this.versioningOnUpdateMetadata = versioningOnUpdateMetadata;
+        this.sourceName = sourceName;
+        this.mimeTypeDetector = mimeTypeDetector;
     }
 
     public boolean isIgnoreEmptyPropertiesOnCreate() {
@@ -100,6 +108,13 @@ public class CmisConnectorConfiguration {
 
     public String getVersioningOnUpdateMetadata() {
         return versioningOnUpdateMetadata;
-    }    
-        
+    }
+
+    public String getSourceName() {
+        return sourceName;
+    }
+
+    public MimeTypeDetector getMimeTypeDetector() {
+        return mimeTypeDetector;
+    }
 }
