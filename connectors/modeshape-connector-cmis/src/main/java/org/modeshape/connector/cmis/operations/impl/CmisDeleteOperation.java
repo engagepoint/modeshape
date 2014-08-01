@@ -107,6 +107,9 @@ public class CmisDeleteOperation extends CmisOperation {
             }
 
         }
+        if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(cmisId);
+        }
         debug("Finish CmisDeleteOperation:doDeleteContent for objectId = ", cmisId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return true;
     }
