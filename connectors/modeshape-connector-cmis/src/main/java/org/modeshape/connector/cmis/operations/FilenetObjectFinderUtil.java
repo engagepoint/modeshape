@@ -115,7 +115,9 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             if (isVirtualId){
                 result = findByCommonId(suggestedId);
             } else {
-                return session.getObject(suggestedId);
+                result = session.getObject(suggestedId);
+                result.refresh();
+                return result;
             }                      
         } catch (CmisObjectNotFoundException nfe) {
             LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::CmisObjectNotFoundException exception. Error content {0}."), nfe.getErrorContent());
