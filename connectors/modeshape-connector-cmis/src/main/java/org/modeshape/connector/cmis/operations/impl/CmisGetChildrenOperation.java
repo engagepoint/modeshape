@@ -93,7 +93,6 @@ public class CmisGetChildrenOperation extends CmisOperation {
                     QueryResult next = (QueryResult) page.iterator().next();
                     String childId = finderUtil.getObjectMappingId(next);
                     String oName = next.getPropertyById(PropertyIds.NAME).getFirstValue().toString();
-                    debug("adding child", oName, childId);
                     writer.addChild(childId, oName);
                 }
                 doAddPage = pageIterator.hasNext();
@@ -118,7 +117,6 @@ public class CmisGetChildrenOperation extends CmisOperation {
             for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
                 CmisObject next = (CmisObject) pageIterator.next();
                 String childId = finderUtil.getObjectMappingId(next);
-                debug("adding child [" + (int) (offset + i) + "]", next.getName(), childId);
                 writer.addChild(childId, next.getName());
             }
 
