@@ -302,8 +302,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 getSourceName(), getMimeTypeDetector());
 
         // setup CMIS connection
-        session = getAtomCmisConnection(cache);
-        soapSession = getSoapCmisConnection(cache);
+        session = getSoapCmisConnection(cache);
 
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
