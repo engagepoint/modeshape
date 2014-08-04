@@ -29,6 +29,7 @@ import org.apache.chemistry.opencmis.commons.data.ObjectParentData;
  */
 public class DistriburedCmisCacheImpl extends CacheImpl implements Cache {
     
+    public static final String PARENTS_SUFFIX = "_Parents";
     private final ConcurrentMap distributedCache;
     
     /**
@@ -47,22 +48,22 @@ public class DistriburedCmisCacheImpl extends CacheImpl implements Cache {
 
     @Override
     public boolean containsParents(String objectId) {
-        return distributedCache.containsKey(objectId);
+        return distributedCache.containsKey(objectId+PARENTS_SUFFIX);
     }
 
     @Override
     public List<ObjectParentData> getParents(String objectId) {
-        return (List<ObjectParentData>) distributedCache.get(objectId);
+        return (List<ObjectParentData>) distributedCache.get(objectId+PARENTS_SUFFIX);
     }
 
     @Override
     public void putParents(String objectId, List<ObjectParentData> parents) {
-        distributedCache.put(objectId, parents);
+        distributedCache.put(objectId+PARENTS_SUFFIX, parents);
     }
 
     @Override
     public void removeParents(String objectId) {
-        distributedCache.remove(objectId);
+        distributedCache.remove(objectId+PARENTS_SUFFIX);
     }
     
 }
