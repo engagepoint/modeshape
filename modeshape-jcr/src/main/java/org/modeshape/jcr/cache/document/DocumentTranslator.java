@@ -822,7 +822,7 @@ public class DocumentTranslator implements DocumentConstants {
                                    Set<NodeKey> removals,
                                    Map<NodeKey, Name> newNames ) {
         List<?> children = document.getArray(CHILDREN);
-        EditableArray newChildren = Schematic.newArray();
+        LinkedHashSet<ChildReference> newChildren = new LinkedHashSet<ChildReference>();
         if (children != null) {
             // process existing children
             for (Object value : children) {
@@ -835,7 +835,7 @@ public class DocumentTranslator implements DocumentConstants {
                 Insertions insertions = insertionsByBeforeKey.remove(childKey);
                 if (insertions != null) {
                     for (ChildReference inserted : insertions.inserted()) {
-                        newChildren.add(fromChildReference(inserted));
+                        newChildren.add(inserted);
                     }
                 }
                 if (removals.remove(childKey)) {
@@ -845,10 +845,9 @@ public class DocumentTranslator implements DocumentConstants {
                     Name newName = newNames.get(childKey);
                     if (newName != null) {
                         // But has been renamed ...
-                        ChildReference newRef = ref.with(newName, 1);
-                        value = fromChildReference(newRef);
+                        ref = ref.with(newName, 1);
                     }
-                    newChildren.add(value);
+                    newChildren.add(ref);
                 }
             }
         }
@@ -880,12 +879,14 @@ public class DocumentTranslator implements DocumentConstants {
                     toBeInsertedInOrder.add(activeReference);
                 }
             }
-            for (ChildReference inserted : toBeInsertedInOrder) {
-                newChildren.add(fromChildReference(inserted));
-            }
+            newChildren.addAll(toBeInsertedInOrder);
         }
 
-        document.set(CHILDREN, newChildren);
+        EditableArray newChildrenArray = Schematic.newArray(newChildren.size());
+        for (ChildReference childReference : newChildren) {
+            newChildrenArray.add(fromChildReference(childReference));
+        }
+        document.set(CHILDREN, newChildrenArray);
         return newChildren.size();
     }
 
@@ -900,63 +901,31 @@ public class DocumentTranslator implements DocumentConstants {
         boolean hasChildren = document.containsField(CHILDREN);
         boolean hasFederatedSegments = document.containsField(FEDERATED_SEGMENTS);
         if (!hasChildren && !hasFederatedSegments) {
-            return ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
+            ChildReferences result = ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
+            logGetChildReferencesFinished(uuid, startTime);
+            return result;
         }
+        ChildReferences internalChildRefs = hasChildren ?
+                                            ImmutableChildReferences.createLazy(this, document, CHILDREN) :
+                                            ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
+        ChildReferences externalChildRefs = hasFederatedSegments ?
+                                            ImmutableChildReferences.createLazy(this, document, FEDERATED_SEGMENTS) :
+                                            ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
 
-        boolean lazy = true;
-
-        if (!lazy) {
-            List<?> children = document.getArray(CHILDREN);
-            List<?> externalSegments = document.getArray(FEDERATED_SEGMENTS);
-
-            // Materialize the ChildReference objects in the 'children' document ...
-            List<ChildReference> internalChildRefsList = childReferencesListFromArray(children);
-
-            // Materialize the ChildReference objects in the 'federated segments' document ...
-            List<ChildReference> externalChildRefsList = childReferencesListFromArray(externalSegments);
-
-            // Now look at the 'childrenInfo' document for info about the next block of children ...
-            ChildReferencesInfo info = getChildReferencesInfo(document);
-            if (info != null) {
-                // The children are segmented ...
-                ChildReferences internalChildRefs = ImmutableChildReferences.create(internalChildRefsList);
-                ChildReferences externalChildRefs = ImmutableChildReferences.create(externalChildRefsList);
-
-                ChildReferences result = ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
-                logGetChildReferencesFinished(uuid, startTime);
-                return result;
-            }
-            if (externalSegments != null) {
-                // There is no segmenting, so just add the federated references at the end
-                internalChildRefsList.addAll(externalChildRefsList);
-            }
-            ChildReferences result = ImmutableChildReferences.create(internalChildRefsList);
+        // Now look at the 'childrenInfo' document for info about the next block of children ...
+        ChildReferencesInfo info = getChildReferencesInfo(document);
+        if (!hasChildren) {
+            ChildReferences result = ImmutableChildReferences.create(externalChildRefs, info, cache, document.getString(KEY));
+            logGetChildReferencesFinished(uuid, startTime);
+            return result;
+        } else if (!hasFederatedSegments) {
+            ChildReferences result = ImmutableChildReferences.create(internalChildRefs, info, cache, document.getString(KEY));
             logGetChildReferencesFinished(uuid, startTime);
             return result;
         } else {
-            ChildReferences internalChildRefs = hasChildren ?
-                                                ImmutableChildReferences.createLazy(this, document, CHILDREN) :
-                                                ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
-            ChildReferences externalChildRefs = hasFederatedSegments ?
-                                                ImmutableChildReferences.createLazy(this, document, FEDERATED_SEGMENTS) :
-                                                ImmutableChildReferences.EMPTY_CHILD_REFERENCES;
-
-            // Now look at the 'childrenInfo' document for info about the next block of children ...
-            ChildReferencesInfo info = getChildReferencesInfo(document);
-            if (!hasChildren) {
-                ChildReferences result = info != null ? ImmutableChildReferences.create(externalChildRefs, info, cache, document.getString(KEY)) : externalChildRefs;
-                logGetChildReferencesFinished(uuid, startTime);
-                return result;
-            } else if (!hasFederatedSegments) {
-                ChildReferences result = info != null ? ImmutableChildReferences.create(internalChildRefs, info, cache, document.getString(KEY)) : internalChildRefs;
-                logGetChildReferencesFinished(uuid, startTime);
-                return result;
-            } else {
-                ChildReferences result = info != null ? ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY)) :
-                        ImmutableChildReferences.union(internalChildRefs, externalChildRefs);
-                logGetChildReferencesFinished(uuid, startTime);
-                return result;
-            }
+            ChildReferences result = ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, document.getString(KEY));
+            logGetChildReferencesFinished(uuid, startTime);
+            return result;
         }
     }
 
