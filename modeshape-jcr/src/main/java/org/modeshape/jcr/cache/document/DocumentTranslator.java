@@ -1318,8 +1318,14 @@ public class DocumentTranslator implements DocumentConstants {
             }
 
             if (sha1 != null) {
+
                 // Find the document metadata and decrement the usage count ...
                 SchematicEntry entry = documentStore.get(keyForBinaryReferenceDocument(sha1));
+
+                if (entry == null){
+                    return;
+                }
+
                 EditableDocument sha1Usage = entry.editDocumentContent();
                 Long countValue = sha1Usage.getLong(REFERENCE_COUNT);
                 assert countValue != null;

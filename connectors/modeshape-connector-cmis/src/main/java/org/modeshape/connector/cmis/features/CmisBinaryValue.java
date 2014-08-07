@@ -15,7 +15,7 @@ import java.io.InputStream;
 public class CmisBinaryValue extends ExternalBinaryValue {
 
     private static final long serialVersionUID = 1L;
-    private CmisObjectFinderUtil finderUtil;
+    private transient CmisObjectFinderUtil finderUtil;
     private String id;
 
     public CmisBinaryValue(String id,
