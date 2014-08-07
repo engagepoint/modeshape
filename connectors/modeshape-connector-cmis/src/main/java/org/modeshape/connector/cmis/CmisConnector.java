@@ -261,11 +261,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     public Session getSession() {
         return runtimeSnapshot.getSession();
     }
-    
-    public Session getSoapSession() {
-        return runtimeSnapshot.getSoapSession();
-    }
-
+        
     private LocalTypeManager getLocalTypeManager() {
         return runtimeSnapshot.getLocalTypeManager();
     }
@@ -305,9 +301,8 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 getSourceName(), getMimeTypeDetector());
 
         // setup CMIS connection
-        session = getAtomCmisConnection();
-        soapSession = getSoapCmisConnection();
-
+        session = getSoapCmisConnection();
+        
         // create types container
         LocalTypeManager localTypeManager = new LocalTypeManager(
                 getContext().getValueFactories(),
@@ -329,7 +324,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
 
         runtimeSnapshot = new RuntimeSnapshot(session, localTypeManager, singleVersionOptions, singleVersionCache,
-                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, soapSession, cache);
+                documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, cache);
     }
 
 

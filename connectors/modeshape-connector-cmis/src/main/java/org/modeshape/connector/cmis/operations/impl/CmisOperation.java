@@ -22,7 +22,6 @@ public abstract class CmisOperation {
 
     // ease access // probably temporary
     protected Session session;
-    protected Session soapSession;
     protected LocalTypeManager localTypeManager;
     protected SingleVersionOptions singleVersionOptions;
     protected CmisObjectFinderUtil finderUtil;
@@ -34,7 +33,6 @@ public abstract class CmisOperation {
 
         // assign quick access properties
         this.session = snapshot.getSession();
-        this.soapSession = snapshot.getSoapSession();
         this.localTypeManager = snapshot.getLocalTypeManager();
         this.singleVersionOptions = config.getSingleVersionOptions();
         this.finderUtil = snapshot.getCmisObjectFinderUtil();

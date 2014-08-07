@@ -164,7 +164,7 @@ public class CmisNewObjectCombinedOperation extends CmisOperation {
             ContentStream stream = getContentStream(documentContent, filename, binaryProducer);
             if (parent == null) {
                 // unfiled
-                result = soapSession.createDocument(cmisProperties, null, stream, versioningState).getId();
+                result = session.createDocument(cmisProperties, null, stream, versioningState).getId();
             } else {
                 org.apache.chemistry.opencmis.client.api.Document resultDocument = parent.createDocument(cmisProperties, stream, versioningState);
                 result = ObjectId.toString(ObjectId.Type.OBJECT, resultDocument.getId());
