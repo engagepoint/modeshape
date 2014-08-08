@@ -3,7 +3,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-jbosseap</artifactId>
-    <version>3.7.34-EP-SNAPSHOT</version>
+    <version>3.7.34-EP</version>
 
     <name>ModeShape BOM for usage within EAP</name>
 
@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-      <tag>modeshape-3.7.31-EP-SNAPSHOT</tag>
+      <tag>modeshape-3.7.34-EP</tag>
   </scm>
 
     <issueManagement>

@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-connectors</artifactId>
-<version>3.7.34-EP-SNAPSHOT</version>
+<version>3.7.34-EP</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The groupId and version values are inherited from parent -->
