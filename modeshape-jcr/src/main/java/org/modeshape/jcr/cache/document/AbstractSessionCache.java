@@ -224,6 +224,11 @@ public abstract class AbstractSessionCache implements SessionCache, DocumentCach
 
     @Override
     public NodeKey getRootKey() {
+        return getRootKey(false);
+    }
+    
+    @Override
+    public NodeKey getRootKey(boolean skipChildren) {
         return workspaceCache().getRootKey();
     }
 
@@ -233,8 +238,12 @@ public abstract class AbstractSessionCache implements SessionCache, DocumentCach
     }
 
     @Override
-    public CachedNode getNode( NodeKey key ) {
-        return workspaceCache().getNode(key);
+    public CachedNode getNode( NodeKey key) {
+        return getNode(key, false);
+    }
+    @Override
+    public CachedNode getNode( NodeKey key, boolean skipChildren ) {
+        return workspaceCache().getNode(key, skipChildren);
     }
 
     @Override

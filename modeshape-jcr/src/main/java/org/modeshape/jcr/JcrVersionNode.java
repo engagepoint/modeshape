@@ -54,7 +54,12 @@ class JcrVersionNode extends JcrSystemNode implements Version {
 
     @Override
     public JcrVersionHistoryNode getParent() throws ItemNotFoundException, RepositoryException {
-        return (JcrVersionHistoryNode)super.getParent();
+        return getParent(false);
+    }
+    
+    @Override
+    public JcrVersionHistoryNode getParent(boolean skipChildern) throws ItemNotFoundException, RepositoryException {
+        return (JcrVersionHistoryNode)super.getParent(skipChildern);
     }
 
     @Override

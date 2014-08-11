@@ -484,11 +484,17 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     AbstractJcrNode node( NodeKey nodeKey,
                           AbstractJcrNode.Type expectedType,
                           NodeKey parentKey ) throws ItemNotFoundException {
+        return node(nodeKey, expectedType, parentKey, false);
+    }
+    
+    AbstractJcrNode node( NodeKey nodeKey,
+                          AbstractJcrNode.Type expectedType,
+                          NodeKey parentKey, boolean skipChildren ) throws ItemNotFoundException {
     	CachedNode cachedNode = null;
         AbstractJcrNode node = null; 
         
     	if (nodeKey != null) {
-    		cachedNode = cache.getNode(nodeKey);
+    		cachedNode = cache.getNode(nodeKey, skipChildren);
             if (cachedNode == null) {
                 // The node must not exist or must have been deleted ...
                 throw new ItemNotFoundException(nodeKey.toString());
@@ -496,7 +502,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
             node = jcrNodes.get(nodeKey);
     	} else {
     		try {
-    			cachedNode = cache.getNode(nodeKey);
+    			cachedNode = cache.getNode(nodeKey, skipChildren);
     			node = jcrNodes.get(nodeKey);
     		} catch (Exception e) {} 
     	}
@@ -1940,7 +1946,11 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
      * @see javax.jcr.Node#getIdentifier()
      */
     protected final String nodeIdentifier( NodeKey key ) {
-        return nodeIdentifier(key, cache.getRootKey());
+        return nodeIdentifier(key, false);
+    }
+            
+    protected final String nodeIdentifier( NodeKey key, boolean skipChildren ) {
+        return nodeIdentifier(key, cache.getRootKey(skipChildren));
     }
 
     @Override

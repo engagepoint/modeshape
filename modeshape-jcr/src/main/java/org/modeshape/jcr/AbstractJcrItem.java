@@ -96,6 +96,8 @@ abstract class AbstractJcrItem implements Item, Namespaced {
     }
 
     abstract Path path() throws RepositoryException;
+    
+    abstract Path path(boolean skipChildren) throws RepositoryException;
 
     @Override
     public Item getAncestor( int depth ) throws RepositoryException {
@@ -128,7 +130,7 @@ abstract class AbstractJcrItem implements Item, Namespaced {
     @Override
     public int getDepth() throws RepositoryException {
         checkSession();
-        return path().size();
+        return path(true).size();
     }
 
     @Override

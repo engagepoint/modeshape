@@ -42,6 +42,7 @@ final class JcrChildNodeIterator implements NodeIterator {
 
     protected static interface NodeResolver {
         public Node nodeFrom( ChildReference ref );
+        public Node nodeFrom( ChildReference ref, boolean skipChildren );       
     }
 
     private final NodeResolver resolver;
@@ -99,18 +100,26 @@ final class JcrChildNodeIterator implements NodeIterator {
 
     @Override
     public Object next() {
-        return nextNode();
+        return next(true);
+    }
+    
+    public Object next(boolean skipChildren) {
+        return nextNode(skipChildren);
     }
 
     @Override
     public Node nextNode() {
+        return nextNode(false);
+    }
+    
+    public Node nextNode(boolean skipChildren) {
         if (nodeIterator != null) {
             return nodeIterator.next();
         }
         Node child = null;
         do {
             ChildReference childRef = iterator.next();
-            child = resolver.nodeFrom(childRef);
+            child = resolver.nodeFrom(childRef, skipChildren);
         } while (child == null);
         ndx++;
         return child;

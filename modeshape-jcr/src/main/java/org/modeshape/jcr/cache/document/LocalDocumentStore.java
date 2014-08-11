@@ -258,6 +258,11 @@ public class LocalDocumentStore implements DocumentStore {
         return InfinispanUtil.execute(database.getCache(), Location.LOCALLY, distOp, distOp);
     }
 
+    @Override
+    public SchematicEntry get(String key, boolean skipChildren) {
+        return  get(key);
+    }
+
     /**
      * An operation upon a persisted document.
      */

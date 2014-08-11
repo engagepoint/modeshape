@@ -40,7 +40,10 @@ public interface NodeCache {
      * 
      * @return the root node's key; never null
      */
+    
     NodeKey getRootKey();
+    
+    NodeKey getRootKey(boolean skipChildren);
 
     /**
      * Get the cached representation of the node with the supplied node key.
@@ -49,6 +52,8 @@ public interface NodeCache {
      * @return the cached node, or null if there is no such node
      */
     CachedNode getNode( NodeKey key );
+    
+    CachedNode getNode( NodeKey key, boolean skipChildren  );
 
     /**
      * Get the cached representation of the node as represented by the supplied child reference. This is a convenience method that

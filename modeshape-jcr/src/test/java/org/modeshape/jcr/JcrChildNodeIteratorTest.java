@@ -78,6 +78,11 @@ public class JcrChildNodeIteratorTest {
             public Node nodeFrom( ChildReference ref ) {
                 return childNodesByRef.get(ref);
             }
+
+            @Override
+            public Node nodeFrom(ChildReference ref, boolean skipChildren) {
+                return nodeFrom(ref);
+            }
         };
         iter = new JcrChildNodeIterator(resolver, refs.iterator());
     }

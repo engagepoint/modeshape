@@ -45,6 +45,10 @@ public class CmisGetObjectOperation extends CmisOperation {
      * @return JCR node document.
      */
     public DocumentWriter cmisFolder(CmisObject cmisObject) {
+        return cmisFolder(cmisObject, false);
+    }
+    
+    public DocumentWriter cmisFolder(CmisObject cmisObject, boolean skipChildren) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetObjectOperation:cmisFolder for cmisObject = ", cmisObject == null ? "null" : cmisObject.getName());
         CmisGetChildrenOperation childrenOperation = new CmisGetChildrenOperation(snapshot, config);
@@ -57,8 +61,11 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.setParent(folder.getParentId());
         // properties
         cmisProperties(folder, writer);
-        // children
-        childrenOperation.cmisChildren(folder, writer);
+        
+        if (!skipChildren) {
+            // children
+            childrenOperation.cmisChildren(folder, writer);
+        }
 
         // append repository information to the root node
         if (folder.isRootFolder() && !config.isHideRootFolderReference()) {

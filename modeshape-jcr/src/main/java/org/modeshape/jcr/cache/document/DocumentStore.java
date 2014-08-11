@@ -48,7 +48,9 @@ public interface DocumentStore {
      * @return the entry, or null if there was no document with the supplied key
      * @throws DocumentStoreException if there is a problem retrieving the document
      */
-    public SchematicEntry get( String key );
+    public SchematicEntry get( String key);
+    
+    public SchematicEntry get( String key, boolean skipChildren );
 
     /**
      * Store the supplied document at the given key.

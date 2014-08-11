@@ -42,7 +42,7 @@ import org.modeshape.jcr.cache.SessionCache;
  * @see JcrRootNode
  */
 @ThreadSafe
-class JcrNode extends AbstractJcrNode {
+public class JcrNode extends AbstractJcrNode {
 
     JcrNode( JcrSession session,
              NodeKey nodeKey ) {
@@ -63,23 +63,35 @@ class JcrNode extends AbstractJcrNode {
     public int getIndex() throws RepositoryException {
         return segment().getIndex();
     }
-
+    
     @Override
     public String getName() throws RepositoryException {
-        return segment().getName().getString(namespaces());
+        return getName(false);
+    }
+    
+    public String getName(boolean skipChildren) throws RepositoryException {
+        return segment(skipChildren).getName().getString(namespaces());
     }
 
     @Override
     public AbstractJcrNode getParent() throws ItemNotFoundException, RepositoryException {
+        return getParent(false);
+    }
+    
+    public AbstractJcrNode getParent(boolean skipChildren) throws ItemNotFoundException, RepositoryException {
         checkSession();
-        NodeKey parentKey = node().getParentKey(sessionCache());
+        NodeKey parentKey = node(skipChildren).getParentKey(sessionCache());
         return session().node(parentKey, null);
     }
 
     @Override
     public String getPath() throws RepositoryException {
+        return getPath(false);
+    }
+    
+    public String getPath(boolean skipChildren) throws RepositoryException {
         // checkSession(); ideally we don't have to do this, because getting the path is a useful thing and is used in 'toString'
-        return path().getString(namespaces());
+        return path(skipChildren).getString(namespaces());
     }
 
     @Override

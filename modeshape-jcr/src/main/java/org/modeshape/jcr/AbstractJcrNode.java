@@ -106,7 +106,7 @@ import org.modeshape.jcr.value.basic.NodeKeyReference;
  * The abstract base class for all {@link Node} implementations.
  */
 @ThreadSafe
-abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
+public abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     enum Type {
         ROOT,
@@ -205,7 +205,11 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
      * @throws ItemNotFoundException if the node does not exist
      */
     protected final CachedNode node() throws ItemNotFoundException, InvalidItemStateException {
-        CachedNode node = sessionCache().getNode(key);
+        return node(false);
+    }
+    
+    protected final CachedNode node(boolean skipChildren) throws ItemNotFoundException, InvalidItemStateException {
+        CachedNode node = sessionCache().getNode(key, skipChildren);
         if (node == null) {
             if (sessionCache().isDestroyed(key)) {
                 throw new InvalidItemStateException("The node with key " + key + " has been removed in this session.");
@@ -235,7 +239,12 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     @Override
     Path path() throws ItemNotFoundException, InvalidItemStateException {
-        return node().getPath(sessionCache());
+        return path(false);
+    }        
+            
+    @Override
+    Path path(boolean skipChildren) throws ItemNotFoundException, InvalidItemStateException {
+        return node(skipChildren).getPath(sessionCache(), skipChildren);
     }
 
     /**
@@ -256,7 +265,11 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     }
 
     protected Segment segment() throws RepositoryException {
-        return node().getSegment(sessionCache());
+        return segment(false);
+    }
+    
+    protected Segment segment(boolean skipChildren) throws RepositoryException {
+        return node(skipChildren).getSegment(sessionCache());
     }
 
     /**
@@ -284,7 +297,11 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     @Override
     public final String getIdentifier() {
-        return session().nodeIdentifier(key());
+        return getIdentifier(false);
+    }                
+    
+    public final String getIdentifier(boolean skipChildren) {
+        return session().nodeIdentifier(key(), skipChildren);
     }
 
     /**
@@ -314,6 +331,11 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     @Override
     public AbstractJcrProperty getProperty( String relativePath ) throws PathNotFoundException, RepositoryException {
+        return getProperty(relativePath, false);
+    }
+    
+
+    public AbstractJcrProperty getProperty( String relativePath, boolean skipChildren ) throws PathNotFoundException, RepositoryException {
         CheckArg.isNotEmpty(relativePath, "relativePath");
         checkSession();
         int indexOfFirstSlash = relativePath.indexOf('/');
@@ -345,7 +367,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             propertyName = nameFrom(relativePath);
         }
         // It's just a name, so look for it directly ...
-        AbstractJcrProperty result = getProperty(propertyName);
+        AbstractJcrProperty result = getProperty(propertyName, skipChildren);
         if (result != null) return result;
         I18n msg = JcrI18n.pathNotFoundRelativeTo;
         throw new PathNotFoundException(msg.text(relativePath, location(), workspaceName()));
@@ -359,12 +381,16 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
      * @throws RepositoryException if there is a problem accessing the repository
      */
     final AbstractJcrProperty getProperty( Name propertyName ) throws RepositoryException {
+        return getProperty(propertyName, false);
+    }
+    
+    final AbstractJcrProperty getProperty( Name propertyName, boolean skipChildren ) throws RepositoryException {
         AbstractJcrProperty prop = jcrProperties.get(propertyName);
         if (prop == null) {
             // See if there's a property on the node ...
-            CachedNode node = node();
+            CachedNode node = node(skipChildren);
             SessionCache cache = sessionCache();
-            org.modeshape.jcr.value.Property p = node.getProperty(propertyName, cache);
+            org.modeshape.jcr.value.Property p = node.getProperty(propertyName, cache, skipChildren);
             if (p != null) {
                 Name primaryType = node.getPrimaryType(cache);
                 Set<Name> mixinTypes = node.getMixinTypes(cache);
@@ -379,7 +405,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             }
         } else {
             // Make sure the property hasn't been removed by another session ...
-            CachedNode node = node();
+            CachedNode node = node(skipChildren);
             SessionCache cache = sessionCache();
             if (!node.hasProperty(propertyName, cache)) {
                 jcrProperties.remove(propertyName);
@@ -2135,12 +2161,17 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
     final Collection<AbstractJcrProperty> findJcrProperties( Iterator<Property> propertyIterator )
         throws AccessDeniedException, RepositoryException {
+        return findJcrProperties(propertyIterator, false);
+    }
+    
+    final Collection<AbstractJcrProperty> findJcrProperties( Iterator<Property> propertyIterator, boolean skipChildren )
+        throws AccessDeniedException, RepositoryException {
         try {
             Collection<AbstractJcrProperty> result = new LinkedList<AbstractJcrProperty>();
             while (propertyIterator.hasNext()) {
                 Property property = propertyIterator.next();
                 Name propertyName = property.getName();
-                AbstractJcrProperty jcrProp = getProperty(propertyName);
+                AbstractJcrProperty jcrProp = getProperty(propertyName, skipChildren);
                 if (jcrProp != null) result.add(jcrProp);
             }
             return result;
@@ -2150,12 +2181,17 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             throw new RepositoryException(e.getMessage(), e);
         }
     }
-
+    
     @Override
     public PropertyIterator getProperties() throws RepositoryException {
+        return getProperties(false);
+    }
+    
+    
+    public PropertyIterator getProperties(boolean skipChildren) throws RepositoryException {
         checkSession();
-        Iterator<Property> iter = node().getProperties(sessionCache());
-        return new JcrPropertyIterator(findJcrProperties(iter));
+        Iterator<Property> iter = node(skipChildren).getProperties(sessionCache());
+        return new JcrPropertyIterator(findJcrProperties(iter, skipChildren));
     }
 
     @Override
@@ -2357,7 +2393,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
     @Override
     public JcrNodeType getPrimaryNodeType() throws RepositoryException {
         checkSession();
-        return session().nodeTypeManager().getNodeType(node().getPrimaryType(sessionCache()));
+        return session().nodeTypeManager().getNodeType(node(true).getPrimaryType(sessionCache()));
     }
 
     /**
@@ -2413,7 +2449,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
         SessionCache cache = sessionCache();
         NodeTypes nodeTypes = session().nodeTypes();
         try {
-            CachedNode node = node();
+            CachedNode node = node(true);
             // Check the primary type ...
             Name primaryTypeName = node.getPrimaryType(cache);
             JcrNodeType primaryType = nodeTypes.getNodeType(primaryTypeName);
@@ -3688,8 +3724,13 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
 
         @Override
         public Node nodeFrom( ChildReference ref ) {
+            return nodeFrom(ref, false);
+        }              
+        
+        @Override
+        public Node nodeFrom( ChildReference ref, boolean skipChildren ) {
             try {
-                AbstractJcrNode node =  session.node(ref.getKey(), null, parentKey);
+                AbstractJcrNode node =  session.node(ref.getKey(), null, parentKey, skipChildren);
                 if (checkPermission  && !node.isExternal() && !session.hasPermission(node.getPath(), ModeShapePermissions.READ)) {
                     return null;
                 }

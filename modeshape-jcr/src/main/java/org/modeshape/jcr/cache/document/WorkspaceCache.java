@@ -160,9 +160,14 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
         return documentStore;
     }
 
-    final Document documentFor( String key ) {
+        
+    final Document documentFor( String key) {
+        return documentFor(key, false);
+    }
+        
+    final Document documentFor( String key, boolean skipChildren ) {
         // Look up the information in the database ...
-        SchematicEntry entry = documentStore.get(key);
+        SchematicEntry entry = documentStore.get(key, skipChildren);
         if (entry == null) {
             // There is no such node ...
             return null;
@@ -181,7 +186,11 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
     }
 
     final Document documentFor( NodeKey key ) {
-        return documentFor(key.toString());
+        return documentFor(key, false);
+    }           
+    
+    final Document documentFor( NodeKey key, boolean skipChildren ) {
+        return documentFor(key.toString(), skipChildren);
     }
 
     final ChildReference childReferenceForRoot() {
@@ -197,23 +206,39 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
             this.nodesByKey.remove(nodeKey);
         }
     }
-
+    
     @Override
     public NodeKey getRootKey() {
+        return getRootKey(false);
+    }
+    
+    @Override
+    public NodeKey getRootKey(boolean skipChildren) {
         checkNotClosed();
         return rootKey;
     }
 
     @Override
     public CachedNode getNode( NodeKey key ) {
+        return getNode(key, false);
+    }
+    
+    @Override
+    public CachedNode getNode( NodeKey key, boolean skipChildren  ) {
         checkNotClosed();
-        CachedNode node = nodesByKey.get(key);
+        CachedNode node;
+        NodeKey keyWithoutChildren = new NodeKey(key.getSourceKey(), key.getWorkspaceKey(), key.getIdentifier()+"_WithoutChildren");
+        if (skipChildren) {            
+            node = nodesByKey.get(keyWithoutChildren);
+        } else {
+            node = nodesByKey.get(key);
+        }        
         if (node == null) {
             // Load the node from the database ...
             if (LOGGER.isTraceEnabled()) {
                 LOGGER.trace("Node '{0}' is not found in the '{1}' workspace cache; looking in store", key, workspaceName);
             }
-            Document doc = documentFor(key);
+            Document doc = documentFor(key, skipChildren);
             if (doc != null) {
                 if (LOGGER.isTraceEnabled()) {
                     LOGGER.trace("Materialized document '{0}' in '{1}' workspace from store: {2}", key, workspaceName, doc);
@@ -222,13 +247,10 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
                 CachedNode newNode = new LazyCachedNode(key, doc);
                 try {
                     Integer cacheTtlSeconds = translator().getCacheTtlSeconds(doc);
-                    if (cacheTtlSeconds != null && nodesByKey instanceof BasicCache) {
-                        node = ((BasicCache<NodeKey, CachedNode>)nodesByKey).putIfAbsent(key,
-                                                                                         newNode,
-                                                                                         cacheTtlSeconds.longValue(),
-                                                                                         TimeUnit.SECONDS);
+                    if (skipChildren) {
+                        node = putToCache(cacheTtlSeconds, keyWithoutChildren, newNode);
                     } else {
-                        node = nodesByKey.putIfAbsent(key, newNode);
+                        node = putToCache(cacheTtlSeconds, key, newNode);
                     }
                 } catch (TimeoutException e) {
                     node = null;
@@ -284,6 +306,8 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
             for (NodeKey key : changes.changedNodes()) {
                 if (closed) break;
                 nodesByKey.remove(key);
+                NodeKey keyWithoutChildren = new NodeKey(key.getSourceKey(), key.getWorkspaceKey(), key.getIdentifier()+"_WithoutChildren");
+                nodesByKey.remove(keyWithoutChildren);
             }
         }
     }
@@ -306,6 +330,8 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
         for (NodeKey key : changes.changedNodes()) {
             if (closed) break;
             nodesByKey.remove(key);
+            NodeKey keyWithoutChildren = new NodeKey(key.getSourceKey(), key.getWorkspaceKey(), key.getIdentifier()+"_WithoutChildren");
+            nodesByKey.remove(keyWithoutChildren);
         }
 
         // Notify the listener ...
@@ -371,5 +397,18 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
             }
         }
         return new WorkspaceCache(this, nodes);
+    }
+
+    private CachedNode putToCache(Integer cacheTtlSeconds, NodeKey key, CachedNode newNode) {
+        CachedNode node;
+        if (cacheTtlSeconds != null && nodesByKey instanceof BasicCache) {
+            node = ((BasicCache<NodeKey, CachedNode>) nodesByKey).putIfAbsent(key,
+                    newNode,
+                    cacheTtlSeconds.longValue(),
+                    TimeUnit.SECONDS);
+        } else {
+            node = nodesByKey.putIfAbsent(key, newNode);
+        }
+        return node;
     }
 }

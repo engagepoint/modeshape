@@ -165,7 +165,7 @@ public interface Path extends Comparable<Path>, Iterable<Path.Segment>, Serializ
          * @return the segment's name
          */
         public Name getName();
-
+        
         /**
          * Get the index for this segment, which will be 1 by default.
          * 

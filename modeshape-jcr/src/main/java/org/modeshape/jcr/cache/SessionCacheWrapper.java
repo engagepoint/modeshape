@@ -51,12 +51,12 @@ public class SessionCacheWrapper implements SessionCache {
 
     @Override
     public NodeKey getRootKey() {
-        return delegate.getRootKey();
+        return getRootKey(false);
     }
 
     @Override
     public CachedNode getNode( NodeKey key ) {
-        return delegate.getNode(key);
+        return getNode(key, false);
     }
 
     @Override
@@ -177,6 +177,16 @@ public class SessionCacheWrapper implements SessionCache {
     @Override
     public void checkForTransaction() {
         delegate.checkForTransaction();
+    }
+
+    @Override
+    public CachedNode getNode(NodeKey key, boolean skipChildren) {
+        return delegate.getNode(key);
+    }
+
+    @Override
+    public NodeKey getRootKey(boolean skipChildren) {
+       return delegate.getRootKey();
     }
 
 }

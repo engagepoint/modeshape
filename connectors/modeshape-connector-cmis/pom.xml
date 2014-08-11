@@ -56,7 +56,7 @@
         <dependency>
             <groupId>org.apache.chemistry.opencmis</groupId>
             <artifactId>chemistry-opencmis-client-bindings</artifactId>
-            <version>0.10.0.34-EP-SNAPSHOT</version>
+            <version>0.10.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.chemistry.opencmis</groupId>

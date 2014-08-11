@@ -197,6 +197,11 @@ public class ImmutableChildReferences {
             this.childReferences = LinkedListMultimap.create();
             this.childReferencesByKey = new HashMap<NodeKey, ChildReference>();
             for (ChildReference ref : children) {
+                if (ref.getKey().toString() == null) {
+                    System.out.println("ALARM!!! ref = " + ref.toString());
+                    System.out.println("ALARM!!! children = " + children.toString());
+                    System.out.println("ALARM!!! ref.getKey() = " + ref.getKey().toString());
+                }                                
                 ChildReference old = this.childReferencesByKey.put(ref.getKey(), ref);
                 if (old != null && old.getName().equals(ref.getName())) {
                     // We already have this key/name pair, so we don't need to add it again ...

@@ -29,6 +29,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
+        Exception e = new Exception();
+        e.printStackTrace(System.out);
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetChildrenOperation:cmisChildren for folder = ", folder == null ? "null" : folder.getName());
         String parentId = folder.getId();

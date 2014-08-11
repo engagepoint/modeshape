@@ -165,6 +165,10 @@ public class LazyCachedNode implements CachedNode, Serializable {
     }
 
     protected CachedNode parent( WorkspaceCache cache ) {
+        return parent(cache, false);
+    }
+    
+    protected CachedNode parent( WorkspaceCache cache, boolean skipChilderen  ) {
         NodeKey parentKey = getParentKey(cache);
         if (parentKey == null) {
             return null;
@@ -291,6 +295,11 @@ public class LazyCachedNode implements CachedNode, Serializable {
 
     @Override
     public Path getPath( NodeCache cache ) {
+        return getPath(cache, false);
+    }
+    
+    @Override
+    public Path getPath( NodeCache cache, boolean skipChildren ) {
         WorkspaceCache wsCache = workspaceCache(cache);
         CachedNode parent = parent(wsCache);
         if (parent != null) {
@@ -377,6 +386,12 @@ public class LazyCachedNode implements CachedNode, Serializable {
     @Override
     public Property getProperty( Name name,
                                  NodeCache cache ) {
+        return getProperty(name, cache, false);
+    }
+    
+    @Override
+    public Property getProperty( Name name,
+                                 NodeCache cache, boolean skipChildren ) {
         Map<Name, Property> props = properties();
         Property property = props.get(name);
         if (property == null && !propertiesFullyLoaded) {

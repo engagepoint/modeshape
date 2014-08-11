@@ -744,4 +744,9 @@ public class FileSystemConnector extends WritableConnector implements Pageable {
         }
         return newFolderWriter(parentId, folder, pageKey.getOffsetInt()).document();
     }
+
+    @Override
+    public Document getDocumentById(String id, boolean skipChildren) {
+        return getDocumentById(id);
+    }
 }

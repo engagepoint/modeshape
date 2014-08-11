@@ -154,8 +154,13 @@ public class WritableSessionCache extends AbstractSessionCache {
         return LOGGER;
     }
 
+    
     @Override
     public CachedNode getNode( NodeKey key ) {
+        return getNode(key, false);
+    }
+    @Override
+    public CachedNode getNode( NodeKey key, boolean skipChildren) {
         CachedNode sessionNode = null;
         Lock lock = this.lock.readLock();
         try {
@@ -168,7 +173,7 @@ public class WritableSessionCache extends AbstractSessionCache {
             // This node's been removed ...
             return null;
         }
-        return sessionNode != null ? sessionNode : super.getNode(key);
+        return sessionNode != null ? sessionNode : super.getNode(key, skipChildren);
     }
 
     @Override

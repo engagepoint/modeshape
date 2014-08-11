@@ -280,16 +280,21 @@ public class FederatedDocumentStore implements DocumentStore {
         }
         return result;
     }
-
+    
     @Override
     public SchematicEntry get(String key) {
+        return get(key, false);
+    }
+
+    @Override
+    public SchematicEntry get(String key, boolean skipChildren) {
         if (isLocalSource(key)) {
             return localStore().get(key);
         }
         Connector connector = connectors.getConnectorForSourceKey(sourceKey(key));
         if (connector != null) {
             String docId = documentIdFromNodeKey(key);
-            Document document = connector.getDocumentById(docId);
+            Document document = connector.getDocumentById(docId, skipChildren);
             if (document != null) {
                 // clone the document, so we don't alter the original
                 EditableDocument editableDocument = replaceConnectorIdsWithNodeKeys(document, connector.getSourceName());

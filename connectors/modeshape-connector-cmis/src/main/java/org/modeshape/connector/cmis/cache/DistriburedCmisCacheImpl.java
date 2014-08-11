@@ -18,11 +18,9 @@
  */
 package org.modeshape.connector.cmis.cache;
 
-import java.util.List;
 import java.util.concurrent.ConcurrentMap;
 import org.apache.chemistry.opencmis.client.runtime.cache.Cache;
 import org.apache.chemistry.opencmis.client.runtime.cache.CacheImpl;
-import org.apache.chemistry.opencmis.commons.data.ObjectParentData;
 
 /**
  * Generic cache implementation. The cache can get as input parameter some third party implementation of cache.
@@ -44,26 +42,6 @@ public class DistriburedCmisCacheImpl extends CacheImpl implements Cache {
     public void clear() {
         super.clear();
         distributedCache.clear();
-    }
-
-    @Override
-    public boolean containsParents(String objectId) {
-        return distributedCache.containsKey(objectId+PARENTS_SUFFIX);
-    }
-
-    @Override
-    public List<ObjectParentData> getParents(String objectId) {
-        return (List<ObjectParentData>) distributedCache.get(objectId+PARENTS_SUFFIX);
-    }
-
-    @Override
-    public void putParents(String objectId, List<ObjectParentData> parents) {
-        distributedCache.put(objectId+PARENTS_SUFFIX, parents);
-    }
-
-    @Override
-    public void removeParents(String objectId) {
-        distributedCache.remove(objectId+PARENTS_SUFFIX);
     }
     
 }

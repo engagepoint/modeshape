@@ -67,7 +67,7 @@ import org.modeshape.jcr.value.basic.UuidReference;
  * An abstract {@link Property JCR Property} implementation.
  */
 @NotThreadSafe
-abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modeshape.jcr.api.Property, Comparable<org.modeshape.jcr.api.Property> {
+public abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modeshape.jcr.api.Property, Comparable<org.modeshape.jcr.api.Property> {
 
     @Immutable
     private final static class CachedDefinition {
@@ -152,7 +152,11 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
     }
 
     final CachedNode cachedNode() throws ItemNotFoundException, InvalidItemStateException {
-        return node.node();
+        return cachedNode(false);
+    }
+    
+    final CachedNode cachedNode(boolean skipChildren) throws ItemNotFoundException, InvalidItemStateException {
+        return node.node(skipChildren);
     }
 
     final MutableCachedNode mutable() {
@@ -168,7 +172,11 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
     }
 
     final org.modeshape.jcr.value.Property property() throws ItemNotFoundException, InvalidItemStateException {
-        return cachedNode().getProperty(name, sessionCache());
+        return property(false);
+    }
+    
+    final org.modeshape.jcr.value.Property property(boolean skipChildren) throws ItemNotFoundException, InvalidItemStateException {
+        return cachedNode(skipChildren).getProperty(name, sessionCache());
     }
 
     final JcrValue createValue( Object value ) {
@@ -356,6 +364,8 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
 
     @Override
     public abstract JcrValue[] getValues() throws ValueFormatException, RepositoryException;
+    
+    public abstract JcrValue[] getValues(boolean skipChildren) throws ValueFormatException, RepositoryException;
 
     @Override
     public abstract JcrValue getValue() throws ValueFormatException, RepositoryException;
@@ -487,4 +497,8 @@ abstract class AbstractJcrProperty extends AbstractJcrItem implements org.modesh
         }
         return type.cast(convertedValue);
     }
+    
+    abstract public String getString(boolean skipChildren) throws RepositoryException;
+    
+    abstract public Calendar getDate(boolean skipChildren) throws RepositoryException;
 }

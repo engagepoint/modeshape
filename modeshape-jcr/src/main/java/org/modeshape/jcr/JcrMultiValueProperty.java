@@ -45,6 +45,7 @@ import org.modeshape.jcr.value.BinaryFactory;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.DateTimeFactory;
 import org.modeshape.jcr.value.Name;
+import org.modeshape.jcr.value.Path;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.ValueFactories;
 
@@ -54,7 +55,7 @@ import org.modeshape.jcr.value.ValueFactories;
  * @see JcrSingleValueProperty
  */
 @NotThreadSafe
-final class JcrMultiValueProperty extends AbstractJcrProperty {
+public final class JcrMultiValueProperty extends AbstractJcrProperty {
 
     static final JcrValue[] EMPTY_VALUES = new JcrValue[] {};
 
@@ -133,8 +134,13 @@ final class JcrMultiValueProperty extends AbstractJcrProperty {
      */
     @Override
     public JcrValue[] getValues() throws RepositoryException {
+        return getValues(false);
+    }
+    
+    @Override
+    public JcrValue[] getValues(boolean skipChildren) throws RepositoryException {
         checkSession();
-        Property innerProp = property();
+        Property innerProp = property(skipChildren);
         JcrValue[] values = new JcrValue[innerProp.size()];
         Iterator<?> iter = innerProp.iterator();
         for (int ndx = 0; iter.hasNext(); ndx++) {
@@ -383,5 +389,20 @@ final class JcrMultiValueProperty extends AbstractJcrProperty {
         } catch (org.modeshape.jcr.value.ValueFormatException e) {
             throw new ValueFormatException(e);
         }
+    }
+
+    @Override
+    Path path(boolean skipChildren) throws RepositoryException {
+        return path(false);
+    }
+
+    @Override
+    public String getString(boolean skipChildren) throws RepositoryException {
+        return getString();
+    }
+
+    @Override
+    public Calendar getDate(boolean skipChildren) throws RepositoryException {
+        return getDate();
     }
 }

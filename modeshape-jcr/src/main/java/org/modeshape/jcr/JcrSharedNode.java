@@ -107,6 +107,11 @@ final class JcrSharedNode extends JcrNode {
 
     @Override
     protected Segment segment() throws RepositoryException {
+        return segment(false);
+    }
+    
+    @Override
+    protected Segment segment(boolean skipChildren) throws RepositoryException {
         AbstractJcrNode parent = parent();
         CachedNode node = parent.node();
         SessionCache cache = session.cache();

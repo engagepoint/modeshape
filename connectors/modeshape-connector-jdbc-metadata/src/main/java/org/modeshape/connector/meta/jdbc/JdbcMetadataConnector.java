@@ -348,4 +348,9 @@ public class JdbcMetadataConnector extends ReadOnlyConnector {
             this.metadataCollectorClassName = metadataCollectorClassName;
         }
     }
+
+    @Override
+    public Document getDocumentById(String id, boolean skipChildren) {
+        return getDocumentById(id);
+    }
 }

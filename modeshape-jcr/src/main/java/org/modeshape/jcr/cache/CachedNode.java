@@ -83,6 +83,8 @@ public interface CachedNode {
      * @see #getName(NodeCache)
      * @see #getSegment(NodeCache)
      */
+    Path getPath( NodeCache cache, boolean skipChilderen ) throws NodeNotFoundException;
+    
     Path getPath( NodeCache cache ) throws NodeNotFoundException;
 
     /**
@@ -174,6 +176,9 @@ public interface CachedNode {
      */
     Property getProperty( Name name,
                           NodeCache cache );
+    
+    Property getProperty( Name name,
+                          NodeCache cache, boolean skipChildren );
 
     /**
      * Get an iterator over all of the node's properties.

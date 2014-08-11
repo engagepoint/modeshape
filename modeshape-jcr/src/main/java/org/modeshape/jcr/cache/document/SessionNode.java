@@ -91,6 +91,16 @@ import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 @ThreadSafe
 public class SessionNode implements MutableCachedNode {
 
+    @Override
+    public Path getPath(NodeCache cache) throws NodeNotFoundException {
+        return getPath(cache, false);
+    }
+
+    @Override
+    public Property getProperty(Name name, NodeCache cache) {
+        return getProperty(name, cache, false);
+    }
+
     public enum LockChange {
         LOCK_FOR_SESSION,
         LOCK_FOR_NON_SESSION,
@@ -447,7 +457,7 @@ public class SessionNode implements MutableCachedNode {
     }
 
     @Override
-    public Path getPath( NodeCache cache ) {
+    public Path getPath( NodeCache cache, boolean skipChilderen ) {
         AbstractSessionCache session = session(cache);
         CachedNode parent = parent(session);
         if (parent != null) {
@@ -708,7 +718,7 @@ public class SessionNode implements MutableCachedNode {
 
     @Override
     public Property getProperty( Name name,
-                                 NodeCache cache ) {
+                                 NodeCache cache, boolean skipChildren ) {
         Property prop = null;
         if ((prop = changedProperties.get(name)) != null) return prop;
         if (isPropertyRemoved(name)) return null;

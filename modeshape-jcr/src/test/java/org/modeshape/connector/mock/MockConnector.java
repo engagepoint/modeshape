@@ -408,4 +408,9 @@ public class MockConnector extends WritableConnector implements Pageable {
         }
         return writer.addPage(parentId, offset + 1, blockSize, children.size()).document();
     }
+
+    @Override
+    public Document getDocumentById(String id, boolean skipChildren) {
+        return getDocumentById(id);
+    }
 }

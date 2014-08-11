@@ -49,7 +49,7 @@ import org.modeshape.jcr.value.Property;
  * @see JcrMultiValueProperty
  */
 @NotThreadSafe
-final class JcrSingleValueProperty extends AbstractJcrProperty {
+public final class JcrSingleValueProperty extends AbstractJcrProperty {
 
     JcrSingleValueProperty( AbstractJcrNode node,
                             Name name,
@@ -74,9 +74,14 @@ final class JcrSingleValueProperty extends AbstractJcrProperty {
 
     @Override
     public Calendar getDate() throws RepositoryException {
+        return getDate(false);
+    }
+    
+    @Override
+    public Calendar getDate(boolean skipChildren) throws RepositoryException {
         checkSession();
         try {
-            return context().getValueFactories().getDateFactory().create(property().getFirstValue()).toCalendar();
+            return context().getValueFactories().getDateFactory().create(property(skipChildren).getFirstValue()).toCalendar();
         } catch (org.modeshape.jcr.value.ValueFormatException e) {
             throw new ValueFormatException(e.getMessage(), e);
         }
@@ -188,14 +193,20 @@ final class JcrSingleValueProperty extends AbstractJcrProperty {
 
     @Override
     public String getString() throws RepositoryException {
+        return getString(false);
+    }
+    
+    @Override
+    public String getString(boolean skipChildren) throws RepositoryException {
         checkSession();
         try {
-            return context().getValueFactories().getStringFactory().create(property().getFirstValue());
+            Property property = property(skipChildren);
+            return context().getValueFactories().getStringFactory().create(property.getFirstValue());
         } catch (org.modeshape.jcr.value.ValueFormatException e) {
             throw new ValueFormatException(e.getMessage(), e);
         }
     }
-
+    
     @Override
     public JcrValue getValue() throws RepositoryException {
         checkSession();
@@ -413,6 +424,11 @@ final class JcrSingleValueProperty extends AbstractJcrProperty {
 
     @Override
     public JcrValue[] getValues() throws ValueFormatException {
+        return getValues(false);
+    }
+    
+    @Override
+    public JcrValue[] getValues(boolean skipChildren) throws ValueFormatException {
         throw new ValueFormatException(JcrI18n.invalidMethodForSingleValuedProperty.text());
     }
 
@@ -432,5 +448,10 @@ final class JcrSingleValueProperty extends AbstractJcrProperty {
             throw new ValueFormatException(JcrI18n.unableToConvertPropertyValueToType.text(getPath(), type.getSimpleName()));
         }
         return super.getAs(type, 0);
+    }
+
+    @Override
+    Path path(boolean skipChildren) throws RepositoryException {
+        return path(false);
     }
 }

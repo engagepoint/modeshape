@@ -328,9 +328,13 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 documentProducer, preconfiguredProjections, cmisObjectFinderUtil, languageDialect, cache);
     }
 
-
     @Override
     public Document getDocumentById(String id) {
+        return getDocumentById(id, false);
+    }
+    
+    @Override
+    public Document getDocumentById(String id, boolean skipChildren) {
         // object id is a composite key which holds information about
         // unique object identifier and about its type
         log().info("GET-DOCUMENT-BY-ID : " + id);
@@ -361,7 +365,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
                 //return null;
             case OBJECT:
                 // converts cmis folders and documents into jcr folders and files
-                return cmisObject(objectId.getIdentifier());
+                return cmisObject(objectId.getIdentifier(), skipChildren);
 
             default:
                 return null;
@@ -537,6 +541,10 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
      * @return JCR node document.
      */
     private Document cmisObject(String id) {
+        return cmisObject(id, false);
+    }
+    
+    private Document cmisObject(String id, boolean skipChildren) {
         CmisObject cmisObject = runtimeSnapshot.getCmisObjectFinderUtil().find(id);
 
         // object does not exist? return null
@@ -549,7 +557,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
         // converting CMIS object to JCR node
         switch (cmisObject.getBaseTypeId()) {
             case CMIS_FOLDER:
-                DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject);
+                DocumentWriter document = cmisGetObjectOperation.cmisFolder(cmisObject, skipChildren);
                 getCmisSingleVersionOperations().addCachedChildren(id, document);
 
                 return document.document();
