@@ -238,7 +238,12 @@ public class WorkspaceCache implements DocumentCache, ChangeSetListener {
                     node = newNode;
                 }
             }
+        } else {
+            if (LOGGER.isTraceEnabled()) {
+                LOGGER.trace("Get node by key = {0} from cache", key);
+            }
         }
+        
         return node;
     }
 

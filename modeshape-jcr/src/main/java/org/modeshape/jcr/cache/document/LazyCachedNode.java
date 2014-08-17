@@ -25,10 +25,12 @@ package org.modeshape.jcr.cache.document;
 
 import java.io.Serializable;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -36,6 +38,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.annotation.Immutable;
 import org.modeshape.common.annotation.ThreadSafe;
+import org.modeshape.common.logging.Logger;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.cache.CachedNode;
 import org.modeshape.jcr.cache.ChildReference;
@@ -80,6 +83,8 @@ import org.modeshape.jcr.value.Property;
 @ThreadSafe
 public class LazyCachedNode implements CachedNode, Serializable {
 
+    protected static final Logger LOGGER = Logger.getLogger(WorkspaceCache.class);
+    
     private static final long serialVersionUID = 1L;
 
     // There are two 'final' fields that are always set during construction. The 'document' is the snapshot of node's state
@@ -234,10 +239,25 @@ public class LazyCachedNode implements CachedNode, Serializable {
         if (currentReferences.supportsGetChildReferenceByKey()) {
             // Just using the node key is faster if it is supported by the implementation ...
             parentRefToMe = currentReferences.getChild(key);
+            // Try to purge the cache and check parent reference one more time
+            if (parentRefToMe == null) {
+                if (LOGGER.isTraceEnabled()) {
+                    LOGGER.trace("ParentRefToMe by key [{0}] is null for parent [{1}]. Will purge cache for parent and try one more time.", key, currentParent.getKey());
+                }
+                purgeWorkspaceCache(cache, currentParent.getKey());
+                currentParent = parent(cache);
+                currentReferences = currentParent.getChildReferences(cache);
+                parentRefToMe = currentReferences.getChild(key);        
+                if (parentRefToMe != null) {
+                    if (LOGGER.isTraceEnabled()) {
+                        LOGGER.trace("ParentRefToMe by key [{0}] is [{1}] for parent [{2}]. We fix it!!!", key, parentRefToMe, currentParent.getKey());
+                    }
+                }
+            }
         } else {
             // Directly look up the ChildReference by going to the cache (and possibly connector) ...
             NodeKey parentKey = getParentKey(cache);
-            parentRefToMe = cache.getChildReference(parentKey, key);
+            parentRefToMe = cache.getChildReference(parentKey, key);            
 
         }
         if (parentRefToMe != null) {
@@ -250,6 +270,19 @@ public class LazyCachedNode implements CachedNode, Serializable {
         // in the midst of being moved or removed. Either way, we don't have much choice but to throw an exception about
         // us not being found...
         throw new NodeNotFoundInParentException(key, getParentKey(cache));
+    }
+    
+    private void purgeWorkspaceCache(WorkspaceCache cache, final NodeKey key) {
+        cache.workspaceCache().purge(new Iterable<NodeKey>() {
+            private List<NodeKey> nodeKeys;
+
+            @Override
+            public Iterator<NodeKey> iterator() {
+                 nodeKeys = new ArrayList<NodeKey>();
+                 nodeKeys.add(key);
+                 return nodeKeys.iterator(); 
+            }
+        });
     }
 
     protected Map<Name, Property> properties() {
