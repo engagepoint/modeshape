@@ -760,7 +760,7 @@ public class DocumentTranslator implements DocumentConstants {
                     // There is more than one block, so update the block size ...
                     doc.getDocument(CHILDREN_INFO).setNumber(BLOCK_SIZE, blockCount);
 
-                    doc = nextEntry.editDocumentContent();
+                    doc = Schematic.newDocument(documentStore.getChildrenBlock(docInfo.nextKey));
                     lastDoc = doc;
                     assert docInfo != null;
                     lastDocKey = docInfo.nextKey;
