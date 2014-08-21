@@ -50,6 +50,7 @@ import javax.security.auth.login.LoginException;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.search.DefaultSimilarity;
 import org.apache.lucene.util.Version;
+import org.infinispan.Cache;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.schematic.SchemaLibrary;
 import org.infinispan.schematic.SchemaLibrary.Problem;
@@ -1040,6 +1041,16 @@ public class RepositoryConfiguration {
 
     CacheContainer getContentCacheContainer() throws IOException, NamingException {
         return getCacheContainer(null);
+    }
+    
+    public Cache getInmemoryCache() throws IOException, NamingException {
+        CacheContainer container = getContentCacheContainer();
+        String cacheName = getInmemoryCacheName();
+        Cache cache = null;
+        if (cacheName != null && !cacheName.isEmpty()) {
+            cache = container.getCache(cacheName);
+        }        
+        return cache;
     }
 
     CacheContainer getWorkspaceContentCacheContainer() throws IOException, NamingException {

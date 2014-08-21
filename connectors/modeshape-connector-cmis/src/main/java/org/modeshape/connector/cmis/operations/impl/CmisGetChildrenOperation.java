@@ -29,18 +29,26 @@ public class CmisGetChildrenOperation extends CmisOperation {
      * @param writer JCR node representation
      */
     public void cmisChildren(Folder folder, DocumentWriter writer) {
+        cmisChildren(folder, writer, config.getPageSize());        
+    }
+    
+    public void cmisChildren(Folder folder, DocumentWriter writer, long explicitPageSize) {
         long startTime = System.currentTimeMillis();
         debug("Start CmisGetChildrenOperation:cmisChildren for folder = ", folder == null ? "null" : folder.getName());
         String parentId = folder.getId();
-        if (config.getPageSize() != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
+        if (explicitPageSize != Constants.NO_PAGING || ObjectId.isUnfiledStorage(parentId)) {
             if (ObjectId.isUnfiledStorage(parentId)) {
                 getChildren(new PageKey(parentId, "0", config.getPageSizeUnfiled()), writer, 0);
             } else {
-                getChildren(new PageKey(parentId, "0", config.getPageSize()), writer);
+                getChildren(new PageKey(parentId, "0", explicitPageSize), writer);
             }
         } else {
             Folder parent = (Folder) finderUtil.find(parentId);
-            ItemIterable<CmisObject> children = parent.getChildren();
+            OperationContext ctx = session.createOperationContext();
+            ctx.setMaxItemsPerPage(1000); // check if it affects performance
+            ctx.setCacheEnabled(true); 
+            ctx.setIncludeAllowableActions(false);
+            ItemIterable<CmisObject> children = parent.getChildren(ctx);
             Iterator<CmisObject> iterator = children.iterator();
             // try to use next right away in order to save time for hasNext call
             CmisObject item = getNext(iterator);
@@ -89,7 +97,6 @@ public class CmisGetChildrenOperation extends CmisOperation {
                     QueryResult next = (QueryResult) page.iterator().next();
                     String childId = finderUtil.getObjectMappingId(next);
                     String oName = next.getPropertyById(PropertyIds.NAME).getFirstValue().toString();
-                    debug("adding child", oName, childId);
                     writer.addChild(childId, oName);
                 }
                 doAddPage = pageIterator.hasNext();
@@ -105,6 +112,8 @@ public class CmisGetChildrenOperation extends CmisOperation {
             Folder parent = (Folder) finderUtil.find(parentId);
             OperationContext ctx = session.createOperationContext();
             ctx.setMaxItemsPerPage(1000); // check if it affects performance
+            ctx.setIncludeAllowableActions(false);            
+            ctx.setCacheEnabled(true); 
             children = parent.getChildren(ctx);
 
             ItemIterable<?> page = children.skipTo(offset);
@@ -112,7 +121,6 @@ public class CmisGetChildrenOperation extends CmisOperation {
             for (int i = 0; pageIterator.hasNext() && i < blockSize; i++) {
                 CmisObject next = (CmisObject) pageIterator.next();
                 String childId = finderUtil.getObjectMappingId(next);
-                debug("adding child [" + (int) (offset + i) + "]", next.getName(), childId);
                 writer.addChild(childId, next.getName());
             }
 

@@ -22,6 +22,7 @@ import org.modeshape.jcr.federation.spi.PageWriter;
 
 import javax.jcr.nodetype.NodeType;
 import java.util.*;
+import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 
 public class CmisGetObjectOperation extends CmisOperation {
     
@@ -99,7 +100,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.setPrimaryType(localTypeManager.cmisTypeToJcr(cmisObject.getType().getId()).getJcrName());
 
         // parents
-        List<Folder> parents = doc.getParents();
+        OperationContext context = new OperationContextImpl();
+        context.setCacheEnabled(true);        
+        List<Folder> parents = doc.getParents(context);
         ArrayList<String> parentIds = new ArrayList<String>();
         for (Folder f : parents) {
             parentIds.add(ObjectId.toString(ObjectId.Type.OBJECT, f.getId()));
