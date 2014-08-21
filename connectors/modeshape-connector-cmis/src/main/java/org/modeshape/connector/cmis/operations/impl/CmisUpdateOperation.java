@@ -30,6 +30,7 @@ import org.slf4j.LoggerFactory;
 public class CmisUpdateOperation extends CmisOperation {
     
     private final org.slf4j.Logger log = LoggerFactory.getLogger(this.getClass());
+    public static final String OBJECT_DATA_SUFFIX = "_ObjectData";
 
     public CmisUpdateOperation(RuntimeSnapshot snapshot,
                                CmisConnectorConfiguration config) {
@@ -109,9 +110,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         }
                     }
                 }
-                if (snapshot.getCache() != null) {
-                    snapshot.getCache().remove(cmisId);
-                }
+                invalidateCache(cmisObject, cmisId);
                 break;
             case OBJECT:
                 // modifying cmis:folders and cmis:documents
@@ -259,9 +258,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         rename(cmisObject, name.replace("-temp", ""), versioningState, major);
                     }
                 }
-                if (snapshot.getCache() != null) {
-                    snapshot.getCache().remove(cmisId);
-                }
+                invalidateCache(cmisObject, cmisId);
                 
                 break;
             case UNFILED_STORAGE:
@@ -285,7 +282,9 @@ public class CmisUpdateOperation extends CmisOperation {
 
                         debug("Unfiled renamed", entry.getKey(), ":", before + "\t=>\t" + after);
 
-                        rename(child, after, versioningState, major);                        
+                        rename(child, after, versioningState, major);    
+                                
+                        invalidateCache(child, entry.getKey());
                     }
                 }                  
         }
@@ -331,9 +330,6 @@ public class CmisUpdateOperation extends CmisOperation {
                 CmisOperationCommons.updateVersionedDoc(session, object, properties, null, major);
             }
         } else object.updateProperties(properties);   
-        if (snapshot.getCache() != null) {
-            snapshot.getCache().remove(object.getId());
-        }
     }
 
     /**
@@ -352,8 +348,15 @@ public class CmisUpdateOperation extends CmisOperation {
         }
 
         target.move(src, finderUtil.find(dst));   
+    }
+    
+    private void invalidateCache(CmisObject object, String cacheKey) {
         if (snapshot.getCache() != null) {
+            snapshot.getCache().remove(cacheKey);
             snapshot.getCache().remove(object.getId());
+            snapshot.getCache().remove(cacheKey+OBJECT_DATA_SUFFIX);
+            snapshot.getCache().remove(object.getId()+OBJECT_DATA_SUFFIX);  
         }
+        object.refresh();
     }
 }

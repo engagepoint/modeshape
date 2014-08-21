@@ -521,13 +521,7 @@ public final class Connectors {
         ReflectionUtil.setValue(connector, "extraPropertiesStore", defaultExtraPropertiesStore);
 
         RepositoryConfiguration config = repository.getRepositoryConfiguration();
-        CacheContainer container = config.getContentCacheContainer();
-        String cacheName = config.getInmemoryCacheName();
-        Cache cache = null;
-        if (cacheName != null && !cacheName.isEmpty()) {
-            cache = container.getCache(cacheName);
-        }
-        
+        Cache cache = config.getInmemoryCache();        
         connector.initialize(registry, nodeTypeManager, cache);
 
         // possible problem with config to workspace
