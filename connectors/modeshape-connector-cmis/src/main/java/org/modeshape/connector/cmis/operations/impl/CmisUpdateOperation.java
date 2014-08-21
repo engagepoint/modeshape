@@ -1,30 +1,29 @@
 package org.modeshape.connector.cmis.operations.impl;
 
 import java.text.MessageFormat;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import org.apache.chemistry.opencmis.client.api.CmisObject;
 import org.apache.chemistry.opencmis.client.api.FileableCmisObject;
 import org.apache.chemistry.opencmis.commons.PropertyIds;
 import org.apache.chemistry.opencmis.commons.data.ContentStream;
 import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
+import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
+import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
+import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
 import org.modeshape.connector.cmis.config.CmisConnectorConfiguration;
 import org.modeshape.connector.cmis.mapping.MappedCustomType;
-import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.operations.BinaryContentProducerInterface;
-import org.modeshape.jcr.federation.spi.DocumentChanges;
-import org.modeshape.jcr.value.Name;
-
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import org.apache.chemistry.opencmis.commons.enums.VersioningState;
-
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.asDocument;
 import static org.modeshape.connector.cmis.operations.impl.CmisOperationCommons.isVersioned;
-import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
+import org.modeshape.jcr.federation.spi.DocumentChanges;
+import org.modeshape.jcr.value.Name;
 import org.slf4j.LoggerFactory;
 
 public class CmisUpdateOperation extends CmisOperation {
@@ -352,11 +351,21 @@ public class CmisUpdateOperation extends CmisOperation {
     
     private void invalidateCache(CmisObject object, String cacheKey) {
         if (snapshot.getCache() != null) {
-            snapshot.getCache().remove(cacheKey);
-            snapshot.getCache().remove(object.getId());
-            snapshot.getCache().remove(cacheKey+OBJECT_DATA_SUFFIX);
-            snapshot.getCache().remove(object.getId()+OBJECT_DATA_SUFFIX);  
+            cleanCacheConteiner(cacheKey, snapshot.getCache());
+            cleanCacheConteiner(object.getId(), snapshot.getCache());
         }
         object.refresh();
+    }
+
+    private void cleanCacheConteiner(String cacheKey, Cache distributedCache) {
+        String cacheConteinerKey = cacheKey + OBJECT_DATA_SUFFIX;        
+        List<String> caches = (List<String>) distributedCache.get(cacheConteinerKey);
+        if (caches != null) {
+            for (String key : caches) {
+                distributedCache.remove(key);
+            }
+            distributedCache.remove(cacheConteinerKey);
+        }
+        distributedCache.remove(cacheKey);
     }
 }
