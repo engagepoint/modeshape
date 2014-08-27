@@ -217,9 +217,21 @@ public class CmisUpdateOperation extends CmisOperation {
                     updateProperties.put(cmisPropertyName, null);
                 }
 
+                // MOVE:
+                if (delta.getParentChanges().hasNewPrimaryParent()) {
+                    move(cmisObject, delta);
+
+                    // rename temporary name to a original
+                    String name = cmisObject.getName();
+                    if (name.endsWith("-temp")) {
+                        rename(cmisObject, name.replace("-temp", ""), versioningState, major);
+                    }
+                }
+
                 // run update action
                 debug("update properties?? ", updateProperties.isEmpty() ? "No" : "Yep");
                 debug("cmisObject class: ", cmisObject.getClass().getCanonicalName(), " type ", cmisObject.getType().getDescription(), " name: ", cmisObject.getName());
+
                 if (!updateProperties.isEmpty()) {
                     debug("Properties to update ", updateProperties.toString());
                     if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
@@ -227,7 +239,7 @@ public class CmisUpdateOperation extends CmisOperation {
                         if (versioningState == VersioningState.NONE) {
                             cmisObject.updateProperties(updateProperties);
                         } else {
-                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);
                         }                        
                     } else if (cmisObject instanceof org.apache.chemistry.opencmis.client.api.Folder) {
                         debug("cmisObject is Folder");
@@ -242,21 +254,12 @@ public class CmisUpdateOperation extends CmisOperation {
                             cmisObject.updateProperties(updateProperties);
                         } catch (CmisUpdateConflictException e) {
                             log().info(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
-                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);                            
+                            CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);
                         }
                     }
                 }
 
-                // MOVE:
-                if (delta.getParentChanges().hasNewPrimaryParent()) {
-                    move(cmisObject, delta);
 
-                    // rename temporary name to a original
-                    String name = cmisObject.getName();
-                    if (name.endsWith("-temp")) {
-                        rename(cmisObject, name.replace("-temp", ""), versioningState, major);
-                    }
-                }
                 invalidateCache(cmisObject, cmisId);
                 
                 break;
@@ -346,7 +349,7 @@ public class CmisUpdateOperation extends CmisOperation {
             return;
         }
 
-        target.move(src, finderUtil.find(dst));   
+        target.move(src, finderUtil.find(dst));
     }
     
     private void invalidateCache(CmisObject object, String cacheKey) {
