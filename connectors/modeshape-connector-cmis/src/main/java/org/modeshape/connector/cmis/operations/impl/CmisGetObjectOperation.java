@@ -27,6 +27,7 @@ import org.apache.chemistry.opencmis.client.runtime.OperationContextImpl;
 public class CmisGetObjectOperation extends CmisOperation {
     
     public static final String MIX_CONTENT_STREAM = "{http://www.jcp.org/jcr/mix/1.0}contentStream";
+    public static final String MIX_FEDERATION = "{http://www.jcp.org/jcr/mix/1.0}federation";
 
     String projectedNodeId;
 
@@ -138,6 +139,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CONTENT_STREAM_LENGTH, localTypeManager.getPropertyUtils().jcrValues(contentStreamLength));
         writer.addProperty(JcrLexicon.CONTENT_STREAM_FILE_NAME, localTypeManager.getPropertyUtils().jcrValues(contentStreamFileName));
         
+        writer.addMixinType(MIX_FEDERATION);
+        writer.addProperty(JcrLexicon.IS_FEDERATED, new Boolean[] {true});        
+        
         debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
@@ -192,6 +196,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> createdBy = doc.getProperty(PropertyIds.CREATED_BY);
         writer.addProperty(JcrLexicon.CREATED, localTypeManager.getPropertyUtils().jcrValues(created));
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
+        
+        writer.addMixinType(MIX_FEDERATION);
+        writer.addProperty(JcrLexicon.IS_FEDERATED, new Boolean[] {true}); 
 
         debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
@@ -225,6 +232,9 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModifiedBy = root.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
         writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
+                
+        writer.addMixinType(MIX_FEDERATION);
+        writer.addProperty(JcrLexicon.IS_FEDERATED, new Boolean[] {true}); 
 
         if (originalId.contains("#")) {
             CmisGetChildrenOperation childrenOperation =

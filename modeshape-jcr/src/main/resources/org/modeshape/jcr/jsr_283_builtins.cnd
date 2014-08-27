@@ -46,6 +46,9 @@
 [mix:contentStream] mixin 
   - jcr:contentStreamLength (long)
   - jcr:contentStreamFileName (string)
+
+[mix:federation] mixin 
+  - jcr:isFederated (boolean)
   
 [nt:resource] > mix:mimeType, mix:lastModified 
   - jcr:data (binary) primary mandatory
