@@ -20,7 +20,7 @@ import javax.jcr.nodetype.NodeType;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import static org.modeshape.connector.cmis.operations.impl.CmisGetObjectOperation.MIX_FEDERATION;
+import org.modeshape.jcr.ModeShapeLexicon;
 
 /*
  * Single Version Feature supporting operations
@@ -182,8 +182,8 @@ public class CmisSingleVersionOperations extends CmisOperation {
             writer.addMixinType(NodeType.MIX_REFERENCEABLE);
             writer.addProperty(JcrLexicon.UUID, suggestedObjectId.toString());
             
-            writer.addMixinType(MIX_FEDERATION);
-            writer.addProperty(JcrLexicon.IS_FEDERATED, new Boolean[] {true});  
+            writer.addMixinType(ModeShapeLexicon.FEDERATED);
+            
             // content node - mandatory child for a document
 //                writer.addChild(ObjectId.toString(ObjectId.Type.CONTENT, id), JcrConstants.JCR_CONTENT);
             EditableDocument document = writer.document();

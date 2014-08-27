@@ -109,5 +109,7 @@ public class ModeShapeLexicon {
     public static final Name SESSION_SCOPE =  new BasicName(Namespace.URI, "sessionScope");
     @Deprecated
     public static final Name IS_DEEP =  new BasicName(Namespace.URI, "isDeep");
+    
+    public static final Name FEDERATED = new BasicName(Namespace.URI, "federated");
 
 }

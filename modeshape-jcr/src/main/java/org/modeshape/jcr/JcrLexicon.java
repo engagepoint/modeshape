@@ -52,7 +52,6 @@ public class JcrLexicon {
     public static final Name LAST_MODIFIED_BY = new BasicName(Namespace.URI, "lastModifiedBy");
     public static final Name CONTENT_STREAM_LENGTH = new BasicName(Namespace.URI, "contentStreamLength");
     public static final Name CONTENT_STREAM_FILE_NAME = new BasicName(Namespace.URI, "contentStreamFileName");
-    public static final Name IS_FEDERATED = new BasicName(Namespace.URI, "isFederated");
     
     // Names used in the node type definitions ...
     public static final Name AUTO_CREATED = new BasicName(Namespace.URI, "autoCreated");
