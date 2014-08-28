@@ -155,7 +155,6 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
 
     // path and id for the repository node
     private Session session;
-    private Session soapSession;
     // -----  json settings -------------
     // binding parameters
     private String aclService;
