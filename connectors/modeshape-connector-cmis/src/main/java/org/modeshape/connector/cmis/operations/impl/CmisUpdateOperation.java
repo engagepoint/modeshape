@@ -13,7 +13,6 @@ import org.apache.chemistry.opencmis.commons.definitions.PropertyDefinition;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisUpdateConflictException;
-import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.connector.cmis.ObjectId;
 import org.modeshape.connector.cmis.RuntimeSnapshot;
@@ -29,8 +28,7 @@ import org.slf4j.LoggerFactory;
 public class CmisUpdateOperation extends CmisOperation {
     
     private final org.slf4j.Logger log = LoggerFactory.getLogger(this.getClass());
-    public static final String OBJECT_DATA_SUFFIX = "_ObjectData";
-
+    
     public CmisUpdateOperation(RuntimeSnapshot snapshot,
                                CmisConnectorConfiguration config) {
         super(snapshot, config);
@@ -351,24 +349,5 @@ public class CmisUpdateOperation extends CmisOperation {
 
         target.move(src, finderUtil.find(dst));
     }
-    
-    private void invalidateCache(CmisObject object, String cacheKey) {
-        if (snapshot.getCache() != null) {
-            cleanCacheConteiner(cacheKey, snapshot.getCache());
-            cleanCacheConteiner(object.getId(), snapshot.getCache());
-        }
-        object.refresh();
-    }
-
-    private void cleanCacheConteiner(String cacheKey, Cache distributedCache) {
-        String cacheConteinerKey = cacheKey + OBJECT_DATA_SUFFIX;        
-        List<String> caches = (List<String>) distributedCache.get(cacheConteinerKey);
-        if (caches != null) {
-            for (String key : caches) {
-                distributedCache.remove(key);
-            }
-            distributedCache.remove(cacheConteinerKey);
-        }
-        distributedCache.remove(cacheKey);
-    }
+        
 }

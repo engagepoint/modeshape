@@ -81,13 +81,6 @@ public class TempBinaryValue extends AbstractBinary {
     }
 
     @Override
-    public void dispose() {
-        if (tmpFile != null) {
-            tmpFile.delete();
-        }
-    }
-
-    @Override
     public long getSize() {
         return size;
     }
