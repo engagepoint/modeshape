@@ -21,7 +21,6 @@
         <!-- First these -->
         <module>modeshape-parent</module>
         <module>modeshape-assembly-descriptors</module>
-		
         <!-- Order is important -->
         <module>modeshape-jcr-api</module>
         <module>modeshape-common</module>
