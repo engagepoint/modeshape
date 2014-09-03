@@ -23,6 +23,8 @@
 */
 package org.modeshape.jcr.cache.document;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
@@ -39,6 +41,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.logging.Level;
 import org.infinispan.schematic.DocumentFactory;
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
@@ -89,6 +92,7 @@ import org.modeshape.jcr.value.binary.BinaryStoreException;
 import org.modeshape.jcr.value.binary.EmptyBinaryValue;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 import org.modeshape.jcr.value.binary.InMemoryBinaryValue;
+import org.modeshape.jcr.value.binary.TempBinaryValue;
 
 /**
  * A utility class that encapsulates all the logic for reading from and writing to {@link Document} instances.
@@ -1421,9 +1425,16 @@ public class DocumentTranslator implements DocumentConstants {
             if (!Null.matches(valueStr = doc.getString(SHA1_FIELD))) {
                 long size = doc.getLong(LENGTH_FIELD);
                 try {
+                    // Check if it is a path to the temporary file which was used for temporary storage of document content stream created in connector 
+                    // Must be converted to TempBinaryValue 
+                    if (valueStr.contains(".tmp")) {
+                        return new TempBinaryValue(null, size, new BinaryKey(valueStr));
+                    }
                     return binaries.find(new BinaryKey(valueStr), size);
                 } catch (BinaryStoreException e) {
                     throw new RuntimeException(e);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
                 }
             }
         }
