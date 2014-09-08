@@ -3,7 +3,7 @@
 	<parent>
 		<groupId>org.modeshape</groupId>
 		<artifactId>modeshape-parent</artifactId>
-		<version>3.7.36-EP-SNAPSHOT</version>
+		<version>3.7.36-EP</version>
 		<relativePath>../../modeshape-parent/pom.xml</relativePath>
 	</parent>
 	<packaging>pom</packaging>
