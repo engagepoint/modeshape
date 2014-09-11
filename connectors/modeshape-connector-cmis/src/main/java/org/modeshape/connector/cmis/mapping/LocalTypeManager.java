@@ -14,6 +14,8 @@ import org.modeshape.connector.cmis.CmisLexicon;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
+import org.modeshape.jcr.JcrNodeTypeManager;
+import org.modeshape.jcr.JcrNodeTypeTemplate;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.value.Name;
@@ -166,6 +168,17 @@ public class LocalTypeManager {
         // after importing and updating - we need to register/update all types
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[definitionsList.size()];
         definitionsList.toArray(nodeDefs);
+
+        for (int i = 0; i < nodeDefs.length; i++) {
+            String nodeTypeName = nodeDefs[i].getName();
+            try {
+                ((JcrNodeTypeManager) nodeTypeManager).getNodeType(nodeTypeName);
+                throw new RepositoryException(String.format("There is already imported type with id %s. Try to check types in configurations ", nodeTypeName));
+            } catch (NoSuchNodeTypeException e) {
+                LOG.debug(String.format("registered new type: %s",nodeTypeName));
+            }
+        }
+
         nodeTypeManager.registerNodeTypes(nodeDefs, true);
         // todo: reimport, use types from manager
         registerRepositoryInfoType(nodeTypeManager);
@@ -228,13 +241,12 @@ public class LocalTypeManager {
     /**
      * Indicates what given cmis base type can be imported
      *
-     * @param    baseTypeId cmis base type id
-     *
-     * @return   true   if base type will be imported
-     *           false  otherwise
+     * @param baseTypeId cmis base type id
+     * @return true   if base type will be imported
+     *         false  otherwise
      */
-    public static boolean isSupportedBaseType (BaseTypeId baseTypeId) {
-        return ( (baseTypeId == BaseTypeId.CMIS_DOCUMENT) || (baseTypeId == BaseTypeId.CMIS_FOLDER) );
+    public static boolean isSupportedBaseType(BaseTypeId baseTypeId) {
+        return ((baseTypeId == BaseTypeId.CMIS_DOCUMENT) || (baseTypeId == BaseTypeId.CMIS_FOLDER));
     }
 
 
@@ -272,7 +284,7 @@ public class LocalTypeManager {
         if (!cmisTypeId.equals(cmisType.getLocalName()) && cmisTypeId.contains(":")) {
 
             String nsPrefix = cmisTypeId.substring(0, cmisTypeId.indexOf(":"));
-            String nsUri = mapping.isTransient() ?  cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
+            String nsUri = mapping.isTransient() ? cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
             debug("check type namespace type: ", nsPrefix, ":", nsUri);
             // check is ns is not registered already with exactly same prefix and uri
             // if one of items presents typeManager should throw an exception while registering
@@ -343,7 +355,7 @@ public class LocalTypeManager {
                 final String extPropertyName = mapping.toExtProperty(jcrProp.getName());
                 final boolean globalIgnored = globalIgnoredExtProperties.contains(extPropertyName);
                 final boolean ignoredByType = mapping.isIgnoredExtProperty(jcrProp.getName());
-                if (mapping!=null && !globalIgnored && !ignoredByType) {
+                if (mapping != null && !globalIgnored && !ignoredByType) {
                     registeredProperties.put(extPropertyName, jcrProp.getName());
                     type.getPropertyDefinitionTemplates().add(jcrProp);
                 }
@@ -389,7 +401,7 @@ public class LocalTypeManager {
         if (typeManager == null)
             return;
 
-        for ( String typeKey : mappedTypes.indexByJcrName.keySet()) {
+        for (String typeKey : mappedTypes.indexByJcrName.keySet()) {
             MappedCustomType mcType = mappedTypes.findByJcrName(typeKey);
             //  Enabling SNS
             if (mcType.hasFeature(Constants.FEATURE_NAME_SNS)) {
@@ -402,7 +414,7 @@ public class LocalTypeManager {
 
                 // Obtain type definition - and update it
                 boolean foundInDefList = false;
-                for( NodeTypeTemplate defType: defList ) {
+                for (NodeTypeTemplate defType : defList) {
                     if (defType.getName().equals(typeKey)) {
                         foundInDefList = true;
                         defType.getNodeDefinitionTemplates().add(child);
