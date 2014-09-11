@@ -172,7 +172,9 @@ public class LocalTypeManager {
         for (int i = 0; i < nodeDefs.length; i++) {
             String nodeTypeName = nodeDefs[i].getName();
             try {
+                //check if there is already imported type, if no - catch thrown exception and do nothing
                 ((JcrNodeTypeManager) nodeTypeManager).getNodeType(nodeTypeName);
+                //if yes throw exception
                 throw new RepositoryException(String.format("There is already imported type with id %s. Try to check types in configurations ", nodeTypeName));
             } catch (NoSuchNodeTypeException e) {
                 LOG.debug(String.format("registered new type: %s",nodeTypeName));
