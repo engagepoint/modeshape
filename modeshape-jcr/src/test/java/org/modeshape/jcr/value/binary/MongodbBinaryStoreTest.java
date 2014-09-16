@@ -116,7 +116,7 @@ public class MongodbBinaryStoreTest extends AbstractBinaryStoreTest {
             binaryStore.shutdown();
             mongodExecutable.stop();
             mongodProcess.stop();
-        } catch (Exception e) {
+        } catch (Throwable t) {
             //ignore
         }
     }

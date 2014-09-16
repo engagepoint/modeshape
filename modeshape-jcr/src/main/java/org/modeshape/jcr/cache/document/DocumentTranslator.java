@@ -418,7 +418,8 @@ public class DocumentTranslator implements DocumentConstants {
 
     public void setProperty( EditableDocument document,
                              Property property,
-                             Set<BinaryKey> unusedBinaryKeys ) {
+                             Set<BinaryKey> unusedBinaryKeys,
+                             Set<BinaryKey> usedBinaryKeys) {
         // Get or create the properties container ...
         EditableDocument properties = document.getDocument(PROPERTIES);
         if (properties == null) {
@@ -436,7 +437,7 @@ public class DocumentTranslator implements DocumentConstants {
         // Get the old value ...
         String localName = propertyName.getLocalName();
         Object oldValue = urlProps.get(localName);
-        decrementBinaryReferenceCount(oldValue, unusedBinaryKeys);
+        decrementBinaryReferenceCount(oldValue, unusedBinaryKeys, usedBinaryKeys);
 
         // Now set the property ...
         if (property.isEmpty()) {
@@ -444,12 +445,12 @@ public class DocumentTranslator implements DocumentConstants {
         } else if (property.isMultiple()) {
             EditableArray values = Schematic.newArray(property.size());
             for (Object v : property) {
-                values.add(valueToDocument(v, unusedBinaryKeys));
+                values.add(valueToDocument(v, unusedBinaryKeys, usedBinaryKeys));
             }
             urlProps.setArray(localName, values);
         } else {
             assert property.isSingle();
-            Object value = valueToDocument(property.getFirstValue(), unusedBinaryKeys);
+            Object value = valueToDocument(property.getFirstValue(), unusedBinaryKeys, usedBinaryKeys);
             if (value == null) {
                 urlProps.remove(localName);
             } else {
@@ -460,7 +461,8 @@ public class DocumentTranslator implements DocumentConstants {
 
     public Property removeProperty( EditableDocument document,
                                     Name propertyName,
-                                    Set<BinaryKey> unusedBinaryKeys ) {
+                                    Set<BinaryKey> unusedBinaryKeys,
+                                    Set<BinaryKey> usedBinaryKeys) {
         // Get the properties container if it exists ...
         EditableDocument properties = document.getDocument(PROPERTIES);
         if (properties == null) {
@@ -481,7 +483,7 @@ public class DocumentTranslator implements DocumentConstants {
         Object fieldValue = urlProps.remove(localName);
 
         // We're removing a reference to a binary value, and we need to decrement the reference count ...
-        decrementBinaryReferenceCount(fieldValue, unusedBinaryKeys);
+        decrementBinaryReferenceCount(fieldValue, unusedBinaryKeys, usedBinaryKeys);
 
         // Now remove the namespace if empty ...
         if (urlProps.isEmpty()) {
@@ -494,7 +496,8 @@ public class DocumentTranslator implements DocumentConstants {
                                    Name propertyName,
                                    boolean isMultiple,
                                    Collection<?> values,
-                                   Set<BinaryKey> unusedBinaryKeys ) {
+                                   Set<BinaryKey> unusedBinaryKeys,
+                                   Set<BinaryKey> usedBinaryKeys) {
         assert values != null;
         int numValues = values.size();
         if (numValues == 0) {
@@ -522,29 +525,29 @@ public class DocumentTranslator implements DocumentConstants {
             if (isMultiple || numValues > 1) {
                 EditableArray array = Schematic.newArray(numValues);
                 for (Object value : values) {
-                    array.addValue(valueToDocument(value, unusedBinaryKeys));
+                    array.addValue(valueToDocument(value, unusedBinaryKeys, usedBinaryKeys));
                 }
                 urlProps.setArray(localName, array);
             } else {
-                urlProps.set(localName, valueToDocument(values.iterator().next(), unusedBinaryKeys));
+                urlProps.set(localName, valueToDocument(values.iterator().next(), unusedBinaryKeys, usedBinaryKeys));
             }
         } else if (propValue instanceof List<?>) {
             // Decrement the reference count of any binary references ...
-            decrementBinaryReferenceCount(propValue, unusedBinaryKeys);
+            decrementBinaryReferenceCount(propValue, unusedBinaryKeys, usedBinaryKeys);
 
             // There's an existing property with multiple values ...
             EditableArray array = urlProps.getArray(localName);
             for (Object value : values) {
-                value = valueToDocument(value, unusedBinaryKeys);
+                value = valueToDocument(value, unusedBinaryKeys, usedBinaryKeys);
                 array.addValueIfAbsent(value);
             }
         } else {
             // Decrement the reference count of any binary references ...
-            decrementBinaryReferenceCount(propValue, unusedBinaryKeys);
+            decrementBinaryReferenceCount(propValue, unusedBinaryKeys, usedBinaryKeys);
 
             // There's just a single value ...
             if (numValues == 1) {
-                Object value = valueToDocument(values.iterator().next(), unusedBinaryKeys);
+                Object value = valueToDocument(values.iterator().next(), unusedBinaryKeys, usedBinaryKeys);
                 if (!value.equals(propValue)) {
                     // But the existing value is different, so we have to change to an array ...
                     EditableArray array = Schematic.newArray(value, propValue);
@@ -553,7 +556,7 @@ public class DocumentTranslator implements DocumentConstants {
             } else {
                 EditableArray array = Schematic.newArray(numValues);
                 for (Object value : values) {
-                    value = valueToDocument(value, unusedBinaryKeys);
+                    value = valueToDocument(value, unusedBinaryKeys, usedBinaryKeys);
                     if (!value.equals(propValue)) {
                         array.addValue(value);
                     }
@@ -567,7 +570,8 @@ public class DocumentTranslator implements DocumentConstants {
     public void removePropertyValues( EditableDocument document,
                                       Name propertyName,
                                       Collection<?> values,
-                                      Set<BinaryKey> unusedBinaryKeys ) {
+                                      Set<BinaryKey> unusedBinaryKeys,
+                                      Set<BinaryKey> usedBinaryKeys) {
         assert values != null;
         int numValues = values.size();
         if (numValues == 0) {
@@ -592,17 +596,19 @@ public class DocumentTranslator implements DocumentConstants {
         // Now add the value to the property ...
         String localName = propertyName.getLocalName();
         Object propValue = urlProps.get(localName);
+        decrementBinaryReferenceCount(propValue, unusedBinaryKeys, usedBinaryKeys);
+
         if (propValue instanceof List<?>) {
             // There's an existing property with multiple values ...
             EditableArray array = urlProps.getArray(localName);
             for (Object value : values) {
-                value = valueToDocument(value, unusedBinaryKeys);
+                value = valueToDocument(value, null, null);
                 array.remove(value);
             }
         } else if (propValue != null) {
             // There's just a single value ...
             for (Object value : values) {
-                value = valueToDocument(value, unusedBinaryKeys);
+                value = valueToDocument(value, unusedBinaryKeys, usedBinaryKeys);
                 if (value.equals(propValue)) {
                     // And the value matches, so remove the field ...
                     urlProps.remove(localName);
@@ -1002,7 +1008,7 @@ public class DocumentTranslator implements DocumentConstants {
 
     public EditableDocument fromChildReference( ChildReference ref ) {
         // We don't write the
-        return Schematic.newDocument(KEY, valueToDocument(ref.getKey(), null), NAME, strings.create(ref.getName()));
+        return Schematic.newDocument(KEY, valueToDocument(ref.getKey(), null, null), NAME, strings.create(ref.getName()));
     }
 
     public Set<NodeKey> getReferrers( Document document,
@@ -1161,7 +1167,8 @@ public class DocumentTranslator implements DocumentConstants {
     }
 
     protected Object valueToDocument( Object value,
-                                      Set<BinaryKey> unusedBinaryKeys ) {
+                                      Set<BinaryKey> unusedBinaryKeys,
+                                      Set<BinaryKey> usedBinaryKeys) {
         if (value == null) {
             return null;
         }
@@ -1249,7 +1256,7 @@ public class DocumentTranslator implements DocumentConstants {
             Document ref = Schematic.newDocument(SHA1_FIELD, sha1, LENGTH_FIELD, size);
 
             // Find the document metadata and increment the usage count ...
-            incrementBinaryReferenceCount(binary.getKey(), unusedBinaryKeys);
+            incrementBinaryReferenceCount(binary.getKey(), unusedBinaryKeys, usedBinaryKeys);
 
             // Now return the sha-1 reference ...
             return ref;
@@ -1267,9 +1274,11 @@ public class DocumentTranslator implements DocumentConstants {
      *
      * @param binaryKey the key for the binary value; never null
      * @param unusedBinaryKeys the set of binary keys that are considered unused; may be null
+     * @param usedBinaryKeys the set of binary keys that are considered used; may  be null
      */
     protected void incrementBinaryReferenceCount( BinaryKey binaryKey,
-                                                  Set<BinaryKey> unusedBinaryKeys ) {
+                                                  Set<BinaryKey> unusedBinaryKeys,
+                                                  Set<BinaryKey> usedBinaryKeys) {
         // Find the document metadata and increment the usage count ...
         String sha1 = binaryKey.toString();
         String key = keyForBinaryReferenceDocument(sha1);
@@ -1292,6 +1301,9 @@ public class DocumentTranslator implements DocumentConstants {
         if (unusedBinaryKeys != null) {
             unusedBinaryKeys.remove(binaryKey);
         }
+        if (usedBinaryKeys != null) {
+            usedBinaryKeys.add(binaryKey);
+        }
     }
 
     private boolean isLocalSource(String key) {
@@ -1305,16 +1317,18 @@ public class DocumentTranslator implements DocumentConstants {
      *
      * @param fieldValue the value in the document that may contain a binary value reference; may be null
      * @param unusedBinaryKeys the set of binary keys that are considered unused; may be null
+     * @param usedBinaryKeys the set of binary keys that are considered used; may be null
      */
     protected void decrementBinaryReferenceCount( Object fieldValue,
-                                                  Set<BinaryKey> unusedBinaryKeys ) {
+                                                  Set<BinaryKey> unusedBinaryKeys,
+                                                  Set<BinaryKey> usedBinaryKeys) {
         if (fieldValue instanceof List<?>) {
             for (Object value : (List<?>)fieldValue) {
-                decrementBinaryReferenceCount(value, unusedBinaryKeys);
+                decrementBinaryReferenceCount(value, unusedBinaryKeys, usedBinaryKeys);
             }
         } else if (fieldValue instanceof Object[]) {
             for (Object value : (Object[])fieldValue) {
-                decrementBinaryReferenceCount(value, unusedBinaryKeys);
+                decrementBinaryReferenceCount(value, unusedBinaryKeys, usedBinaryKeys);
             }
         } else {
             String sha1 = null;
@@ -1328,7 +1342,7 @@ public class DocumentTranslator implements DocumentConstants {
             }
 
             if (sha1 != null) {
-
+                BinaryKey binaryKey = new BinaryKey(sha1);
                 // Find the document metadata and decrement the usage count ...
                 SchematicEntry entry = documentStore.get(keyForBinaryReferenceDocument(sha1));
 
@@ -1343,14 +1357,20 @@ public class DocumentTranslator implements DocumentConstants {
                     if (count == 0) {
                         // We're not using the binary value anymore ...
                         if (unusedBinaryKeys != null) {
-                            unusedBinaryKeys.add(new BinaryKey(sha1));
+                            unusedBinaryKeys.add(binaryKey);
+                        }
+                        if (usedBinaryKeys != null) {
+                            usedBinaryKeys.remove(binaryKey);
                         }
                     }
                     sha1Usage.setNumber(REFERENCE_COUNT, count);
                 } else {
                     // The documentStore doesn't contain the binary ref count doc, so we're no longer using the binary value ...
                     if (unusedBinaryKeys != null) {
-                        unusedBinaryKeys.add(new BinaryKey(sha1));
+                        unusedBinaryKeys.add(binaryKey);
+                    }
+                    if (usedBinaryKeys != null) {
+                        usedBinaryKeys.remove(binaryKey);
                     }
                 }
             }

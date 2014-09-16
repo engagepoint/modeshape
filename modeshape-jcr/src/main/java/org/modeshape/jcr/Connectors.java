@@ -1412,7 +1412,7 @@ public final class Connectors {
             for (Map.Entry<Name, Property> entry : properties.entrySet()) {
                 Property property = entry.getValue();
                 if (property != null) {
-                    translator.setProperty(doc, property, null);
+                    translator.setProperty(doc, property, null, null);
                 }
             }
             localStore.storeDocument(key, doc);
@@ -1432,9 +1432,9 @@ public final class Connectors {
             for (Map.Entry<Name, Property> propertyEntry : properties.entrySet()) {
                 Property property = propertyEntry.getValue();
                 if (property != null) {
-                    translator.setProperty(doc, property, null);
+                    translator.setProperty(doc, property, null, null);
                 } else {
-                    translator.removeProperty(doc, propertyEntry.getKey(), null);
+                    translator.removeProperty(doc, propertyEntry.getKey(), null, null);
                 }
             }
             localStore.storeDocument(key, doc);
