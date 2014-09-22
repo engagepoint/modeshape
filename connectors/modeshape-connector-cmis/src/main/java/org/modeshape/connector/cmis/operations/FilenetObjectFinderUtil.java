@@ -161,7 +161,7 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
             getObjectContext.setIncludeAllowableActions(false);
             getObjectContext.setIncludePathSegments(false);
             getObjectContext.setMaxItemsPerPage(1);
-            getObjectContext.setCacheEnabled(true);
+            getObjectContext.setCacheEnabled(false);
             result = session.getObject(remoteId, getObjectContext);
         } catch (CmisObjectNotFoundException nfe) {
             LOGGER.warn(nfe, new TextI18n("CmisObjectFinderUtil::find::Failed to find object by {0}. Error content: {1}"), singleVersionOptions.getCommonIdPropertyName(), nfe.getErrorContent());
@@ -187,7 +187,7 @@ public class FilenetObjectFinderUtil implements CmisObjectFinderUtil{
 
             // Remove all unnecessary data from query results to improve performance 
             OperationContext queryContext = new OperationContextImpl();
-            queryContext.setCacheEnabled(true);
+            queryContext.setCacheEnabled(false);
             queryContext.setIncludeAllowableActions(false);
             queryContext.setIncludePathSegments(false);
             queryContext.setMaxItemsPerPage(1);
