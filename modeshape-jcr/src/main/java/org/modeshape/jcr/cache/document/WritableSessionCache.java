@@ -1519,12 +1519,12 @@ public class WritableSessionCache extends AbstractSessionCache {
             public void transactionComplete() {
                 if (!usedBinaries.isEmpty()) {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("Marking binary values as used: ", usedBinaries);
+                        LOGGER.debug("Marking binary values as used: {0}", usedBinaries);
                     }
                     try {
                         binaryStore.markAsUsed(usedBinaries);
                         if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug("Finished marking binary values as used: ", usedBinaries);
+                            LOGGER.debug("Finished marking binary values as used: {0}", usedBinaries);
                         }
                     } catch (BinaryStoreException e) {
                         LOGGER.error(e, JcrI18n.errorMarkingBinaryValuesUsed, e.getMessage());
@@ -1533,12 +1533,12 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                 if (!unusedBinaries.isEmpty()) {
                     if (LOGGER.isDebugEnabled()) {
-                        LOGGER.debug("Marking binary values as unused: ", unusedBinaries);
+                        LOGGER.debug("Marking binary values as unused: {0}", unusedBinaries);
                     }
                     try {
                         binaryStore.markAsUnused(unusedBinaries);
                         if (LOGGER.isDebugEnabled()) {
-                            LOGGER.debug("Finished marking binary values as unused: ", unusedBinaries);
+                            LOGGER.debug("Finished marking binary values as unused: {0}", unusedBinaries);
                         }
                     } catch (BinaryStoreException e) {
                         LOGGER.error(e, JcrI18n.errorMarkingBinaryValuesUnused, e.getMessage());
