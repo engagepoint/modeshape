@@ -526,7 +526,7 @@ public final class Connectors {
 
         // possible problem with config to workspace
         // this is a temporary fix -> available only for the case with a single workspace and projection
-        Map<String, List<ProjectionConfiguration>> preconfiguredProjections = getPreconfiguredProjections();
+        Map<String, List<ProjectionConfiguration>> preconfiguredProjections = getPreconfiguredProjectionsFor(connector);
         ReflectionUtil.setValue(connector, "preconfiguredProjections", preconfiguredProjections);
 
         // If successful, call the 'postInitialize' method reflectively (due to inability to call directly) ...
@@ -633,6 +633,15 @@ public final class Connectors {
      */
     public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjections() {
         return this.snapshot.get().preconfiguredProjections;
+    }
+
+    /**
+     * Preconfigured projections for each workspace.
+     *
+     * @return A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace.
+     */
+    public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjectionsFor(Connector connector) {
+        return this.snapshot.get().getPreconfiguredProjectionsFor(connector);
     }
 
     /**
@@ -834,6 +843,30 @@ public final class Connectors {
                 }
             }
             return workspaceNames;
+        }
+
+        /**
+         * Get the set of projections for the supplied connector.
+         *
+         * @param connector the connector
+         * @return projections
+         */
+        public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjectionsFor(Connector connector) {
+            String connectorSrcName = connector.getSourceName();
+            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> result = new HashMap<String, List<ProjectionConfiguration>>();
+
+            for (Map.Entry<String, List<RepositoryConfiguration.ProjectionConfiguration>> entry : preconfiguredProjections.entrySet()) {
+                List<RepositoryConfiguration.ProjectionConfiguration> list = new LinkedList<ProjectionConfiguration>();
+                for (ProjectionConfiguration config : entry.getValue()) {
+                    if (config.getSourceName().equals(connectorSrcName)) {
+                        list.add(config);
+                    }
+                }
+                if (list.size() > 0) {
+                    result.put(entry.getKey(), list);
+                }
+            }
+            return result;
         }
 
         /**

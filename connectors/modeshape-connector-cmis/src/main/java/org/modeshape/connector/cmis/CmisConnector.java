@@ -212,6 +212,7 @@ public class CmisConnector extends Connector implements Pageable, UnfiledSupport
     // single version && commonId  logic
     private SingleVersionOptions singleVersionOptions = new SingleVersionOptions();
 
+    // populated with Connectors class from the outside
     Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections;
 
     // -----  runtime variables container -------------
