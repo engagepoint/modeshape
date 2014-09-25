@@ -17,7 +17,9 @@ import java.util.*;
  * Self Check Type conformity Util
  * Created by vyacheslav.polulyakh on 5/14/2014.
  */
-public class CompareTypeDefinitionsUtil {
+public final class CompareTypeDefinitionsUtil {
+
+    private CompareTypeDefinitionsUtil(){}
 
     private static final String ADDED_TO = "added to ";
     private static final String REMOVED_FROM = "removed from";
@@ -169,7 +171,7 @@ public class CompareTypeDefinitionsUtil {
         expectedDefaultValue = expectedDefaultValue == null ? Collections.emptyList() : expectedDefaultValue;
         actualDefaultValue = actualDefaultValue == null ? Collections.emptyList() : actualDefaultValue;
 
-        if (!CollectionUtils.isEqualCollection(expectedDefaultValue,actualDefaultValue)) {
+        if (!CollectionUtils.isEqualCollection(expectedDefaultValue, actualDefaultValue)) {
             problems.addWarning(CompareTypesI18n.propertyAreChanged, TypeDefinitionsIds.DEFAULT_VALUE, propertyId, typeId,
                     expectedProperty.getDefaultValue(), actualProperty.getDefaultValue());
         }
@@ -303,7 +305,7 @@ public class CompareTypeDefinitionsUtil {
 
     private static boolean isRequiredProperty(Object o){
         if (o instanceof PropertyDefinition){
-            if(((PropertyDefinition) o).isRequired())
+            if (((PropertyDefinition) o).isRequired())
                 return true;
         }
         return false;
@@ -313,7 +315,7 @@ public class CompareTypeDefinitionsUtil {
      * Verify all objects for <code>null</code> value, if one of it are <code>null</code>
      * add to {@link #problems} Error {@link org.modeshape.connector.cmis.common.CompareTypesI18n#argumentShouldNotBeNull}
      * @param objects objects to verify
-     * @return <code>false</code> if all of objects are not null, else <coe>true</coe>
+     * @return <code>false</code> if all of objects are not null, else <code>true</code>
      */
     protected static boolean isNullValues(Object... objects) {
 
