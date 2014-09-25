@@ -64,6 +64,7 @@ public class CmisStoreOperation extends CmisOperation {
                     if (isVersioned(cmisObject)) CmisOperationCommons.updateVersionedDoc(session, cmisObject, null, stream, true);
                     else asDocument(cmisObject).setContentStream(stream, true, true);
                 }
+                invalidateCache(cmisObject, cmisId);
                 break;
             case OBJECT:
                 // extract node properties from the document view
@@ -166,10 +167,8 @@ public class CmisStoreOperation extends CmisOperation {
                         cmisObject.updateProperties(updateProperties);
                     }
                 }
+                invalidateCache(cmisObject, cmisId);
                 break;
-        }
-        if (snapshot.getCache() != null) {
-            snapshot.getCache().remove(cmisId);
         }
         debug("Finish CmisStoreOperation:storeDocumen. Time:", String.valueOf(System.currentTimeMillis()-startTime), "ms");
     }

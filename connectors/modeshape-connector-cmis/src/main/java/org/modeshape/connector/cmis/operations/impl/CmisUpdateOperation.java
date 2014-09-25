@@ -235,28 +235,27 @@ public class CmisUpdateOperation extends CmisOperation {
                     if ((cmisObject instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(cmisObject)) {
                         debug("cmisObject is versioned Document");
                         if (versioningState == VersioningState.NONE) {
-                            cmisObject.updateProperties(updateProperties);
+                            cmisObject.updateProperties(updateProperties, Boolean.TRUE);
                         } else {
                             CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);
                         }                        
                     } else if (cmisObject instanceof org.apache.chemistry.opencmis.client.api.Folder) {
                         debug("cmisObject is Folder");
                         try {
-                            cmisObject.updateProperties(updateProperties);
+                            cmisObject.updateProperties(updateProperties, Boolean.TRUE);
                         } catch (CmisUpdateConflictException e) {
                             log().info(MessageFormat.format("Skip update properties [{0}] for folder [{1}] due to error {2}", updateProperties.toString(), cmisObject.getName(), e.getMessage()));
                         }
                     } else {
                         debug("cmisObject is not versioned");
                         try {
-                            cmisObject.updateProperties(updateProperties);
+                            cmisObject.updateProperties(updateProperties, Boolean.TRUE);
                         } catch (CmisUpdateConflictException e) {
                             log().info(MessageFormat.format("{0} Try to update object as versioned", e.getMessage()));
                             CmisOperationCommons.updateVersionedDoc(session, cmisObject, updateProperties, null, major);
                         }
                     }
                 }
-
 
                 invalidateCache(cmisObject, cmisId);
                 
@@ -325,11 +324,11 @@ public class CmisUpdateOperation extends CmisOperation {
         }
         if ((parent instanceof org.apache.chemistry.opencmis.client.api.Document) && isVersioned(object)) {
             if (versioningState == VersioningState.NONE) {
-                object.updateProperties(properties);
+                object.updateProperties(properties, Boolean.TRUE);
             } else {
                 CmisOperationCommons.updateVersionedDoc(session, object, properties, null, major);
             }
-        } else object.updateProperties(properties);   
+        } else object.updateProperties(properties, Boolean.TRUE);   
     }
 
     /**
