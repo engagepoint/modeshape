@@ -1602,6 +1602,10 @@ public class RepositoryConfiguration {
          * @return map of standard roles to custom names
          */
         public Map<String, ?> getRolesMapping() {
+            if (security == null || security.getDocument(FieldName.ROLES_MAPPING) == null) {
+                return Collections.emptyMap();
+            }
+
             return security.getDocument(FieldName.ROLES_MAPPING).toMap();
         }
 
