@@ -1381,22 +1381,25 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 }
             }
 
+            String roleReadOnly = repository().runningState().roles().getReadOnly();
+            String roleReadWrite = repository().runningState().roles().getReadwrite();
+            String roleAdmin = repository().runningState().roles().getAdmin();
             // It is a role-based security context, so apply role-based authorization ...
             for (String action : actions) {
                 if (ModeShapePermissions.READ.equals(action)) {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.READONLY, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.READWRITE, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleReadOnly, repositoryName, workspaceName)
+                                     || hasRole(sec, roleReadWrite, repositoryName, workspaceName)
+                                     || hasRole(sec, roleAdmin, repositoryName, workspaceName);
                 } else if (ModeShapePermissions.REGISTER_NAMESPACE.equals(action)
                            || ModeShapePermissions.REGISTER_TYPE.equals(action) || ModeShapePermissions.UNLOCK_ANY.equals(action)
                            || ModeShapePermissions.CREATE_WORKSPACE.equals(action)
                            || ModeShapePermissions.DELETE_WORKSPACE.equals(action) || ModeShapePermissions.MONITOR.equals(action)
                            || ModeShapePermissions.DELETE_WORKSPACE.equals(action)
                            || ModeShapePermissions.INDEX_WORKSPACE.equals(action)) {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleAdmin, repositoryName, workspaceName);
                 } else {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.READWRITE, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleAdmin, repositoryName, workspaceName)
+                                     || hasRole(sec, roleReadWrite, repositoryName, workspaceName);
                 }
             }
 

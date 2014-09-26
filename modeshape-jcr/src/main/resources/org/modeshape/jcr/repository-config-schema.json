@@ -683,6 +683,27 @@
                         },
                     }
                 },
+                "rolesMapping" : {
+                    "type" : "object",
+                    "description" : "Custom roles mapping to standard ModeShape roles.",
+                    "properties" : {
+                        "readonly" : {
+                            "type" : "string",
+                            "default" : "readonly",
+                            "description" : "readonly role custom mapping"
+                        },
+                        "readwrite" : {
+                            "type" : "string",
+                            "default" : "readwrite",
+                            "description" : "readwrite role custom mapping"
+                        },
+                        "admin" : {
+                            "type" : "string",
+                            "default" : "admin",
+                            "description" : "admin role custom mapping"
+                        },
+                    }
+                },
                 "anonymous" : {
                     "type" : "object",
                     "description" : "The configuration of the authentication/authorization provider that uses JAAS.",

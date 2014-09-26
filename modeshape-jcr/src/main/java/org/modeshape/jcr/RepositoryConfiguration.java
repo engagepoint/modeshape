@@ -399,6 +399,11 @@ public class RepositoryConfiguration {
         public static final String JAAS = "jaas";
 
         /**
+         * mapping of custom role names to standard ones
+         */
+        public static final String ROLES_MAPPING = "rolesMapping";
+
+        /**
          * The name for the field under "security/jaas" specifying the JAAS policy that should be used. An empty string value
          * implies that JAAS should not be used.
          */
@@ -1578,6 +1583,15 @@ public class RepositoryConfiguration {
             }
             Document jaas = security.getDocument(FieldName.JAAS);
             return jaas != null ? new JaasSecurity(jaas) : null;
+        }
+
+        /**
+         * Get roles names associated with standard modeshape roles
+         *
+         * @return map of standard roles to custom names
+         */
+        public Map<String, ?> getRolesMapping() {
+            return security.getDocument(FieldName.ROLES_MAPPING).toMap();
         }
 
         /**
