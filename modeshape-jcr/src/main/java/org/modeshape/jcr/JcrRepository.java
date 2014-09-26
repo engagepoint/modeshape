@@ -1567,6 +1567,11 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         }
 
         private Roles createRoles() {
+            // default mapping if no config
+            if (config.getSecurity() == null || config.getSecurity().getRolesMapping() == null) {
+                return new Roles();
+            }
+
             Map<String, ?> rolesMapping = config.getSecurity().getRolesMapping();
 
             String roleReadOnly = rolesMapping.containsKey(ModeShapeRoles.READONLY)
