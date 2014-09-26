@@ -10,15 +10,17 @@ import org.apache.chemistry.opencmis.commons.enums.Cardinality;
 import org.apache.chemistry.opencmis.commons.enums.Updatability;
 import org.apache.commons.lang3.ArrayUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.infinispan.schematic.document.Array;
 import org.modeshape.connector.cmis.CmisLexicon;
 import org.modeshape.connector.cmis.Constants;
 import org.modeshape.connector.cmis.config.TypeCustomMappingList;
 import org.modeshape.connector.cmis.util.TypeMappingConfigUtil;
+import org.modeshape.jcr.JcrNodeTypeManager;
 import org.modeshape.jcr.api.JcrConstants;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.value.Name;
+import org.modeshape.jcr.value.NamespaceException;
 import org.modeshape.jcr.value.ValueFactories;
-import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.jcr.NamespaceRegistry;
@@ -46,7 +48,7 @@ public class LocalTypeManager {
     /**
      * SLF logger.
      */
-    private final org.slf4j.Logger LOG = LoggerFactory.getLogger(this.getClass());
+    private final org.slf4j.Logger log = LoggerFactory.getLogger(this.getClass());
 
     private ValueFactories factories;
     private MappedTypesContainer mappedTypes;
@@ -59,7 +61,6 @@ public class LocalTypeManager {
     private NodeTypeManager nodeTypeManager;
     private NamespaceRegistry registry;
     private boolean debug = true;
-    private Logger log;
     /**
      * Map of all registered properties, where key is "external name"
      * and value is "jcr name".
@@ -82,9 +83,10 @@ public class LocalTypeManager {
         this.registry = registry;
         this.registeredProperties = new HashMap<String, String>(100);
         this.mappedTypes = getCompleteMappings(customMapping);
-        if (customMapping != null && customMapping.getNamespaces() != null)
+        if (customMapping != null && customMapping.getNamespaces() != null) {
             this.mappedNamespaces.putAll(customMapping.getNamespaces());
-        if (customMapping.getGlobalIgnoredExtProperties() != null) {
+        }
+        if (customMapping != null && customMapping.getGlobalIgnoredExtProperties() != null) {
             this.globalIgnoredExtProperties
                     .addAll(customMapping.getGlobalIgnoredExtProperties());
         }
@@ -166,8 +168,21 @@ public class LocalTypeManager {
         // after importing and updating - we need to register/update all types
         NodeTypeDefinition[] nodeDefs = new NodeTypeDefinition[definitionsList.size()];
         definitionsList.toArray(nodeDefs);
+
+        for (NodeTypeDefinition nodeDef : nodeDefs) {
+            String nodeTypeName = nodeDef.getName();
+            try {
+                //check if there is already imported type, if no - catch thrown exception and do nothing
+                ((JcrNodeTypeManager) nodeTypeManager).getNodeType(nodeTypeName);
+                //if yes throw exception
+                throw new RepositoryException(String.format("There is already imported type with id %s. Try to check types in configurations ", nodeTypeName));
+            } catch (NoSuchNodeTypeException e) {
+                log.debug(String.format("registered new type: %s", nodeTypeName));
+            }
+        }
+
         nodeTypeManager.registerNodeTypes(nodeDefs, true);
-        // todo: reimport, use types from manager
+        // todo: re-import, use types from manager
         registerRepositoryInfoType(nodeTypeManager);
         initializeApplicableUnfiledTypes(applicableUnfiledTypes);
     }
@@ -194,7 +209,9 @@ public class LocalTypeManager {
         // modeshape cmis
         registry.registerNamespace(CmisLexicon.Namespace.PREFIX, CmisLexicon.Namespace.URI);
 
-        if (mappedNamespaces.isEmpty()) return;
+        if (mappedNamespaces.isEmpty()) {
+            return;
+        }
 
         // custom
         for (Map.Entry<String, String> entry : mappedNamespaces.entrySet()) {
@@ -228,13 +245,12 @@ public class LocalTypeManager {
     /**
      * Indicates what given cmis base type can be imported
      *
-     * @param    baseTypeId cmis base type id
-     *
-     * @return   true   if base type will be imported
-     *           false  otherwise
+     * @param baseTypeId cmis base type id
+     * @return true   if base type will be imported
+     *         false  otherwise
      */
-    public static boolean isSupportedBaseType (BaseTypeId baseTypeId) {
-        return ( (baseTypeId == BaseTypeId.CMIS_DOCUMENT) || (baseTypeId == BaseTypeId.CMIS_FOLDER) );
+    public static boolean isSupportedBaseType(BaseTypeId baseTypeId) {
+        return ((baseTypeId == BaseTypeId.CMIS_DOCUMENT) || (baseTypeId == BaseTypeId.CMIS_FOLDER));
     }
 
 
@@ -272,7 +288,7 @@ public class LocalTypeManager {
         if (!cmisTypeId.equals(cmisType.getLocalName()) && cmisTypeId.contains(":")) {
 
             String nsPrefix = cmisTypeId.substring(0, cmisTypeId.indexOf(":"));
-            String nsUri = mapping.isTransient() ?  cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
+            String nsUri = mapping.isTransient() ? cmisType.getLocalNamespace() : mapping.getJcrNamespaceUri();
             debug("check type namespace type: ", nsPrefix, ":", nsUri);
             // check is ns is not registered already with exactly same prefix and uri
             // if one of items presents typeManager should throw an exception while registering
@@ -296,17 +312,19 @@ public class LocalTypeManager {
         type.setDeclaredSuperTypeNames(superTypes(cmisType));
 
         Map<String, PropertyDefinition<?>> props = cmisType.getPropertyDefinitions();
-        Set<String> names = props.keySet();
-        // properties
-        for (String name : names) {
-//            debug("importing property: ", name, " ...");
-            if (name.startsWith(Constants.CMIS_PREFIX))
-                continue; // ignore them. they must be handled/mapped with default logic
-            if (mapping.isIgnoredExtProperty(name)) continue; // explicit ignore
 
-            PropertyDefinition<?> cmisPropDef = props.get(name);
+        for (Map.Entry<String, PropertyDefinition<?>> entry : props.entrySet()) {
+            // debug("importing property: ", name, " ...");
+            if (entry.getKey().startsWith(Constants.CMIS_PREFIX)) {
+                continue; // ignore them. they must be handled/mapped with default logic
+            }
+            if (mapping.isIgnoredExtProperty(entry.getKey())) {
+                continue; // explicit ignore
+            }
+
+            PropertyDefinition<?> cmisPropDef = props.get(entry.getKey());
             PropertyDefinitionTemplate jcrProp = typeManager.createPropertyDefinitionTemplate();
-            jcrProp.setName(mapping.toJcrProperty(name));
+            jcrProp.setName(mapping.toJcrProperty(entry.getKey()));
 
             jcrProp.setMandatory(cmisPropDef.isRequired());
             jcrProp.setRequiredType(properties.getJcrType(cmisPropDef.getPropertyType()));
@@ -343,13 +361,12 @@ public class LocalTypeManager {
                 final String extPropertyName = mapping.toExtProperty(jcrProp.getName());
                 final boolean globalIgnored = globalIgnoredExtProperties.contains(extPropertyName);
                 final boolean ignoredByType = mapping.isIgnoredExtProperty(jcrProp.getName());
-                if (mapping!=null && !globalIgnored && !ignoredByType) {
+                if (!globalIgnored && !ignoredByType) {
                     registeredProperties.put(extPropertyName, jcrProp.getName());
                     type.getPropertyDefinitionTemplates().add(jcrProp);
                 }
             }
         }
-
         /*// todo add check if already added
         if ("notifications:hixDocument".equals(mapping.getJcrName())) {
             PropertyDefinitionTemplate jcrExtId = typeManager.createPropertyDefinitionTemplate();
@@ -383,13 +400,15 @@ public class LocalTypeManager {
     * update existent types in typeManager with new features
     */
     public void updateTypes(NodeTypeManager typeManager, List<NodeTypeTemplate> defList) throws RepositoryException {
-        if (mappedTypes == null)
+        if (mappedTypes == null) {
             return;
+        }
 
-        if (typeManager == null)
+        if (typeManager == null) {
             return;
+        }
 
-        for ( String typeKey : mappedTypes.indexByJcrName.keySet()) {
+        for (String typeKey : mappedTypes.indexByJcrName.keySet()) {
             MappedCustomType mcType = mappedTypes.findByJcrName(typeKey);
             //  Enabling SNS
             if (mcType.hasFeature(Constants.FEATURE_NAME_SNS)) {
@@ -402,7 +421,7 @@ public class LocalTypeManager {
 
                 // Obtain type definition - and update it
                 boolean foundInDefList = false;
-                for( NodeTypeTemplate defType: defList ) {
+                for (NodeTypeTemplate defType : defList) {
                     if (defType.getName().equals(typeKey)) {
                         foundInDefList = true;
                         defType.getNodeDefinitionTemplates().add(child);
@@ -412,14 +431,15 @@ public class LocalTypeManager {
                     continue;  // was already updated in definition list
                 }
 
-                NodeType type = null;
+                NodeType type;
                 try {
                     type = typeManager.getNodeType(typeKey);
                 } catch (NoSuchNodeTypeException e) {
                     continue;   // no such type registered
                 }
-                if (type == null)
+                if (type == null) {
                     continue;
+                }
                 NodeTypeTemplate typeTemplate = typeManager.createNodeTypeTemplate(type);
                 typeTemplate.getNodeDefinitionTemplates().add(child);
                 // Type was obtained from type manager, so update it there
@@ -438,34 +458,38 @@ public class LocalTypeManager {
                 NodeType nodeType = typeManager.getNodeType(sType);
                 javax.jcr.nodetype.PropertyDefinition[] propertyDefinitions = nodeType.getPropertyDefinitions();
                 for (javax.jcr.nodetype.PropertyDefinition propertyDefinition : propertyDefinitions) {
-                    if (propertyDefinition.getName().equals(pt.getName()) && propertyDefinition.isProtected())
+                    if (propertyDefinition.getName().equals(pt.getName()) && propertyDefinition.isProtected()) {
                         return true;
+                    }
                 }
-            } catch (RepositoryException ignore) {/**/}
+            } catch (RepositoryException ignore) {
+                debug(ignore.getMessage());
+            }
         }
 
         return false;
     }
 
     private boolean isNsAlreadyRegistered(ObjectType cmisType, NamespaceRegistry registry, String nsPrefix, String nsUri) throws RepositoryException {
-        if (ArrayUtils.contains(registry.getPrefixes(), nsPrefix) && ArrayUtils.contains(registry.getURIs(), nsUri))
-            return true;
-
-        if (cmisType != null && StringUtils.equals(cmisType.getBaseType().getLocalNamespace(), cmisType.getLocalNamespace()))
-            return true;
-
-        return false;
+        if (ArrayUtils.contains(registry.getPrefixes(), nsPrefix)) {
+            if (ArrayUtils.contains(registry.getURIs(), nsUri)) {
+                return true;
+            } else {
+                throw new NamespaceException(String.format("Unable to import namespace '%s' with URI: '%s', it's already used with URI: '%s'", nsPrefix, nsUri, registry.getURI(nsPrefix)));
+            }
+        }
+        return cmisType != null && StringUtils.equals(cmisType.getBaseType().getLocalNamespace(), cmisType.getLocalNamespace());
     }
 
     /**
-     * Determines supertypes for the given CMIS type in terms of JCR.
+     * Determines superTypes for the given CMIS type in terms of JCR.
      *
      * @param cmisType given CMIS type
-     * @return supertypes in JCR lexicon.
+     * @return superTypes in JCR lexicon.
      */
     private String[] superTypes(ObjectType cmisType) {
-        String parentType = (cmisType.getParentType() != null) ?
-                getJcrTypeId(cmisTypeToJcr(cmisType.getParentType().getId()).getJcrName())
+        String parentType = (cmisType.getParentType() != null)
+                ? getJcrTypeId(cmisTypeToJcr(cmisType.getParentType().getId()).getJcrName())
                 : null;
 
         if (parentType == null) {
@@ -493,7 +517,9 @@ public class LocalTypeManager {
     * replace direct CMIS types with JCR equivalents
     */
     private String getJcrTypeId(String cmisTypeId) {
-        if (cmisTypeId == null) return null;
+        if (cmisTypeId == null) {
+            return null;
+        }
 
         if (cmisTypeId.equals(BaseTypeId.CMIS_DOCUMENT.value())) {
             return JcrConstants.NT_FILE;
@@ -560,10 +586,11 @@ public class LocalTypeManager {
                 debug("mapped property jct/cmisExt <" + entry.getKey() + "> = <" + entry.getValue() + ">");
             }
             StringBuilder ignoredPropsString = new StringBuilder();
-            if (mapping.getIgnoreExternalProperties() != null)
+            if (mapping.getIgnoreExternalProperties() != null) {
                 for (String s : mapping.getIgnoreExternalProperties()) {
                     ignoredPropsString.append(s).append(";");
                 }
+            }
             debug("Ignored external Properties: " + ignoredPropsString.toString());
             debug("end mapping info -----");
         }
@@ -577,7 +604,7 @@ public class LocalTypeManager {
             for (String value : values) {
                 stringBuilder.append(value).append(" ");
             }
-            LOG.debug(stringBuilder.toString());
+            log.debug(stringBuilder.toString());
         }
     }
 
@@ -599,5 +626,9 @@ public class LocalTypeManager {
 
     public Map<String, String> getRegisteredProperties() {
         return registeredProperties;
+    }
+
+    public void setDebug(boolean debug) {
+        this.debug = debug;
     }
 }
