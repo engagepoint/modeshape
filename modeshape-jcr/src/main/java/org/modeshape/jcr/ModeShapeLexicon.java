@@ -111,5 +111,7 @@ public class ModeShapeLexicon {
     public static final Name IS_DEEP =  new BasicName(Namespace.URI, "isDeep");
     
     public static final Name FEDERATED = new BasicName(Namespace.URI, "federated");
+    public static final Name NODE_INFO_MIXIN = new BasicName(Namespace.URI, "nodeInfo");
+    public static final Name NODE_NAME = new BasicName(Namespace.URI, "nodeName");
 
 }

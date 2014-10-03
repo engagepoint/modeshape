@@ -144,6 +144,10 @@ public class CmisGetObjectOperation extends CmisOperation {
         
         writer.addMixinType(ModeShapeLexicon.FEDERATED);  
         
+        writer.addMixinType(ModeShapeLexicon.NODE_INFO_MIXIN);
+        Property<Object> nodeName = doc.getProperty(PropertyIds.NAME);
+        writer.addProperty(ModeShapeLexicon.NODE_NAME, localTypeManager.getPropertyUtils().jcrValues(nodeName));
+        
         debug("Finish CmisGetObjectOperation:cmisDocument for cmisObject = ", cmisObject.getName(), " and incomingId = ", incomingId, ". Time:", Long.toString(System.currentTimeMillis()-startTime), "ms");
         return writer.document();
     }
@@ -200,6 +204,10 @@ public class CmisGetObjectOperation extends CmisOperation {
         writer.addProperty(JcrLexicon.CREATED_BY, localTypeManager.getPropertyUtils().jcrValues(createdBy));
         
         writer.addMixinType(ModeShapeLexicon.FEDERATED);
+        
+        writer.addMixinType(ModeShapeLexicon.NODE_INFO_MIXIN);
+        Property<Object> nodeName = doc.getProperty(PropertyIds.NAME);
+        writer.addProperty(ModeShapeLexicon.NODE_NAME, localTypeManager.getPropertyUtils().jcrValues(nodeName));
 
         debug("Finish CmisGetObjectOperation:cmisContent for cmisObject with Id = ", id, ". Time:", Long.toString(System.currentTimeMillis() - startTime), "ms");
         return writer.document();
@@ -232,7 +240,7 @@ public class CmisGetObjectOperation extends CmisOperation {
         Property<Object> lastModified = root.getProperty(PropertyIds.LAST_MODIFICATION_DATE);
         Property<Object> lastModifiedBy = root.getProperty(PropertyIds.LAST_MODIFIED_BY);
         writer.addProperty(JcrLexicon.LAST_MODIFIED, localTypeManager.getPropertyUtils().jcrValues(lastModified));
-        writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));
+        writer.addProperty(JcrLexicon.LAST_MODIFIED_BY, localTypeManager.getPropertyUtils().jcrValues(lastModifiedBy));       
                 
         writer.addMixinType(ModeShapeLexicon.FEDERATED);
 

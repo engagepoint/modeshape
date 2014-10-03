@@ -117,3 +117,6 @@
     - privileges (string) multiple nofulltext protected
 
 [mode:federated] mixin // mark node as federated
+
+[mode:nodeInfo] mixin 
+  - mode:nodeName (string)  
