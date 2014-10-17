@@ -714,7 +714,7 @@ public class RepositoryCache implements Observable {
             }
         }
 
-        private void updateIndexesForRemoteEvent( ChangeSet event ) {
+        private void updateIndexesForRemoteEvent(ChangeSet event) {
             String workspaceName = event.getWorkspaceName();
             WorkspaceCache workspaceCache = workspace(workspaceName);
             Transaction tx = null;
@@ -725,6 +725,7 @@ public class RepositoryCache implements Observable {
                 Set<NodeKey> nodesWithUpdatedIndexes = new HashSet<NodeKey>();
                 Set<NodeKey> nodesToBeRemovedFromIndexes = new HashSet<NodeKey>();
                 for (Change change : event) {
+
                     if (logger.isTraceEnabled()) {
                         logger.trace("Process {0} updating indexes for change: {1} ", processKey(), change);
                     }
@@ -735,13 +736,18 @@ public class RepositoryCache implements Observable {
                         continue;
                     }
 
-                    boolean shouldUpdateIndexes = (change instanceof NodeMoved) || (change instanceof NodeRenamed)
-                                                  || (change instanceof NodeReordered) || (change instanceof NodeChanged)
-                                                  || (change instanceof AbstractPropertyChange);
+                    AbstractNodeChange nodeChange = (AbstractNodeChange) change;
+                    NodeKey key = nodeChange.getKey();
+
+                    if (documentStore().shouldSkipIndexingForKey(key.toString())) {
+                        if (logger.isTraceEnabled()) {
+                            logger.trace("Process {0} ignoring change: {1} because it is from not queryable connector", processKey(), change);
+                        }
+                        continue;
+                    }
 
                     // retrieve the node from the local workspace cache - the workspace should already have the
                     // updated version of the node
-                    AbstractNodeChange nodeChange = (AbstractNodeChange)change;
                     CachedNode node = workspaceCache.getNode(nodeChange.getKey());
                     if (node != null) {
                         boolean isQueryable = node.isQueryable(workspaceCache);
@@ -754,7 +760,7 @@ public class RepositoryCache implements Observable {
                                         node.getPrimaryType(workspaceCache),
                                         node.getMixinTypes(workspaceCache),
                                         node.getProperties(workspaceCache));
-                            } else if (shouldUpdateIndexes && !nodesWithUpdatedIndexes.contains(nodeKey)) {
+                            } else if (shouldUpdateIndexes(change) && !nodesWithUpdatedIndexes.contains(nodeKey)) {
                                 nodesWithUpdatedIndexes.add(nodeKey);
                                 // since for an updated node any number of property change events can be received, we only want to
                                 // update the indexes once
@@ -791,6 +797,12 @@ public class RepositoryCache implements Observable {
                 }
             }
         }
+    }
+
+    private boolean shouldUpdateIndexes(Change change) {
+        return (change instanceof NodeMoved) || (change instanceof NodeRenamed)
+                || (change instanceof NodeReordered) || (change instanceof NodeChanged)
+                || (change instanceof AbstractPropertyChange);
     }
 
     /**

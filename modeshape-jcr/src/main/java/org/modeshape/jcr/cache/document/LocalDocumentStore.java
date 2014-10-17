@@ -457,4 +457,9 @@ public class LocalDocumentStore implements DocumentStore {
     public int getChildCount(String parentKey, Name name) {
         return 0;  //To change body of implemented methods use File | Settings | File Templates.
     }
+
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return false;
+    }
 }

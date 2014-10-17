@@ -699,4 +699,9 @@ public class FederatedDocumentStore implements DocumentStore {
         }
         return -1;
     }
+
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return !isLocalSource(key) && !connectors.getConnectorForSourceKey(sourceKey(key)).isQueryable();
+    }
 }

@@ -214,4 +214,6 @@ public interface DocumentStore {
 
 
     public int getChildCount(String parentKey, Name name);
+
+    public boolean shouldSkipIndexingForKey(String key);
 }
