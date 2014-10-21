@@ -1,0 +1,72 @@
+{
+    "name": "Persistent Repository",
+    "jndiName": "",
+    "workspaces": {
+        "default": "default",
+        "allowCreation": true
+    },
+    "monitoring": {
+        "enabled": true
+    },
+    "storage": {
+        "cacheName": "persistentRepository",
+        "cacheConfiguration": "config/infinispan-clustered-persistent-2.xml",
+        "binaryStorage": {
+            "type": "cache",
+            "cacheConfiguration": "config/infinispan-clustered-persistent-2.xml",
+            "dataCacheName": "binary-data",
+            "metadataCacheName": "binary-meta-data",
+            "minimumBinarySizeInBytes": 4096
+        }
+    },
+
+    "query": {
+        "enabled": true,
+        "indexStorage": {
+            "type": "filesystem",
+            "location": "target/clustered/repository_2/index",
+            "lockingStrategy": "native",
+            "fileSystemAccessType": "auto"
+        },
+        "indexing": {
+            "threadPool": "modeshape-workers",
+            "analyzer": "org.apache.lucene.analysis.standard.StandardAnalyzer",
+            "similarity": "org.apache.lucene.search.DefaultSimilarity",
+            "batchSize": -1,
+            "indexFormat": "LUCENE_35",
+            "readerStrategy": "shared",
+            "mode": "sync",
+            "asyncThreadPoolSize": 10,
+            "asyncMaxQueueSize": 50,
+            "rebuildOnStartup": {
+                "when": "always",
+                "includeSystemContent": true,
+                "mode": "sync"
+            },
+            "backend": {
+                "type": "lucene"
+            },
+            "hibernate.search.custom.overridden.property": "value"
+        }
+    },
+    "security": {
+        "anonymous": {
+            "roles": ["readonly", "readwrite", "admin"],
+            "useOnFailedLogin": false
+        }
+    },
+    "clustering": {
+        "clusterName": "modeshape-cluster"
+    },
+    "externalSources": {
+        "mock-source": {
+            "classname": "org.modeshape.connector.mock.MockClusteredConnectorWithCounters",
+            "persistentDataAcrossRestarts": true,
+            "cacheTtlSeconds": 1,
+            "queryable" : false,
+            "projections" : [
+                "default:/projection1 => /doc1"
+            ]
+        }
+    }
+}

@@ -329,6 +329,7 @@
                         <!--Configure SureFire to use the "known issues" variable which causes certain TCK tests to not be reported as failures -->
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
+                            <testFailureIgnore>true</testFailureIgnore>
                             <systemProperties>
                                 <property>
                                     <name>known.issues</name>
@@ -371,7 +372,7 @@
         </profile>
 
         <profile>
-            <id>ipv6_if_windows</id>
+            <id>ipv4_if_windows</id>
             <activation>
                 <os>
                     <family>Windows</family>
@@ -379,8 +380,8 @@
             </activation>
             <properties>
                 <!--Force Ipv6, because JGroups seems to be a lot faster with it on Windows-->
-                <preferIpv4>false</preferIpv4>
-                <preferIpv6>true</preferIpv6>
+                <preferIpv4>true</preferIpv4>
+                <preferIpv6>false</preferIpv6>
             </properties>
         </profile>
     </profiles>
