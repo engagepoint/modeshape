@@ -43,7 +43,8 @@ public class UnitTestsForModeShapeSingleUseTest extends ModeShapeSingleUseTest {
     public void shouldBeEmpty() throws Exception {
         Session session = session();
         assertThat(session.isLive(), is(true));
-        assertThat(session.getRootNode().getNodes().getSize(), is(1L));
+        // +1 unfiled
+        assertThat(session.getRootNode().getNodes().getSize(), is(2L));
         assertThat(session.getRootNode().getNode("jcr:system"), is(notNullValue()));
     }
 

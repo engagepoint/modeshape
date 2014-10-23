@@ -583,7 +583,9 @@ public class WritableSessionCache extends AbstractSessionCache {
                       PreSave preSaveOperation ) {
         long startTime = System.currentTimeMillis();
         String uuid = UUID.randomUUID().toString();
-        LOGGER.info(new TextI18n("WritableSessionCache::save::Start method.  Key: {0}."), uuid); 
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("WritableSessionCache::save::Start method.  Key: {0}.", uuid);
+        }
 
         // Try getting locks on both sessions ...
         final WritableSessionCache that = (WritableSessionCache)other.unwrap();
@@ -618,7 +620,9 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                         WorkspaceCache thisPersistedCache = lockNodes(this.changedNodesInOrder);
                         WorkspaceCache thatPersistedCache = that.lockNodes(that.changedNodesInOrder);
-                        LOGGER.info(new TextI18n("WritableSessionCache::save::Lock aquiring. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - lockStart);
+                        if (LOGGER.isDebugEnabled()){
+                            LOGGER.debug("WritableSessionCache::save::Lock aquiring. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - lockStart);
+                        }
 
                         // process after locking
                         runPreSaveAfterLocking(preSaveOperation, thisPersistedCache);
@@ -631,7 +635,9 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                         events1 = persistChanges(this.changedNodesInOrder, monitor, thisPersistedCache);
                         events2 = that.persistChanges(that.changedNodesInOrder, monitor, thatPersistedCache);
-                        LOGGER.info(new TextI18n("WritableSessionCache::save::After persistChanges. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
+                        if (LOGGER.isDebugEnabled()) {
+                            LOGGER.debug("WritableSessionCache::save::After persistChanges. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+                        }
 
                     } catch (org.infinispan.util.concurrent.TimeoutException e) {
                         txn.rollback();
@@ -673,8 +679,9 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                     // Commit the transaction ...
                     txn.commit();
-                    
-                    LOGGER.info(new TextI18n("WritableSessionCache::save::After commit. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
+                    if (LOGGER.isDebugEnabled()) {
+                        LOGGER.debug("WritableSessionCache::save::After commit. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+                    }
 
                     this.clearState();
                     that.clearState();
@@ -720,7 +727,10 @@ public class WritableSessionCache extends AbstractSessionCache {
         // Notify the workspaces of the changes made. This is done outside of our lock but still before the save returns ...
         txns.updateCache(this.workspaceCache(), events1, txn);
         txns.updateCache(that.workspaceCache(), events2, txn);
-        LOGGER.info(new TextI18n("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
+
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+        }
     }
 
     private void checkNodeNotRemovedByAnotherTransaction( MutableCachedNode node ) {
@@ -757,7 +767,7 @@ public class WritableSessionCache extends AbstractSessionCache {
 
     /**
      * This method saves the changes made by both sessions within a single transaction. <b>Note that this must be used with
-     * caution, as this method attempts to get write locks on both sessions, meaning they <i>cannot<i> be concurrently used
+     * caution, as this method attempts to get write locks on both sessions, meaning they <i>cannot</i> be concurrently used
      * elsewhere (otherwise deadlocks might occur).</b>
      *
      * @param toBeSaved the set of keys identifying the nodes whose changes should be saved; may not be null
@@ -775,10 +785,12 @@ public class WritableSessionCache extends AbstractSessionCache {
                       PreSave preSaveOperation ) {        
         long startTime = System.currentTimeMillis();
         String uuid = UUID.randomUUID().toString();
-        LOGGER.info(new TextI18n("WritableSessionCache::save::Start method.  Key: {0}."), uuid); 
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("WritableSessionCache::save::Start method.  Key: {0}.", uuid);
+        }
 
         // Try getting locks on both sessions ...
-        final WritableSessionCache that = (WritableSessionCache)other.unwrap();
+        final WritableSessionCache that = (WritableSessionCache) other.unwrap();
         Lock thisLock = this.lock.writeLock();
         Lock thatLock = that.lock.writeLock();
 
@@ -921,8 +933,9 @@ public class WritableSessionCache extends AbstractSessionCache {
         // TODO: Events ... these events should be combined, but cannot each ChangeSet only has a single workspace
         txns.updateCache(this.workspaceCache(), events1, txn);
         txns.updateCache(that.workspaceCache(), events2, txn);
-        
-        LOGGER.info(new TextI18n("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);            
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("WritableSessionCache::save::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+        }
     }
 
     /**

@@ -4,6 +4,7 @@ import com.carrotsearch.junitbenchmarks.BenchmarkOptions;
 import com.carrotsearch.junitbenchmarks.annotation.BenchmarkMethodChart;
 import junit.framework.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.jcr.JcrRepository;
 import org.modeshape.jcr.JcrSession;
@@ -48,6 +49,8 @@ public class MoveDocumentsBenchmarkTest extends AbstractBenchmarkTest {
      * <a href="file:////src/test/resources/cluster/moveDocumentsAsyncTcp/repo.json">link</a>
      * @throws Exception on error
      */
+    //unsupported configuration
+    @Ignore
     @Test
     @BenchmarkOptions(benchmarkRounds = 1, warmupRounds = 0)
     public void moveDocumentsAsyncTcp() throws Exception{

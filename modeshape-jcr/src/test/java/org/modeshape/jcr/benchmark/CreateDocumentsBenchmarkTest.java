@@ -3,6 +3,7 @@ package org.modeshape.jcr.benchmark;
 import com.carrotsearch.junitbenchmarks.BenchmarkOptions;
 import com.carrotsearch.junitbenchmarks.annotation.BenchmarkMethodChart;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.jcr.JcrRepository;
 import org.modeshape.jcr.JcrSession;
@@ -48,6 +49,8 @@ public class CreateDocumentsBenchmarkTest extends AbstractBenchmarkTest {
      * <a href="file:////src/test/resources/cluster/createDocumentsAsyncTcp/repo.json">link</a>
      * @throws Exception on error
      */
+    //unsupported configuration
+    @Ignore
     @Test
     @BenchmarkOptions(benchmarkRounds = 1, warmupRounds = 0)
     public void createDocumentsAsyncTcp() throws Exception{

@@ -44,7 +44,8 @@ public class UnitTestsForModeShapeMultiUseTest extends ModeShapeMultiUseTest {
     }
 
     protected void addContentIfEmpty( Session session ) throws Exception {
-        if (session.getRootNode().getNodes().getSize() == 1L) {
+        // +1 unfiled
+        if (session.getRootNode().getNodes().getSize() == 2L) {
             if (addedContent) {
                 fail("Already added content and should see some existing content");
             }

@@ -228,7 +228,7 @@
         <version.org.picketbox>4.0.17.SP2</version.org.picketbox>
         <version.com.googlecode.sardine>146</version.com.googlecode.sardine>
         <version.de.undercouch.bson4jackson>1.1.2</version.de.undercouch.bson4jackson>
-        <version.de.flapdoodle.embed.mongo>1.28</version.de.flapdoodle.embed.mongo>
+        <version.de.flapdoodle.embed.mongo>1.46.1</version.de.flapdoodle.embed.mongo>
         <version.com.googlecode.json-simple>1.1</version.com.googlecode.json-simple>
         <version.org.jmock>2.6.0</version.org.jmock>
         <version.org.springframework.webmvc>2.5.2</version.org.springframework.webmvc>
@@ -404,6 +404,14 @@
         <skipLongRunningTests>true</skipLongRunningTests>
 
         <managed-deps.checkProfiles>false</managed-deps.checkProfiles>
+
+        <!--Proxy configuration for MongoDB configurator-->
+        <proxyEnabled>true</proxyEnabled>
+        <proxyHost>192.168.32.7</proxyHost>
+        <proxyPort>3128</proxyPort>
+
+        <skipTestsInUnsupportedModules>true</skipTestsInUnsupportedModules>
+
     </properties>
 
     <profiles>
@@ -996,6 +1004,18 @@
                         <property>
                             <name>skipLongRunningTests</name>
                             <value>${skipLongRunningTests}</value>
+                        </property>
+                        <property>
+                            <name>proxyEnabled</name>
+                            <value>${proxyEnabled}</value>
+                        </property>
+                        <property>
+                            <name>proxyHost</name>
+                            <value>${proxyHost}</value>
+                        </property>
+                        <property>
+                            <name>proxyPort</name>
+                            <value>${proxyPort}</value>
                         </property>
                     </systemProperties>
                     <argLine>-Xmx1524M ${debug.argline} -XX:MaxPermSize=256M -Djava.awt.headless=true</argLine>

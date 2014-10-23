@@ -1192,8 +1192,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     void save( AbstractJcrNode node ) throws RepositoryException {
         long startTime = System.currentTimeMillis();
         String uuid = UUID.randomUUID().toString();
-        LOGGER.info(new TextI18n("JcrSession::save::Start method.  Key: {0}."), uuid);   
-        
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("JcrSession::save::Start method.  Key: {0}.", uuid);
+        }
         // first check the node is valid from a cache perspective
         Set<NodeKey> keysToBeSaved = null;
         try {
@@ -1234,7 +1235,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                                                                                    originalVersionKeys, aclChangesCount()));
         } catch (WrappedException e) {
             Throwable cause = e.getCause();
-            throw (cause instanceof RepositoryException) ? (RepositoryException)cause : new RepositoryException(e.getCause());
+            throw (cause instanceof RepositoryException) ? (RepositoryException) cause : new RepositoryException(e.getCause());
         } catch (DocumentNotFoundException e) {
             throw new InvalidItemStateException(JcrI18n.nodeModifiedBySessionWasRemovedByAnotherSession.text(e.getKey()), e);
         } catch (DocumentAlreadyExistsException e) {
@@ -1255,7 +1256,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         } catch (IllegalStateException e) {
             // The repository has been shutdown ...
         }
-        LOGGER.info(new TextI18n("JcrSession::save::Method finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);   
+        if (LOGGER.isDebugEnabled()) {
+            LOGGER.debug("JcrSession::save::Method finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+        }
     }
 
     @Override
@@ -2071,15 +2074,19 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                              SaveContext context ) throws Exception {
             long startTime = System.currentTimeMillis();
             String uuid = UUID.randomUUID().toString();
-            LOGGER.info(new TextI18n("WritableSessionCache::save::Start method.  Key: {0}."), uuid); 
-            
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("WritableSessionCache::save::Start method.  Key: {0}.", uuid);
+            }
+
             // Most nodes do not need any extra processing, so the first thing to do is figure out whether this
             // node has a primary type or mixin types that need extra processing. Unfortunately, this means we always have
             // to get the primary type and mixin types.
             final Name primaryType = node.getPrimaryType(cache);
             final Set<Name> mixinTypes = node.getMixinTypes(cache);
-            
-            LOGGER.debug("JcrSession::process::After getting types. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::After getting types. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
 
             if (nodeTypeCapabilities.isFullyDefinedType(primaryType, mixinTypes)) {
                 // There is nothing to do for this node ...
@@ -2113,9 +2120,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     initializeVersionHistory = nodeTypeCapabilities.isVersionable(primaryType, mixinTypes);
                 }
             }
-
-            LOGGER.debug("JcrSession::process::After mix created. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
-
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::After mix created. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // ----------------
             // mix:lastModified
             // ----------------
@@ -2124,8 +2131,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 node.setPropertyIfUnchanged(cache, propertyFactory.create(JcrLexicon.LAST_MODIFIED, context.getTime()));
                 node.setPropertyIfUnchanged(cache, propertyFactory.create(JcrLexicon.LAST_MODIFIED_BY, context.getUserId()));
             }
-            
-            LOGGER.debug("JcrSession::process::After lastModified. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::After lastModified. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // ---------------
             // mix:versionable
             // ---------------
@@ -2202,7 +2210,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                         // set the base version to the last existing version
                         JcrVersionNode baseVersion = null;
                         for (VersionIterator versionIterator = versionHistoryNode.getAllVersions(); versionIterator.hasNext();) {
-                            JcrVersionNode version = (JcrVersionNode)versionIterator.nextVersion();
+                            JcrVersionNode version = (JcrVersionNode) versionIterator.nextVersion();
                             if (baseVersion == null || version.isLinearSuccessorOf(baseVersion)) {
                                 baseVersion = version;
                             }
@@ -2225,9 +2233,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     }
                 }
             }
-
-            LOGGER.debug("JcrSession::process::Before nt:resources. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
-
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::Before nt:resources. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // -----------
             // nt:resource
             // -----------
@@ -2256,9 +2264,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     }
                 }
             }
-
-            LOGGER.debug("JcrSession::process::Before mandatory properties. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
-
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::Before mandatory properties. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // --------------------
             // Mandatory properties
             // --------------------
@@ -2274,7 +2282,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                         // There is no mandatory property ...
                         if (defn.hasDefaultValues()) {
                             // This may or may not be auto-created; we don't care ...
-                            if (jcrNode == null) jcrNode = node(node, (Type)null, null);
+                            if (jcrNode == null) jcrNode = node(node, null, null);
                             JcrValue[] defaultValues = defn.getDefaultValues();
                             if (defn.isMultiple()) {
                                 jcrNode.setProperty(propName, defaultValues, defn.getRequiredType(), false);
@@ -2293,7 +2301,7 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                         // There is a property with the same name as the mandatory property, so verify that the
                         // existing property does indeed use this property definition. Use the JCR property
                         // since it may already cache the property definition ID or will know how to find it ...
-                        if (jcrNode == null) jcrNode = node(node, (Type)null, null);
+                        if (jcrNode == null) jcrNode = node(node, null, null);
                         AbstractJcrProperty jcrProperty = jcrNode.getProperty(propName);
                         PropertyDefinitionId defnId = jcrProperty.propertyDefinitionId();
                         if (defn.getId().equals(defnId)) {
@@ -2319,9 +2327,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     }
                 }
             }
-
-            LOGGER.debug("JcrSession::process::Before mandatory child nodes. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
-
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::Before mandatory child nodes. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // ---------------------
             // Mandatory child nodes
             // ---------------------
@@ -2345,9 +2353,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                     }
                 }
             }
-
-            LOGGER.debug("JcrSession::process::Before mix:etag. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
-
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::Before mix:etag. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
             // --------
             // mix:etag
             // --------
@@ -2359,7 +2367,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 String etagValue = node.getEtag(cache);
                 node.setProperty(cache, propertyFactory.create(JcrLexicon.ETAG, etagValue));
             }
-            LOGGER.info(new TextI18n("JcrSession::process::Methode finished. Key: {0}. Time: {1} ms."), uuid, System.currentTimeMillis() - startTime);
+            if (LOGGER.isDebugEnabled()) {
+                LOGGER.debug("JcrSession::process::Methode finished. Key: {0}. Time: {1} ms.", uuid, System.currentTimeMillis() - startTime);
+            }
         }
 
         @Override

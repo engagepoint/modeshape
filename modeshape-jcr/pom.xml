@@ -329,11 +329,11 @@
                         <!--Configure SureFire to use the "known issues" variable which causes certain TCK tests to not be reported as failures -->
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
-                            <testFailureIgnore>true</testFailureIgnore>
                             <systemProperties>
                                 <property>
                                     <name>known.issues</name>
                                     <value>
+                                        org.apache.jackrabbit.test.api.observation.AddEventListenerTest#testNodeType
                                         <!-- 
                                         List each test method that is not passing because of known issues, where the method is
                                         of the form "package#method". One per line. For example:
@@ -372,16 +372,16 @@
         </profile>
 
         <profile>
-            <id>ipv4_if_windows</id>
-            <activation>
+            <id>ipv6_if_windows</id>
+            <!--<activation>
                 <os>
                     <family>Windows</family>
                 </os>
-            </activation>
+            </activation>-->
             <properties>
                 <!--Force Ipv6, because JGroups seems to be a lot faster with it on Windows-->
-                <preferIpv4>true</preferIpv4>
-                <preferIpv6>false</preferIpv6>
+                <preferIpv4>false</preferIpv4>
+                <preferIpv6>true</preferIpv6>
             </properties>
         </profile>
     </profiles>

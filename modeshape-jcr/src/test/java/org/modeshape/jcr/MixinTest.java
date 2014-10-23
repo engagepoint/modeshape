@@ -45,6 +45,7 @@ import javax.jcr.nodetype.PropertyDefinitionTemplate;
 import javax.jcr.version.OnParentVersionAction;
 import org.junit.After;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 
@@ -125,6 +126,8 @@ public class MixinTest extends SingleUseAbstractTest {
         nodeA.canAddMixin("foo");
     }
 
+    // system node are not protected
+    @Ignore
     @Test
     public void shouldNotAllowAddingMixinToProtectedNodes() throws Exception {
         Node rootNode = session.getRootNode();

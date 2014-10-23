@@ -68,7 +68,8 @@ public abstract class AbstractJdbcDriverIntegrationTest extends AbstractJdbcDriv
             "nt:unstructured    null    /Other    Other    Other    1",
             "nt:unstructured    null    /Other/NodeA    NodeA    NodeA    2",
             "nt:unstructured    null    /Other/NodeA[2]    NodeA    NodeA    2",
-            "nt:unstructured    null    /Other/NodeA[3]    NodeA    NodeA    2"};
+            "nt:unstructured    null    /Other/NodeA[3]    NodeA    NodeA    2",
+            "nt:folder    mix:referenceable    /unfiled    unfiled    unfiled    1"};
 
         // make sure system nodes are avoided
         executeQuery("SELECT [jcr:primaryType], [jcr:mixinTypes], [jcr:path], [jcr:name], [mode:localName], [mode:depth] FROM [nt:base] "
@@ -237,6 +238,7 @@ public abstract class AbstractJdbcDriverIntegrationTest extends AbstractJdbcDriv
         String[] expected = {
             "TABLE_CAT[String]    TABLE_SCHEM[String]    TABLE_NAME[String]    TABLE_TYPE[String]    REMARKS[String]    TYPE_CAT[String]    TYPE_SCHEM[String]    TYPE_NAME[String]    SELF_REFERENCING_COL_NAME[String]    REF_GENERATION[String]",
             "cars    null    car:Car    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
+            "cars    null    mix:contentStream    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mix:created    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mix:etag    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mix:language    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
@@ -252,12 +254,14 @@ public abstract class AbstractJdbcDriverIntegrationTest extends AbstractJdbcDriv
             "cars    null    mix:versionable    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mode:accessControllable    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mode:derived    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
+            "cars    null    mode:federated    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mode:federation    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
             "cars    null    mode:hashed    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mode:lock    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
             "cars    null    mode:locks    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
             "cars    null    mode:namespace    VIEW    Is Mixin: false    null    null    null    mode:uri    DERIVED",
             "cars    null    mode:namespaces    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
+            "cars    null    mode:nodeInfo    VIEW    Is Mixin: true    null    null    null    null    DERIVED",
             "cars    null    mode:nodeTypes    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
             "cars    null    mode:projection    VIEW    Is Mixin: false    null    null    null    null    DERIVED",
             "cars    null    mode:publishArea    VIEW    Is Mixin: true    null    null    null    null    DERIVED",

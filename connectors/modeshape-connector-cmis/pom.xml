@@ -89,7 +89,7 @@
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
                     <encoding>${project.build.sourceEncoding}</encoding>
-                    <skip>${skipTests}</skip>
+                    <skip>${skipTestsInUnsupportedModules}</skip>
                 </configuration>
                 <executions>
                     <execution>
@@ -104,6 +104,7 @@
                 <groupId>org.codehaus.cargo</groupId>
                 <artifactId>cargo-maven2-plugin</artifactId>
                 <configuration>
+                    <skip>${skipTestsInUnsupportedModules}</skip>
                     <deployables>
                         <deployable>
                             <groupId>org.apache.chemistry.opencmis</groupId>

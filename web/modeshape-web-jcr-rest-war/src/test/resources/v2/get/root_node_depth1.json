@@ -26,6 +26,11 @@
                     "up":"http://localhost:8090/resources/repo/default/items/jcr%3asystem",
                     "id" : "*"
                 },
+                "jcr:unfiled":{
+                    "self":"http://localhost:8090/resources/repo/default/items/jcr%3asystem/jcr%3aunfiled",
+                    "up":"http://localhost:8090/resources/repo/default/items/jcr%3asystem",
+                    "id" : "*"
+                },
                 "mode:locks":{
                     "self":"http://localhost:8090/resources/repo/default/items/jcr%3asystem/mode%3alocks",
                     "up":"http://localhost:8090/resources/repo/default/items/jcr%3asystem",

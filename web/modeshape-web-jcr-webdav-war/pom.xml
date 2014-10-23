@@ -91,6 +91,9 @@
             <plugin>
                 <groupId>org.codehaus.cargo</groupId>
                 <artifactId>cargo-maven2-plugin</artifactId>
+                <configuration>
+                    <skip>${skipTestsInUnsupportedModules}</skip>
+                </configuration>
             </plugin>
             <!--
                    Override the default Surefire behavior to run during
@@ -110,7 +113,7 @@
                             <goal>test</goal>
                         </goals>
                         <configuration>
-                            <skip>false</skip>
+                            <skip>${skipTestsInUnsupportedModules}</skip>
                         </configuration>
                     </execution>
                 </executions>

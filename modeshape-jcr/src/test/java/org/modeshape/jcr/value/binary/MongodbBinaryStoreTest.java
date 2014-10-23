@@ -23,12 +23,17 @@
  */
 package org.modeshape.jcr.value.binary;
 
+import de.flapdoodle.embed.mongo.Command;
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
-import de.flapdoodle.embed.mongo.config.MongodConfig;
-import de.flapdoodle.embed.mongo.config.RuntimeConfig;
+import de.flapdoodle.embed.mongo.config.*;
 import de.flapdoodle.embed.mongo.distribution.Version;
+import de.flapdoodle.embed.process.config.IRuntimeConfig;
+import de.flapdoodle.embed.process.config.store.HttpProxyFactory;
+import de.flapdoodle.embed.process.config.store.IProxyFactory;
+import de.flapdoodle.embed.process.config.store.NoProxyFactory;
+import de.flapdoodle.embed.process.io.progress.LoggingProgressListener;
 import de.flapdoodle.embed.process.runtime.Network;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -63,11 +68,42 @@ public class MongodbBinaryStoreTest extends AbstractBinaryStoreTest {
 
     @BeforeClass
     public static void setUpClass() throws Exception {
-        RuntimeConfig config = RuntimeConfig.getInstance(LOGGER);
-        MongodStarter runtime = MongodStarter.getInstance(config);
+
+        boolean proxyEnabled = Boolean.valueOf(System.getProperty("proxyEnabled", "false"));
+
+        Command command = Command.MongoD;
+
+        IProxyFactory proxy;
+
+        if (proxyEnabled) {
+            String proxyHost = System.getProperty("proxyHost");
+            int proxyPort = Integer.valueOf(System.getProperty("proxyPort"));
+            proxy = new HttpProxyFactory(proxyHost, proxyPort);
+        } else {
+            proxy = new NoProxyFactory();
+        }
+
+        IRuntimeConfig runtimeConfig = new RuntimeConfigBuilder()
+                .defaults(command)
+                .processOutput(MongodProcessOutputConfig.getInstance(command, LOGGER))
+                .artifactStore(new ArtifactStoreBuilder()
+                        .defaults(command)
+                        .download(new DownloadConfigBuilder()
+                                .defaultsForCommand(command)
+                                .progressListener(new LoggingProgressListener(LOGGER, Level.FINE))
+                                .proxyFactory(proxy)))
+                .build();
+
+
+        MongodStarter runtime = MongodStarter.getInstance(runtimeConfig);
         int freeServerPort = Network.getFreeServerPort();
-        mongodExecutable = runtime.prepare(new MongodConfig(Version.Main.V2_3, freeServerPort,
-                                                                             Network.localhostIsIPv6()));
+
+        IMongodConfig mongodConfig = new MongodConfigBuilder()
+                .version(Version.Main.PRODUCTION)
+                .net(new Net(freeServerPort, false))
+                .build();
+
+        mongodExecutable = runtime.prepare(mongodConfig);
         mongodProcess = mongodExecutable.start();
 
         binaryStore = new MongodbBinaryStore("localhost", freeServerPort, "test-" + UUID.randomUUID());

@@ -34,7 +34,7 @@
             "level.1.supported":"true",
             "node.type.management.primary.item.name.supported":"true",
             "node.type.management.property.types":"true",
-            "option.unfiled.content.supported":"false",
+            "option.unfiled.content.supported":"true",
             "custom.rep.workspace.names":"default",
             "node.type.management.multivalued.properties.supported":"true",
             "jcr.specification.name":"Content Repository for Java Technology API",

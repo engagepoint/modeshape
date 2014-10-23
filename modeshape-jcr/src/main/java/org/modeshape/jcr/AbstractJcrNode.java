@@ -3232,6 +3232,7 @@ abstract class AbstractJcrNode extends AbstractJcrItem implements Node {
             parent = getParent(); 
         } catch (Exception e) {
             // expected by the TCK
+            throw new InvalidItemStateException(e);
         }
         
         if (parent == null) { // unfiled

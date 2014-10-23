@@ -152,7 +152,8 @@ public class InMemoryTest implements CustomLoaderTest {
 
             node.remove();
             session.save();
-            assertThat(session.getRootNode().getNodes().getSize(), is(1L));
+            // +1 unfiled
+            assertThat(session.getRootNode().getNodes().getSize(), is(2L));
         }
         System.out.println();
         System.out.println(sw.getDetailedStatistics());
@@ -189,7 +190,8 @@ public class InMemoryTest implements CustomLoaderTest {
 
             session.getRootNode().getNode("testNode").remove();
             session.save();
-            assertThat(session.getRootNode().getNodes().getSize(), is(1L));
+            // +1 unfiled
+            assertThat(session.getRootNode().getNodes().getSize(), is(2L));
         }
         System.out.println();
         System.out.println(sw.getDetailedStatistics());

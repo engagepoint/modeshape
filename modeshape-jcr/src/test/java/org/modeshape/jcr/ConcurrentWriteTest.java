@@ -518,7 +518,7 @@ public class ConcurrentWriteTest extends SingleUseAbstractTest {
             NodeIterator iter = node.getNodes();
             while (iter.hasNext()) {
                 Node child = iter.nextNode();
-                if (child.getDepth() == 1 && child.getName().equals("jcr:system")) continue;
+                if (child.getDepth() == 1 && (child.getName().equals("jcr:system") || child.getName().equals("unfiled"))) continue;
                 count += countNodes(child);
             }
             return count;
@@ -540,7 +540,7 @@ public class ConcurrentWriteTest extends SingleUseAbstractTest {
         @Override
         protected long countNodes( Node node ) throws RepositoryException {
             long count = node.getNodes().getSize();
-            if (node.getDepth() == 0) --count; // exclude "/jcr:system"
+            if (node.getDepth() == 0) count-=2; // exclude "/jcr:system and unfiled"
             return count;
         }
     }

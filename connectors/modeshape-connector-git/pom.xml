@@ -24,7 +24,7 @@
         </dependency>
     </dependencies>
 
-    <build>
+<!--    <build>
         <testResources>
             <testResource>
                 <directory>${project.basedir}/src/test/resources</directory>
@@ -33,5 +33,15 @@
                 <directory>${project.basedir}/src/test/java</directory>
             </testResource>
         </testResources>
+    </build>-->
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>${skipTestsInUnsupportedModules}</skip>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>

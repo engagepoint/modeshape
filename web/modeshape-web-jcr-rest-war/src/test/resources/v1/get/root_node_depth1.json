@@ -12,6 +12,7 @@
                 "jcr:nodeTypes",
                 "jcr:versionStorage",
                 "mode:namespaces",
+                "jcr:unfiled",
                 "mode:locks",
                 "mode:repository"
             ]

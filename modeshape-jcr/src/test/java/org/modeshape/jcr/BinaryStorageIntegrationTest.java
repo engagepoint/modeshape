@@ -37,6 +37,7 @@ import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.common.util.FileUtil;
@@ -153,6 +154,7 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         FileUtil.delete("target/persistent_repository/");
     }
 
+    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForFilesystemStore() throws Exception {
@@ -162,6 +164,7 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         checkUnusedBinariesAreCleanedUp();
     }
 
+    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForDatabaseStore() throws Exception {
@@ -169,6 +172,7 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         checkUnusedBinariesAreCleanedUp();
     }
 
+    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForCacheBinaryStore() throws Exception {

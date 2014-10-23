@@ -577,8 +577,10 @@ public class JcrRepositoryTest extends AbstractTransactionalTest {
         assertThat(childA, is(notNullValue()));
         iter = root.getNodes();
         javax.jcr.Node system2 = iter.nextNode();
+        javax.jcr.Node unfiled2 = iter.nextNode();
         javax.jcr.Node childA2 = iter.nextNode();
         assertThat(system2.getName(), is("jcr:system"));
+        assertThat(unfiled2.getName(), is("unfiled"));
         assertThat(childA2.getName(), is("childA"));
     }
 

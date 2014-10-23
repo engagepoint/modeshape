@@ -3,5 +3,5 @@
         "jcr:primaryType":"mode:root",
         "jcr:uuid":"32a6fcb7505d64/"
     },
-    "children":["jcr:system"]
+    "children":["jcr:system", "unfiled"]
 }
