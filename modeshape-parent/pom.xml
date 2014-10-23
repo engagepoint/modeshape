@@ -406,7 +406,7 @@
         <managed-deps.checkProfiles>false</managed-deps.checkProfiles>
 
         <!--Proxy configuration for MongoDB configurator-->
-        <proxyEnabled>true</proxyEnabled>
+        <proxyEnabled>false</proxyEnabled>
         <proxyHost>192.168.32.7</proxyHost>
         <proxyPort>3128</proxyPort>
 
