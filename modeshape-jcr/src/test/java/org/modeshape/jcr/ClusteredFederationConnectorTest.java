@@ -53,12 +53,12 @@ public class ClusteredFederationConnectorTest {
 
             //one node when creating a document takes it 5 times from connector
             Thread.sleep(1000);
-            assertEquals(10, getCountById(id));
+            assertEquals(8, getCountById(id));
 
             //wait until the TTL in cache expires
             Thread.sleep(2000);
             session2.getNodeByIdentifier(id);
-            assertEquals(11, getCountById(id));
+            assertEquals(9, getCountById(id));
 
             assertEquals(2, executeXpath(session1, XPATH_QUERY).getNodes().getSize());
             assertEquals(2, executeXpath(session2, XPATH_QUERY).getNodes().getSize());
@@ -90,12 +90,12 @@ public class ClusteredFederationConnectorTest {
 
             //one node when creating a document takes it 5 times from connector
             Thread.sleep(1000);
-            assertEquals(9, getCountById(id));
+            assertEquals(7, getCountById(id));
 
             //wait until the TTL in cache expires
             Thread.sleep(2000);
             session2.getNodeByIdentifier(id);
-            assertEquals(10, getCountById(id));
+            assertEquals(8, getCountById(id));
 
             assertEquals(2, executeXpath(session1, XPATH_QUERY).getNodes().getSize());
             assertEquals(1, executeXpath(session2, XPATH_QUERY).getNodes().getSize());
