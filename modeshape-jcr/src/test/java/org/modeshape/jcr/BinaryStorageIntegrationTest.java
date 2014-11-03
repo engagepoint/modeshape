@@ -163,6 +163,7 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         FileUtil.delete("target/persistent_repository/");
     }
 
+    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForFilesystemStore() throws Exception {

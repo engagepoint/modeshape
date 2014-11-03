@@ -3,7 +3,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-parent</artifactId>
-    <version>3.7.40-EP-SNAPSHOT</version>
+    <version>3.8.1.1-EP-SNAPSHOT</version>
     <name>ModeShape BOM Parent</name>
 
     <url>http://www.modeshape.org</url>
