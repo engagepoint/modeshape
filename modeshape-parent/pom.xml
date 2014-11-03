@@ -989,6 +989,7 @@
                     </dependency>
                 </dependencies>
                 <configuration>
+                    <reuseForks>false</reuseForks>
                     <systemProperties combine.children="append">
                         <property>
                             <name>java.io.tmpdir</name>

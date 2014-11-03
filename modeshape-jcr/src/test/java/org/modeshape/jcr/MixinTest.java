@@ -126,8 +126,6 @@ public class MixinTest extends SingleUseAbstractTest {
         nodeA.canAddMixin("foo");
     }
 
-    // system node are not protected
-    @Ignore
     @Test
     public void shouldNotAllowAddingMixinToProtectedNodes() throws Exception {
         Node rootNode = session.getRootNode();

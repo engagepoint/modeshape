@@ -163,7 +163,6 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         FileUtil.delete("target/persistent_repository/");
     }
 
-    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForFilesystemStore() throws Exception {
@@ -171,7 +170,6 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         checkUnusedBinariesAreCleanedUp();
     }
 
-    @Ignore
     @Test
     @FixFor( "MODE-2302" )
     public void shouldReuseBinariesFromTrashForFilesystemStore() throws Exception {
@@ -198,7 +196,6 @@ public class BinaryStorageIntegrationTest extends SingleUseAbstractTest {
         checkUnusedBinariesAreCleanedUp();
     }
 
-    @Ignore
     @Test
     @FixFor( "MODE-2144" )
     public void shouldCleanupUnusedBinariesForCacheBinaryStore() throws Exception {

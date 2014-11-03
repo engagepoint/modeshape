@@ -84,11 +84,7 @@ import javax.jcr.security.AccessControlManager;
 import javax.jcr.security.Privilege;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Json;
-import org.junit.AfterClass;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.*;
 import org.modeshape.common.FixFor;
 import org.modeshape.common.util.FileUtil;
 import org.modeshape.jcr.api.query.QueryManager;
@@ -272,6 +268,8 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
                 b.setProperty("pathProperty", a.getPath());
                 session.save();
 
+                Thread.sleep(2000);
+
                 // Initialize the nodes count
                 initNodesCount();
 
@@ -327,6 +325,11 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
     public void beforeEach() throws Exception {
         super.beforeEach();
         print = false;
+    }
+
+    @After
+    public void afterEach() throws Exception {
+        session.logout();
     }
 
     protected static void registerNodeTypes( JcrSession session,
