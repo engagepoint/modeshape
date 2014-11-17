@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-sequencers</artifactId>
-        <version>3.8.1.2-EP-SNAPSHOT</version>
+        <version>3.8.1.2-EP</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The groupId and version values are inherited from parent -->
