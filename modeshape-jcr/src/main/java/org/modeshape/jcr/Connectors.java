@@ -46,7 +46,6 @@ import javax.jcr.Session;
 import javax.jcr.nodetype.NodeTypeManager;
 import javax.naming.NamingException;
 import org.infinispan.Cache;
-import org.infinispan.manager.CacheContainer;
 
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
@@ -521,7 +520,7 @@ public final class Connectors {
         ReflectionUtil.setValue(connector, "extraPropertiesStore", defaultExtraPropertiesStore);
 
         RepositoryConfiguration config = repository.getRepositoryConfiguration();
-        Cache cache = config.getInmemoryCache();        
+        Cache cache = config.getCacheForName(config.getInmemoryCacheName());
         connector.initialize(registry, nodeTypeManager, cache);
 
         // possible problem with config to workspace

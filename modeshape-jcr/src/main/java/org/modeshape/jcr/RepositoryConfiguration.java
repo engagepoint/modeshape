@@ -1048,10 +1048,9 @@ public class RepositoryConfiguration {
         return getCacheContainer(null);
     }
     
-    public Cache getInmemoryCache() throws IOException, NamingException {
+    public <K, V> Cache<K, V> getCacheForName(String cacheName) throws IOException, NamingException {
         CacheContainer container = getContentCacheContainer();
-        String cacheName = getInmemoryCacheName();
-        Cache cache = null;
+        Cache<K, V> cache = null;
         if (cacheName != null && !cacheName.isEmpty()) {
             cache = container.getCache(cacheName);
         }        
