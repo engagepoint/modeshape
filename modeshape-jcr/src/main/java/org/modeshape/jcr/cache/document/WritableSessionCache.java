@@ -774,9 +774,13 @@ public class WritableSessionCache extends AbstractSessionCache {
         }
 
         // don't remove from changedNodes unfiled node key if it's new for creating it
-        if (unfiledKey != null && !this.changedNodes.get(unfiledKey).isNew()) {
-            this.changedNodesInOrder.remove(unfiledKey);
-            this.changedNodes.remove(unfiledKey);
+        // or it has changes with renamed children's
+        if (unfiledKey != null) {
+            SessionNode changedUnfiled = this.changedNodes.get(unfiledKey);
+            if (!changedUnfiled.isNew() || changedUnfiled.changedChildren().getNewNames().isEmpty()) {
+                this.changedNodesInOrder.remove(unfiledKey);
+                this.changedNodes.remove(unfiledKey);
+            }
 
         }
     }
