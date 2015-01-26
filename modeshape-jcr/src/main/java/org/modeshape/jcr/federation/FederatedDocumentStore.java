@@ -429,7 +429,7 @@ public class FederatedDocumentStore implements DocumentStore {
                 return externalNodeKey;
             }
         }
-        return null;
+        return "DUMMY_"+UUID.randomUUID().toString();
     }
 
     @Override

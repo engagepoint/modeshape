@@ -351,7 +351,7 @@ public abstract class Connector {
      * completed. See Sequencers.initialize() for details, and no this method is indeed used.
      */
     @SuppressWarnings( "unused" )
-    private void postInitialize() {
+    protected void postInitialize() {
         if (!initialized) {
             initialized = true;
 
@@ -738,5 +738,13 @@ public abstract class Connector {
             }
             properties.clear();
         }
+    }
+
+    protected boolean isInitialized() {
+        return initialized;
+    }
+
+    protected void setInitialized(boolean initialized) {
+        this.initialized = initialized;
     }
 }
