@@ -740,7 +740,7 @@ public abstract class Connector {
         }
     }
 
-    protected boolean isInitialized() {
+    public boolean isInitialized() {
         return initialized;
     }
 
