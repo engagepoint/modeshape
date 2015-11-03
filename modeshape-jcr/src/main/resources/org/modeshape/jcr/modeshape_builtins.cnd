@@ -75,6 +75,7 @@
 + mode:indexes (mode:indexes) = mode:indexes autocreated protected abort
 + jcr:nodeTypes (mode:nodeTypes) = mode:nodeTypes autocreated mandatory protected abort
 + jcr:versionStorage (mode:versionStorage) = mode:versionStorage autocreated mandatory protected abort
++ * (nt:base) = nt:unstructured sns version protected
 
 [mode:root] > nt:base, mix:referenceable orderable
 - * (undefined) multiple version
@@ -107,6 +108,11 @@
 [mode:Permission] noquery
     - name (string) nofulltext
     - privileges (string) multiple nofulltext protected
+
+[mode:federated] mixin // mark node as federated
+
+[mode:nodeInfo] mixin
+  - mode:nodeName (string)
 
 // -----------------------
 // Query index definitions

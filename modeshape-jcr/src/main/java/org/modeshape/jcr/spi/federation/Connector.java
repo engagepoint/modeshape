@@ -23,6 +23,7 @@ import java.util.Map;
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
 import javax.transaction.TransactionManager;
+import org.infinispan.Cache;
 import org.infinispan.schematic.DocumentFactory;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.logging.Logger;
@@ -346,7 +347,8 @@ public abstract class Connector {
      * @throws IOException if any stream based operations fail (like importing cnd files)
      */
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache) throws RepositoryException, IOException {
         // Subclasses may not necessarily call 'super.initialize(...)', but if they do then we can make this assertion ...
         assert !initialized : "The Connector.initialize(...) method should not be called by subclasses; ModeShape has already (and automatically) initialized the Connector";
     }
@@ -356,7 +358,7 @@ public abstract class Connector {
      * completed. See initialize() for details, and no this method is indeed used.
      */
     @SuppressWarnings( "unused" )
-    private void postInitialize() {
+    protected void postInitialize() {
         if (!initialized) {
             initialized = true;
 
@@ -423,6 +425,10 @@ public abstract class Connector {
      */
     public Document getChildReference( String parentKey,
                                        String childKey ) {
+        return null;
+    }
+
+    public Document getChildReference( String parentKey, Name childName, int snsIndex ) {
         return null;
     }
 

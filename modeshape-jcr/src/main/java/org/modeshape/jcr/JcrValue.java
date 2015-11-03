@@ -422,7 +422,7 @@ final class JcrValue implements javax.jcr.Value {
                 }
             case PropertyType.DOUBLE:
                 if (this.type != PropertyType.STRING && this.type != PropertyType.BINARY && this.type != PropertyType.LONG
-                    && this.type != PropertyType.DATE) {
+                    && this.type != PropertyType.DATE && this.type != PropertyType.DECIMAL) {
                     throw createValueFormatException(double.class);
                 }
                 try {
@@ -432,7 +432,7 @@ final class JcrValue implements javax.jcr.Value {
                 }
             case PropertyType.LONG:
                 if (this.type != PropertyType.STRING && this.type != PropertyType.BINARY && this.type != PropertyType.DOUBLE
-                    && this.type != PropertyType.DATE) {
+                    && this.type != PropertyType.DATE && this.type != PropertyType.DECIMAL) {
                     throw createValueFormatException(long.class);
                 }
                 try {

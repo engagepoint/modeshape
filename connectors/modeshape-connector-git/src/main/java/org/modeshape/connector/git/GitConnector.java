@@ -32,6 +32,7 @@ import org.eclipse.jgit.lib.ObjectId;
 import org.eclipse.jgit.lib.ObjectLoader;
 import org.eclipse.jgit.lib.Repository;
 import org.eclipse.jgit.storage.file.FileRepositoryBuilder;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
@@ -130,8 +131,9 @@ public class GitConnector extends ReadOnlyConnector implements Pageable {
 
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
-        super.initialize(registry, nodeTypeManager);
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache ) throws RepositoryException, IOException {
+        super.initialize(registry, nodeTypeManager, cache);
 
         // Verify the local git repository exists ...
         File dir = new File(directoryPath);

@@ -32,9 +32,10 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
-        <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
-        <url>http://github.com/ModeShape/modeshape</url>
+        <connection>scm:git:git@github.com:engagepoint</connection>
+        <developerConnection>scm:git:git@github.com:engagepoint</developerConnection>
+        <url>http://github.com/engagepoint/modeshape</url>
+        <tag>modeshape-3.8.1.8-EP</tag>
     </scm>
 
     <issueManagement>
@@ -357,6 +358,10 @@
         <skipLongRunningTests>true</skipLongRunningTests>
         <cassandra-cql-driver>2.0.0-rc2</cassandra-cql-driver>
         <cassandra.all.version>2.0.3</cassandra.all.version>
+
+        <!--Skip Unsupported tests-->
+        <skipTestsInUnsupportedModules>true</skipTestsInUnsupportedModules>
+
     </properties>
 
     <profiles>
@@ -939,6 +944,7 @@
                     </dependency>
                 </dependencies>
                 <configuration>
+                    <reuseForks>false</reuseForks>
                     <systemProperties combine.children="append">
                         <property>
                             <name>java.io.tmpdir</name>
@@ -1616,13 +1622,13 @@
                 <groupId>org.apache.lucene</groupId>
                 <artifactId>lucene-analyzers-common</artifactId>
                 <version>${version.org.apache.lucene}</version>
-            </dependency> 
+            </dependency>
             <dependency>
                 <groupId>org.apache.lucene</groupId>
                 <artifactId>lucene-queryparser</artifactId>
                 <version>${version.org.apache.lucene}</version>
-            </dependency> 
-          
+            </dependency>
+
             <!--
                Web Modules dependencies
             -->
@@ -2317,6 +2323,25 @@
                 <groupId>commons-naming</groupId>
                 <artifactId>commons-naming-core</artifactId>
                 <version>${commons.naming.version}</version>
+                <scope>test</scope>
+            </dependency>
+
+            <dependency>
+                <groupId>com.carrotsearch</groupId>
+                <artifactId>junit-benchmarks</artifactId>
+                <version>0.6.0</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>com.h2database</groupId>
+                <artifactId>h2</artifactId>
+                <version>1.3.160</version>
+                <scope>test</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.hamcrest</groupId>
+                <artifactId>hamcrest-all</artifactId>
+                <version>1.2</version>
                 <scope>test</scope>
             </dependency>
         </dependencies>

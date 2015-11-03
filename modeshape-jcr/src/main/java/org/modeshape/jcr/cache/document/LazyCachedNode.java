@@ -230,19 +230,19 @@ public class LazyCachedNode implements CachedNode, Serializable {
         NodeKey parentKey = getParentKey(cache);
         while (parentRefToMe == null && retryCount-- > 0) {
             // we weren't able to find this node with its reported parent, so clear the parent from the
-            // ws cache and try getting the child reference from the latest persisted copy of the parent 
+            // ws cache and try getting the child reference from the latest persisted copy of the parent
             // see https://issues.jboss.org/browse/MODE-2502
             assert parentRefToMe == null;
             cache.purge(parentKey);
             currentParent = parent(cache);
             parentRefToMe = searchReferenceForSelf(cache, currentParent);
         }
-        
+
         if (parentRefToMe != null) {
             // We found a new ChildReference instance from the current parent, so cache it ...
             parentRefToSelf.set(new NonRootParentReferenceToSelf(currentParent, parentRefToMe));
             return parentRefToSelf.get().childReferenceInParent(); // always get the most recent
-        } 
+        }
         // This node references a parent, but that parent no longer has a child reference to this node. Perhaps this node is
         // in the midst of being moved or removed. Either way, we don't have much choice but to throw an exception about
         // us not being found...

@@ -22,6 +22,7 @@ import org.modeshape.jcr.cache.SessionCache;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.PropertyFactory;
+import javax.jcr.Workspace;
 
 /**
  * The {@link ContentInitializer} implementation that populates the "/jcr:system" content for a new repository.
@@ -55,6 +56,9 @@ class SystemContentInitializer implements ContentInitializer {
 
         // Create the "/jcr:system/mode:namespaces" node ...
         namespaces = createNode(session, system, "mode:namespaces", ModeShapeLexicon.NAMESPACES, ModeShapeLexicon.NAMESPACES);
+
+        // Create the "/jcr:system/jcr:unfiled" node ...
+        createNode(session, system, Workspace.NAME_UNFILED_NODE, JcrLexicon.UNFILED_STORAGE, JcrNtLexicon.FOLDER);
 
         // Create the standard namespaces ...
         // createNamespace(session, namespaces, "", ""); // Don't initialize the "" namespaces

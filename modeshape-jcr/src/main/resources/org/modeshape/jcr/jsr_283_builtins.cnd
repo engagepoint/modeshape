@@ -42,6 +42,10 @@
 [mix:lastModified] mixin 
   - jcr:lastModified (date) 
   - jcr:lastModifiedBy (string)
+
+[mix:contentStream] mixin
+  - jcr:contentStreamLength (long)
+  - jcr:contentStreamFileName (string)
   
 [nt:resource] > mix:mimeType, mix:lastModified primaryitem jcr:data
   - jcr:data (binary) mandatory

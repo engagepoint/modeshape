@@ -1,0 +1,40 @@
+{
+    "name": "Persistent Repository",
+    "jndiName": "",
+    "workspaces": {
+        "default": "default",
+        "allowCreation": true
+    },
+    "monitoring": {
+        "enabled": true
+    },
+    "storage": {
+        "cacheName": "persistentRepository",
+        "cacheConfiguration": "config/infinispan-clustered-persistent-1.xml",
+        "binaryStorage": {
+            "type": "cache",
+            "cacheConfiguration": "config/infinispan-clustered-persistent-1.xml",
+            "dataCacheName": "binary-data",
+            "metadataCacheName": "binary-meta-data",
+            "minimumBinarySizeInBytes": 4096
+        }
+    },
+
+    "security": {
+        "anonymous": {
+            "roles": ["readonly", "readwrite", "admin"],
+            "useOnFailedLogin": false
+        }
+    },
+    "externalSources": {
+        "mock-source": {
+            "classname": "org.modeshape.connector.mock.MockClusteredConnectorWithCounters",
+            "persistentDataAcrossRestarts": true,
+            "cacheTtlSeconds": 1,
+            "queryable" : false,
+            "projections" : [
+                "default:/projection1 => /doc1"
+            ]
+        }
+    }
+}

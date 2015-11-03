@@ -40,6 +40,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.security.auth.login.LoginException;
+import org.infinispan.Cache;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.schematic.SchemaLibrary;
 import org.infinispan.schematic.SchemaLibrary.Problem;
@@ -231,8 +232,8 @@ public class RepositoryConfiguration {
         /**
          * The name for the field whose value is a document containing the monitoring information.
          */
-        public static final String MONITORING = "monitoring";   
-        
+        public static final String MONITORING = "monitoring";
+
         /**
          * The name for the field whose value is the size of the event buffer
          */
@@ -244,6 +245,26 @@ public class RepositoryConfiguration {
         public static final String MONITORING_ENABLED = "enabled";
 
         /**
+         * The section for Metrics configuration parameters
+         */
+        public static final String METRICS = "metrics";
+
+        /**
+         * The name for the optional field specifying whether the metrics of JCR repository will be collected
+         */
+        public static final String USE_REPOSITORY_METRICS = "useRepositoryMetrics";
+
+        /**
+         * The number of minutes between writing metrics to log. By default the interval is 15 minutes
+         */
+        public static final String LOG_REPORTER_PERIOD_IN_MINUTES = "logReporterPeriodInMinutes";
+
+        /**
+         * The number of minutes between writing metrics to csv files. By default the interval is 15 minutes
+         */
+        public static final String CSV_REPORTER_PERIOD_IN_MINUTES = "csvReporterPeriodInMinutes";
+
+        /**
          * The name for the field whose value is a document containing the Infinispan storage information.
          */
         public static final String STORAGE = "storage";
@@ -253,6 +274,11 @@ public class RepositoryConfiguration {
          * the repository's name is used as the Infinispan cache name.
          */
         public static final String CACHE_NAME = "cacheName";
+
+        /**
+         * The name for the field containing the name of the Infinispan cache that is used for caching runtime objects in memory.
+         */
+        public static final String INMEMORY_CACHE_NAME = "inmemoryCacheName";
 
         /**
          * The name for the field containing the name of the Infinispan configuration file. If a file could not be found (on the
@@ -324,6 +350,11 @@ public class RepositoryConfiguration {
         public static final String NODE_TYPES = "node-types";
 
         /**
+         * path to the folder that will keep unfiled documents and will be hidden
+         */
+        public static final String NODE_UNFILED_PATH = "node-unfiled-path";
+
+        /**
          * The default value which symbolizes "all" the workspaces, meaning the initial content should be imported for each of the
          * new workspaces.
          */
@@ -370,6 +401,11 @@ public class RepositoryConfiguration {
          * The name for the field under "security" specifying the optional JAAS configuration.
          */
         public static final String JAAS = "jaas";
+
+        /**
+         * mapping of custom role names to standard ones
+         */
+        public static final String ROLES_MAPPING = "rolesMapping";
 
         /**
          * The name for the field under "security/jaas" specifying the JAAS policy that should be used. An empty string value
@@ -531,6 +567,7 @@ public class RepositoryConfiguration {
         public static final String ANONYMOUS_USERNAME = "<anonymous>";
 
         public static final boolean MONITORING_ENABLED = true;
+        public static final boolean USE_REPOSITORY_METRICS = true;
 
         public static final String SEQUENCING_POOL = "modeshape-sequencer";
         public static final String TEXT_EXTRACTION_POOL = "modeshape-text-extractor";
@@ -543,6 +580,9 @@ public class RepositoryConfiguration {
 
         public static final String OPTIMIZATION_INITIAL_TIME = "02:00";
         public static final int OPTIMIZATION_INTERVAL_IN_HOURS = 24;
+
+        public static final int LOG_REPORTER_PERIOD_IN_MINUTES = 15;
+        public static final int CSV_REPORTER_PERIOD_IN_MINUTES = 15;
 
         public static final String JOURNAL_LOCATION = "modeshape/journal";
         // by default journal entries are kept indefinitely
@@ -904,6 +944,14 @@ public class RepositoryConfiguration {
         return getName();
     }
 
+    public String getInmemoryCacheName() {
+        Document storage = doc.getDocument(FieldName.STORAGE);
+        if (storage != null) {
+            return storage.getString(FieldName.INMEMORY_CACHE_NAME, "");
+        }
+        return "";
+    }
+
     public String getCacheConfiguration() {
         Document storage = doc.getDocument(FieldName.STORAGE);
         if (storage != null) {
@@ -922,6 +970,15 @@ public class RepositoryConfiguration {
 
     CacheContainer getContentCacheContainer() throws IOException, NamingException {
         return getCacheContainer(null);
+    }
+
+    public <K, V> Cache<K, V> getCacheForName(String cacheName) throws IOException, NamingException {
+        CacheContainer container = getContentCacheContainer();
+        Cache<K, V> cache = null;
+        if (cacheName != null && !cacheName.isEmpty()) {
+            cache = container.getCache(cacheName);
+        }
+        return cache;
     }
 
     CacheContainer getWorkspaceContentCacheContainer() throws IOException, NamingException {
@@ -961,8 +1018,17 @@ public class RepositoryConfiguration {
     }
 
     /**
+     * todo unfiled
+     *
+     * @return a {@code non-null} {@link InitialContent}
+     */
+    public String getUnfiledNodePath() {
+        return doc.getString(FieldName.NODE_UNFILED_PATH);
+    }
+
+    /**
      * Returns the reindexing configuration.
-     * 
+     *
      * @return a {@link org.modeshape.jcr.RepositoryConfiguration.Reindexing} instance, never {@code null}.
      */
     public Reindexing getReindexing() {
@@ -1415,7 +1481,7 @@ public class RepositoryConfiguration {
         String mode = doc.getString(FieldName.TRANSACTION_MODE);
         return mode != null ? TransactionMode.valueOf(mode.trim().toUpperCase()) : Default.TRANSACTION_MODE;
     }
-    
+
     public int getEventBusSize() {
         return doc.getInteger(FieldName.EVENT_BUS_SIZE, Default.EVENT_BUS_SIZE);
     }
@@ -1500,6 +1566,19 @@ public class RepositoryConfiguration {
             }
             Document jaas = security.getDocument(FieldName.JAAS);
             return jaas != null ? new JaasSecurity(jaas) : null;
+        }
+
+        /**
+         * Get roles names associated with standard modeshape roles
+         *
+         * @return map of standard roles to custom names
+         */
+        public Map<String, ?> getRolesMapping() {
+            if (security == null || security.getDocument(FieldName.ROLES_MAPPING) == null) {
+                return Collections.emptyMap();
+            }
+
+            return security.getDocument(FieldName.ROLES_MAPPING).toMap();
         }
 
         /**
@@ -1657,6 +1736,55 @@ public class RepositoryConfiguration {
          */
         public boolean enabled() {
             return monitoring.getBoolean(FieldName.MONITORING_ENABLED, Default.MONITORING_ENABLED);
+        }
+
+        /**
+         * Get the configuration for the document optimization for this
+         * repository.
+         *
+         * @return the document optimization configuration; never null
+         */
+        public Metrics getMetrics() {
+            return new Metrics(monitoring.getDocument(FieldName.METRICS));
+        }
+
+        @Immutable
+        public class Metrics {
+
+            private final Document metrics;
+
+            protected Metrics(Document metrics) {
+                this.metrics = metrics != null ? metrics : EMPTY;
+            }
+
+            /**
+             * Determine whether the metrics of JCR repository will be
+             * collected. The default is to enable metrics, but this can be used
+             * to turn off support for metrics should it not be necessary.
+             *
+             * @return true if metrics is enabled, or false if it is disabled
+             */
+            public boolean useRepositoryMetrics() {
+                return metrics.getBoolean(FieldName.USE_REPOSITORY_METRICS, Default.USE_REPOSITORY_METRICS);
+            }
+
+            /**
+             * Get number of minutes between writing metrics to log.
+             *
+             * @return the interval; never null
+             */
+            public int getLogReporterPeriodInMinutes() {
+                return metrics.getInteger(FieldName.LOG_REPORTER_PERIOD_IN_MINUTES, Default.LOG_REPORTER_PERIOD_IN_MINUTES);
+            }
+
+            /**
+             * Get number of minutes between writing metrics to csv files.
+             *
+             * @return the interval; never null
+             */
+            public int getCsvReporterPeriodInMinutes() {
+                return metrics.getInteger(FieldName.CSV_REPORTER_PERIOD_IN_MINUTES, Default.CSV_REPORTER_PERIOD_IN_MINUTES);
+            }
         }
     }
 
@@ -1913,7 +2041,7 @@ public class RepositoryConfiguration {
         IF_MISSING,
         INCREMENTAL
     }
-    
+
     /**
      * The reindexing configuration information.
      */
@@ -1927,7 +2055,7 @@ public class RepositoryConfiguration {
 
         /**
          * Get whether the reindexing should be done synchronously or asynchronously
-         * 
+         *
          * @return {@code true} if the reindexing should be performed asynchronously, {@code false} otherwise
          */
         public boolean isAsync() {
@@ -1936,7 +2064,7 @@ public class RepositoryConfiguration {
 
         /**
          * Gets the way reindexing should be performed.
-         * 
+         *
          * @return a {@link ReindexingMode} instance, never {@code null}
          */
         public ReindexingMode mode() {

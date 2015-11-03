@@ -634,6 +634,10 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                     // Get a monitor via the transaction ...
                     try {
+
+                        //Remove external ufiled nodes from changeList
+                        removeExternalUnfiledNodeKey(this.changedNodesInOrder);
+
                         // Lock the nodes in Infinispan  and bring the latest version of these nodes in the shared workspace cache
                         WorkspaceCache thisPersistedCache = lockNodes(this.changedNodesInOrder);
                         WorkspaceCache thatPersistedCache = that.lockNodes(that.changedNodesInOrder);
@@ -744,6 +748,34 @@ public class WritableSessionCache extends AbstractSessionCache {
         // if the node is not new and also missing from the document, another transaction has deleted it
         if (!node.isNew() && !workspaceCache().documentStore().containsKey(keyString)) {
             throw new DocumentNotFoundException(keyString);
+        }
+    }
+
+    /**
+     * This method finds and removes external unfiled @NodeKey from #changedNodes and #changedNodesInOrder
+     */
+    private synchronized void removeExternalUnfiledNodeKey(Set<NodeKey> changedNodesInOrder) {
+
+        NodeKey unfiledKey = null;
+        for (NodeKey key : changedNodesInOrder) {
+
+            String id = key.getIdentifier();
+
+            // find external unfiled node key and exclude inner unfiled node
+            if (id.contains(DocumentConstants.KEY_UNFILED) && !id.equals(DocumentConstants.KEY_UNFILED)) {
+                unfiledKey = key;
+            }
+        }
+
+        // don't remove from changedNodes unfiled node key if it's new for creating it
+        // or it has changes with renamed children's
+        if (unfiledKey != null) {
+            SessionNode changedUnfiled = this.changedNodes.get(unfiledKey);
+            if (!changedUnfiled.isNew() && changedUnfiled.changedChildren().getNewNames().isEmpty()) {
+                this.changedNodesInOrder.remove(unfiledKey);
+                this.changedNodes.remove(unfiledKey);
+            }
+
         }
     }
 

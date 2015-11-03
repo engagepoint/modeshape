@@ -28,6 +28,10 @@
             "description" : "The maximum number of events that can co-exit in the event bus, before blocking and waiting for the slowest consumer(s) to finish and free up subsequent slots. Should be a power of 2, or the system will auto-adjust to the closest power of 2",
             "default" : 1024
         },
+        "node-unfiled-path" : {
+            "type" : "string",
+            "description" : "Path to a node in the federation that is going to keep unfiled documents"
+        },
         "monitoring" : {
             "type" : "object",
             "description" : "The specification for the monitoring system for the repository.",
@@ -37,6 +41,28 @@
                     "type" : "boolean",
                     "default" : true,
                     "description" : "The flag specifying whether the repositories should record monitoring statistics. This is enabled by default."
+                },
+                "metrics" : {
+                    "type" : "object",
+                    "description" : "Section with properties for repository Metrics implementation",
+                    "additionalProperties" : false,
+                    "properties" : {
+                        "useRepositoryMetrics" : {
+                            "type" : "boolean",
+                            "default" : true,
+                            "description" : "The flag specifying whether the metrics of JCR repository will be collected"
+                        },
+                        "logReporterPeriodInMinutes" : {
+                            "type" : "integer",
+                            "default" : "15",
+                            "description" : "The number of minutes between writing metrics to log. By default the interval is 15 minutes."
+                        },
+                        "csvReporterPeriodInMinutes" : {
+                            "type" : "integer",
+                            "default" : "15",
+                            "description" : "The number of minutes between writing metrics to csv files. By default the interval is 15 minutes."
+                        }
+                    }
                 },
                 "description" : {
                     "type" : "string",
@@ -79,6 +105,10 @@
                 "cacheName" : {
                     "type" : "string",
                     "description" : "The name of the Infinispan cache that this repository should use. If not specified, the repository's name is used."
+                },
+                "inmemoryCacheName" : {
+                    "type" : "string",
+                    "description" : "The name for the field containing the name of the Infinispan cache that is used for caching runtime objects in memory."
                 },
                 "cacheConfiguration" : {
                     "type" : "string",
@@ -700,6 +730,27 @@
                         "description" : {
                             "type" : "string",
                             "description" : "The optional description of this section of the configuration. It is unused by ModeShape."
+                        },
+                    }
+                },
+                "rolesMapping" : {
+                    "type" : "object",
+                    "description" : "Custom roles mapping to standard ModeShape roles.",
+                    "properties" : {
+                        "readonly" : {
+                            "type" : "string",
+                            "default" : "readonly",
+                            "description" : "readonly role custom mapping"
+                        },
+                        "readwrite" : {
+                            "type" : "string",
+                            "default" : "readwrite",
+                            "description" : "readwrite role custom mapping"
+                        },
+                        "admin" : {
+                            "type" : "string",
+                            "default" : "admin",
+                            "description" : "admin role custom mapping"
                         },
                     }
                 },

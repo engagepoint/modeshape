@@ -120,7 +120,7 @@ import org.modeshape.jcr.value.Path.Segment;
 public class JcrQueryManagerTest extends MultiUseAbstractTest {
 
     private static final String[] INDEXED_SYSTEM_NODES_PATHS = new String[] {"/jcr:system/jcr:nodeTypes",
-        "/jcr:system/mode:namespaces", "/jcr:system/mode:repository"};
+        "/jcr:system/mode:namespaces", "/jcr:system/jcr:unfiled", "/jcr:system/mode:repository"};
 
     /** The total number of nodes excluding '/jcr:system' */
     protected static final int TOTAL_NON_SYSTEM_NODE_COUNT = 25;
@@ -4840,12 +4840,13 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
             String sql = "SELECT folder.[jcr:name] FROM [nt:folder] AS folder";
             Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
             NodeIterator nodes = query.execute().getNodes();
-            assertEquals(3, nodes.getSize());
+            // +1 unfiled
+            assertEquals(4, nodes.getSize());
             Set<String> names = new TreeSet<>();
             while (nodes.hasNext()) {
                 names.add(nodes.nextNode().getName());
             }
-            assertArrayEquals(new String[] { "folder2", "folder3_1", "folder3_1_1" }, names.toArray(new String[0]));
+            assertArrayEquals(new String[] { "folder2", "folder3_1", "folder3_1_1", "jcr:unfiled" }, names.toArray(new String[4]));
         } finally {
             folder1.remove();
             folder2.remove();
@@ -4867,12 +4868,13 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
         try {
             Query query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
             NodeIterator nodes = query.execute().getNodes();
-            assertEquals(1, nodes.getSize());
+            // +1 unfiled
+            assertEquals(2, nodes.getSize());
             Set<String> names = new TreeSet<>();
             while (nodes.hasNext()) {
                 names.add(nodes.nextNode().getName());
             }
-            assertArrayEquals(new String[] { "folder2" }, names.toArray(new String[0]));
+            assertArrayEquals(new String[]{"folder2", "jcr:unfiled"}, names.toArray(new String[2]));
             
             //add a mixin on the 2nd node and reindex
             folder2.addMixin("test:noQueryMixin");
@@ -4880,7 +4882,7 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
             
             query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
             nodes = query.execute().getNodes();
-            assertEquals(0, nodes.getSize());
+            assertEquals(1, nodes.getSize());
             
             //remove the mixins from both nodesx
             folder1.removeMixin("test:noQueryMixin");
@@ -4889,12 +4891,12 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
             
             query = session.getWorkspace().getQueryManager().createQuery(sql, Query.JCR_SQL2);
             nodes = query.execute().getNodes();
-            assertEquals(2, nodes.getSize());
+            assertEquals(3, nodes.getSize());
             names = new TreeSet<>();
             while (nodes.hasNext()) {
                 names.add(nodes.nextNode().getName());
             }
-            assertArrayEquals(new String[] { "folder1", "folder2" }, names.toArray(new String[0]));
+            assertArrayEquals(new String[] { "folder1", "folder2", "jcr:unfiled" }, names.toArray(new String[3]));
         } finally {
             folder1.remove();
             folder2.remove();

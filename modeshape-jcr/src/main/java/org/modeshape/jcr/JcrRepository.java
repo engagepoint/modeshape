@@ -127,6 +127,7 @@ import org.modeshape.jcr.security.AuthenticationProvider;
 import org.modeshape.jcr.security.AuthenticationProviders;
 import org.modeshape.jcr.security.EnvironmentAuthenticationProvider;
 import org.modeshape.jcr.security.JaasProvider;
+import org.modeshape.jcr.security.Roles;
 import org.modeshape.jcr.security.SecurityContext;
 import org.modeshape.jcr.spi.index.IndexManager;
 import org.modeshape.jcr.txn.NoClientTransactions;
@@ -196,6 +197,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     private final Lock stateLock = new ReentrantLock();
     private final AtomicBoolean allowAutoStartDuringLogin = new AtomicBoolean(AUTO_START_REPO_UPON_LOGIN);
     private Problems configurationProblems = null;
+    private Connectors connectors;
 
     /**
      * Create a Repository instance given the {@link RepositoryConfiguration configuration}.
@@ -251,6 +253,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     @Override
     public String getName() {
         return repositoryName.get();
+    }
+
+    public Connectors getConnectors() {
+        return this.connectors;
     }
 
     @Override
@@ -390,6 +396,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 state.completeInitialization();
                 this.state.set(State.RUNNING);
                 state.postInitialize();
+                this.connectors = state.getConnectors();
             }
             return state;
         } catch (Exception e) {
@@ -693,8 +700,12 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         try {
             // Look for whether this context is read-only ...
             SecurityContext securityContext = sessionContext.getSecurityContext();
-            boolean writable = JcrSession.hasRole(securityContext, ModeShapeRoles.READWRITE, repoName, workspaceName)
-                               || JcrSession.hasRole(securityContext, ModeShapeRoles.ADMIN, repoName, workspaceName);
+
+            String roleReadWrite = running.roles().getReadwrite();
+            String roleAdmin = running.roles().getAdmin();
+
+            boolean writable = JcrSession.hasRole(securityContext, roleReadWrite, repoName, workspaceName)
+                    || JcrSession.hasRole(securityContext, roleAdmin, repoName, workspaceName);
             JcrSession session = null;
             if (running.useXaSessions()) {
                 session = new JcrXaSession(this, workspaceName, sessionContext, attributes, !writable);
@@ -835,7 +846,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         descriptors.put(Repository.IDENTIFIER_STABILITY, valueFor(factories, Repository.IDENTIFIER_STABILITY_INDEFINITE_DURATION));
         descriptors.put(Repository.OPTION_XML_IMPORT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_XML_EXPORT_SUPPORTED, valueFor(factories, true));
-        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, false));
+        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_SIMPLE_VERSIONING_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_ACTIVITIES_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_BASELINES_SUPPORTED, valueFor(factories, false));
@@ -974,6 +985,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         private final Problems problems;
         private final ChangeJournal journal;
         private final ClusteringService clusteringService;
+        private final Roles roles;
 
         private Transaction existingUserTransaction;
         private RepositoryCache cache;
@@ -1088,8 +1100,9 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                     Channel cacheChannel = checkClustering(database);
                     this.clusteringService = cacheChannel != null ? ClusteringService.startForked(cacheChannel) : null;
 
-                    this.documentStore = connectors.hasConnectors() ? new FederatedDocumentStore(connectors, database) : new LocalDocumentStore(
-                                                                                                                                                database);
+                    this.documentStore = connectors.hasConnectors() ?
+                            new FederatedDocumentStore(connectors, database, config.getUnfiledNodePath()) :
+                            new LocalDocumentStore(database);
                     this.txnMgr = this.documentStore.transactionManager();
                     this.transactions = createTransactions(cacheName, config.getTransactionMode(), this.txnMgr);
 
@@ -1178,11 +1191,13 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 if (other != null && !change.securityChanged) {
                     this.authenticators = other.authenticators;
                     this.anonymousCredentialsIfSuppliedCredentialsFail = other.anonymousCredentialsIfSuppliedCredentialsFail;
+                    this.roles = other.roles();
                 } else {
                     // Set up the security ...
                     AtomicBoolean useAnonymouOnFailedLogins = new AtomicBoolean();
                     this.authenticators = createAuthenticationProviders(useAnonymouOnFailedLogins);
                     this.anonymousCredentialsIfSuppliedCredentialsFail = useAnonymouOnFailedLogins.get() ? new AnonymousCredentials() : null;
+                    this.roles = createRoles();
                 }
 
                 if (other != null && !change.extractorsChanged) {
@@ -1270,6 +1285,14 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 }
             }
             return cacheChannel;
+        }
+
+        public Connectors getConnectors() {
+            return connectors;
+        }
+
+        public RepositoryConfiguration getRepositoryConfiguration() {
+            return config;
         }
 
         protected Transactions createTransactions( String cacheName,
@@ -1523,6 +1546,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             return anonymousCredentialsIfSuppliedCredentialsFail;
         }
 
+        protected final Roles roles() {
+            return roles;
+        }
+
         protected final ChangeBus changeBus() {
             return changeBus;
         }
@@ -1564,6 +1591,27 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
 
         final InitialContentImporter initialContentImporter() {
             return initialContentImporter;
+        }
+
+        private Roles createRoles() {
+            // default mapping if no config
+            if (config.getSecurity() == null || config.getSecurity().getRolesMapping() == null) {
+                return new Roles();
+            }
+
+            Map<String, ?> rolesMapping = config.getSecurity().getRolesMapping();
+
+            String roleReadOnly = rolesMapping.containsKey(ModeShapeRoles.READONLY)
+                    ? rolesMapping.get(ModeShapeRoles.READONLY).toString()
+                    : ModeShapeRoles.READONLY;
+            String roleReadWrite = rolesMapping.containsKey(ModeShapeRoles.READWRITE)
+                    ? rolesMapping.get(ModeShapeRoles.READWRITE).toString()
+                    : ModeShapeRoles.READWRITE;
+            String roleAdmin = rolesMapping.containsKey(ModeShapeRoles.ADMIN)
+                    ? rolesMapping.get(ModeShapeRoles.ADMIN).toString()
+                    : ModeShapeRoles.ADMIN;
+
+            return new Roles(roleReadOnly, roleReadWrite, roleAdmin);
         }
 
         private AuthenticationProviders createAuthenticationProviders( AtomicBoolean useAnonymouOnFailedLogins ) {

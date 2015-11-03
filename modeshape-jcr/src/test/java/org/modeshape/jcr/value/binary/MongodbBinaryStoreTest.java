@@ -22,6 +22,8 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
+
 import de.flapdoodle.embed.mongo.MongodExecutable;
 import de.flapdoodle.embed.mongo.MongodProcess;
 import de.flapdoodle.embed.mongo.MongodStarter;
@@ -36,6 +38,7 @@ import de.flapdoodle.embed.process.runtime.Network;
  * @author kulikov
  * @author Horia Chiorean (hchiorea@redhat.com)
  */
+@Ignore
 public class MongodbBinaryStoreTest extends AbstractBinaryStoreTest {
     private static final Logger LOGGER = Logger.getLogger("MongoDBOutput");
 

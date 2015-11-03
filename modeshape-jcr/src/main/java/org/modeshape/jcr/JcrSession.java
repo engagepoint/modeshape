@@ -52,6 +52,7 @@ import javax.jcr.Repository;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.UnsupportedRepositoryOperationException;
+import javax.jcr.Workspace;
 import javax.jcr.lock.LockException;
 import javax.jcr.nodetype.ConstraintViolationException;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
@@ -497,12 +498,23 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     AbstractJcrNode node( NodeKey nodeKey,
                           AbstractJcrNode.Type expectedType,
                           NodeKey parentKey ) throws ItemNotFoundException {
-        CachedNode cachedNode = cache.getNode(nodeKey);
-        if (cachedNode == null) {
-            // The node must not exist or must have been deleted ...
-            throw new ItemNotFoundException(nodeKey.toString());
+        CachedNode cachedNode = null;
+        AbstractJcrNode node = null;
+
+        if (nodeKey != null) {
+            cachedNode = cache.getNode(nodeKey);
+            if (cachedNode == null) {
+                // The node must not exist or must have been deleted ...
+                throw new ItemNotFoundException(nodeKey.toString());
+            }
+            node = jcrNodes.get(nodeKey);
+        } else {
+            try {
+                cachedNode = cache.getNode(nodeKey);
+                node = jcrNodes.get(nodeKey);
+            } catch (Exception e) {}
         }
-        AbstractJcrNode node = jcrNodes.get(nodeKey);
+
         if (node == null) {
             node = node(cachedNode, expectedType, parentKey);
         } else if (parentKey != null) {
@@ -550,7 +562,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 if (expectedType == null) {
                     // If this node from the system workspace, then the default is Type.SYSTEM rather than Type.NODE ...
                     if (repository().systemWorkspaceKey().equals(nodeKey.getWorkspaceKey())) {
-                        expectedType = Type.SYSTEM;
+                        // catch if unfiled sub-tree is going to be requested and then return NODE
+                        boolean isUnfiledChild = cachedNode.getPath(cache).toString().startsWith(Workspace.PATH_UNFILED_NODE);
+                        expectedType = isUnfiledChild ? Type.NODE : Type.SYSTEM;
                     } else {
                         expectedType = Type.NODE;
                     }
@@ -1398,22 +1412,25 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 }
             }
 
+            String roleReadOnly = repository().runningState().roles().getReadOnly();
+            String roleReadWrite = repository().runningState().roles().getReadwrite();
+            String roleAdmin = repository().runningState().roles().getAdmin();
             // It is a role-based security context, so apply role-based authorization ...
             for (String action : actions) {
                 if (ModeShapePermissions.READ.equals(action)) {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.READONLY, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.READWRITE, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleReadOnly, repositoryName, workspaceName)
+                            || hasRole(sec, roleReadWrite, repositoryName, workspaceName)
+                            || hasRole(sec, roleAdmin, repositoryName, workspaceName);
                 } else if (ModeShapePermissions.REGISTER_NAMESPACE.equals(action)
                            || ModeShapePermissions.REGISTER_TYPE.equals(action) || ModeShapePermissions.UNLOCK_ANY.equals(action)
                            || ModeShapePermissions.CREATE_WORKSPACE.equals(action)
                            || ModeShapePermissions.DELETE_WORKSPACE.equals(action) || ModeShapePermissions.MONITOR.equals(action)
                            || ModeShapePermissions.DELETE_WORKSPACE.equals(action)
                            || ModeShapePermissions.INDEX_WORKSPACE.equals(action)) {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleAdmin, repositoryName, workspaceName);
                 } else {
-                    hasPermission &= hasRole(sec, ModeShapeRoles.ADMIN, repositoryName, workspaceName)
-                                     || hasRole(sec, ModeShapeRoles.READWRITE, repositoryName, workspaceName);
+                    hasPermission &= hasRole(sec, roleAdmin, repositoryName, workspaceName)
+                            || hasRole(sec, roleReadWrite, repositoryName, workspaceName);
                 }
             }
 

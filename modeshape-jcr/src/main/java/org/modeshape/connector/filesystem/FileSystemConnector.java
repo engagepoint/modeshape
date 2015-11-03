@@ -46,6 +46,7 @@ import java.util.concurrent.Future;
 import java.util.regex.Pattern;
 import javax.jcr.NamespaceRegistry;
 import javax.jcr.RepositoryException;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.util.FileUtil;
 import org.modeshape.common.util.IoUtil;
@@ -228,8 +229,9 @@ public class FileSystemConnector extends WritableConnector implements Pageable {
 
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
-        super.initialize(registry, nodeTypeManager);
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache ) throws RepositoryException, IOException {
+        super.initialize(registry, nodeTypeManager, cache);
         this.registry = registry;
 
         // Initialize the directory path field that has been set via reflection when this method is called...
