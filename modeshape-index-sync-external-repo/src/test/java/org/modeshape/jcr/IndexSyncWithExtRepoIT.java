@@ -26,14 +26,19 @@ import org.apache.log4j.Logger;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.util.FileUtil;
+import org.modeshape.jcr.api.index.IndexDefinition;
 
 import javax.jcr.Node;
 import javax.jcr.RepositoryException;
 import javax.jcr.query.Query;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertTrue;
 
@@ -51,10 +56,36 @@ public class IndexSyncWithExtRepoIT extends MultiUseAbstractTest {
     private static final String CMIS_URL = "http://localhost:8090/";
     private static Logger logger = Logger.getLogger(IndexSyncWithExtRepoIT.class);
     private static final String PROJECTION = "/cmis";
+
+    private static void checkConfiguration(RepositoryConfiguration config) {
+        //check externalSources section
+        Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> projectionMap =
+                config.getFederation().getProjectionsByWorkspace();
+        assertEquals(1, projectionMap.size());
+        List<RepositoryConfiguration.ProjectionConfiguration> wsProjections =
+                projectionMap.get(config.getDefaultWorkspaceName());
+        assertEquals(1, wsProjections.size());
+        RepositoryConfiguration.ProjectionConfiguration projection = wsProjections.get(0);
+        assertNotNull(projection);
+        assertNotNull(projection.getProjectedPath());
+        assertEquals(PROJECTION, projection.getProjectedPath().trim());
+        List<RepositoryConfiguration.Component> connectors = config.getFederation().getConnectors(new SimpleProblems());
+        assertNotNull(connectors);
+        assertFalse(connectors.isEmpty());
+        RepositoryConfiguration.Component component = connectors.get(0);
+        assertTrue((Boolean) component.getDocument().get("queryable"));
+
+        //check index section
+        IndexDefinition indexDefinition = config.getIndexes().getIndex("nodesByName");
+        assertNotNull(indexDefinition);
+        assertTrue(indexDefinition.appliesToProperty("jcr:name"));
+    }
+
     @BeforeClass
     public static void beforeAll() throws Exception {
         FileUtil.delete("target/federation_persistent_repository");
         RepositoryConfiguration config = RepositoryConfiguration.read("config/repository-test-index-sync.json");
+        checkConfiguration(config);
         startRepository(config);
 
         // waiting when CMIS repository will be ready
@@ -148,7 +179,7 @@ public class IndexSyncWithExtRepoIT extends MultiUseAbstractTest {
         final String newFolderName = folderName + System.currentTimeMillis();
         updateNodeDirectlyInCmis(extRepoPath(folderName), newFolderName);
 
-        assertNodesAreFound(String.format(queryTemplate, newFolderName),Query.JCR_SQL2,jcrRepoPath(newFolderName));
+        assertNodesAreFound(String.format(queryTemplate, newFolderName), Query.JCR_SQL2, jcrRepoPath(newFolderName));
     }
 
 
