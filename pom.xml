@@ -55,6 +55,8 @@
         <module>boms/modeshape-bom-embedded</module>
         <module>boms/modeshape-bom-jbossas</module>
         <module>boms/modeshape-bom-remote-client</module>
+
+        <module>modeshape-index-sync-external-repo</module>
     </modules>
 	<properties>
 		<rootDir>${project.basedir}</rootDir>
