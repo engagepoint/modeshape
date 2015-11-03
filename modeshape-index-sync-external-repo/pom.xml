@@ -117,11 +117,7 @@
             <artifactId>log4j</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>asm</groupId>
-            <artifactId>asm</artifactId>
-            <scope>test</scope>
-        </dependency>
+
         <dependency>
             <groupId>${project.groupId}</groupId>
             <artifactId>modeshape-connector-cmis</artifactId>
@@ -130,12 +126,7 @@
     </dependencies>
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>asm</groupId>
-                <artifactId>asm</artifactId>
-                <version>3.3.1</version>
 
-            </dependency>
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>modeshape-connector-cmis</artifactId>
