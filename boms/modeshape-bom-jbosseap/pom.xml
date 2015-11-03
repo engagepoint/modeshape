@@ -3,7 +3,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-jbosseap</artifactId>
-    <version>0.11.0.11-EP-SNAPSHOT</version>
+    <version>3.8.1.9-EP-SNAPSHOT</version>
 
     <name>ModeShape BOM for usage within EAP</name>
 
