@@ -94,6 +94,7 @@ public class SystemContent {
     private NodeKey namespacesKey;
     private NodeKey locksKey;
     private NodeKey versionStorageKey;
+    private NodeKey unfiledStorageKey;
     private NodeKey indexesKey;
     private final PropertyFactory propertyFactory;
     private final ValueFactory<Boolean> booleans;
@@ -186,6 +187,16 @@ public class SystemContent {
         return versionStorageKey;
     }
 
+    public NodeKey unfiledStorageKey() {
+        if (unfiledStorageKey == null) {
+            // This is idempotent, so no need to lock
+            CachedNode systemNode = systemNode();
+            ChildReference locksRef = systemNode.getChildReferences(system).getChild(JcrLexicon.UNFILED_STORAGE);
+            unfiledStorageKey = locksRef.getKey();
+        }
+        return unfiledStorageKey;
+    }
+
     public CachedNode systemNode() {
         return system.getNode(systemKey());
     }
@@ -208,6 +219,10 @@ public class SystemContent {
 
     public CachedNode versionStorageNode() {
         return system.getNode(versionStorageKey());
+    }
+
+    public CachedNode unfiledStorageNode() {
+        return system.getNode(unfiledStorageKey());
     }
 
     public MutableCachedNode mutableNodeTypesNode() {

@@ -6,7 +6,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>4.4.0.Final</version>
+        <version>4.4.0.1-EP-SNAPSHOT</version>
         <relativePath>../modeshape-parent/pom.xml</relativePath>
     </parent>
 
@@ -276,6 +276,20 @@
         <dependency>
             <groupId>org.apache.cassandra</groupId>
             <artifactId>cassandra-all</artifactId>
+        </dependency>
+
+        <!--JUnit Benchmark tests dependencies-->
+        <dependency>
+            <groupId>com.carrotsearch</groupId>
+            <artifactId>junit-benchmarks</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hamcrest</groupId>
+            <artifactId>hamcrest-all</artifactId>
         </dependency>
     </dependencies>
     <build>

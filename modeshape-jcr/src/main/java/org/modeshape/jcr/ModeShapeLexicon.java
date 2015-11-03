@@ -129,5 +129,9 @@ public class ModeShapeLexicon {
      public static final Name TINY_UNORDERED_COLLECTION = new BasicName(Namespace.URI, "unorderedTinyCollection"); 
      public static final Name SMALL_UNORDERED_COLLECTION = new BasicName(Namespace.URI, "unorderedSmallCollection"); 
      public static final Name LARGE_UNORDERED_COLLECTION = new BasicName(Namespace.URI, "unorderedLargeCollection"); 
-     public static final Name HUGE_UNORDERED_COLLECTION = new BasicName(Namespace.URI, "unorderedHugeCollection"); 
+     public static final Name HUGE_UNORDERED_COLLECTION = new BasicName(Namespace.URI, "unorderedHugeCollection");
+
+     public static final Name FEDERATED = new BasicName(Namespace.URI, "federated");
+     public static final Name NODE_INFO_MIXIN = new BasicName(Namespace.URI, "nodeInfo");
+     public static final Name NODE_NAME = new BasicName(Namespace.URI, "nodeName");
 }

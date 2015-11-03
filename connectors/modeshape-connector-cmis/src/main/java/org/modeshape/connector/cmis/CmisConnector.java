@@ -52,6 +52,7 @@ import org.apache.chemistry.opencmis.commons.enums.BindingType;
 import org.apache.chemistry.opencmis.commons.enums.VersioningState;
 import org.apache.chemistry.opencmis.commons.exceptions.CmisObjectNotFoundException;
 import org.apache.chemistry.opencmis.commons.impl.dataobjects.ContentStreamImpl;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.Document.Field;
@@ -120,7 +121,7 @@ import org.w3c.dom.Element;
  * <td>The structure of the folders and files in the projected repository</td>
  * </tr>
  * <table>
- * 
+ *
  * @author Oleg Kulikov
  * @author Ivan Vasyliev
  */
@@ -155,8 +156,9 @@ public class CmisConnector extends Connector {
     @SuppressWarnings( "deprecation" )
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
-        super.initialize(registry, nodeTypeManager);
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache) throws RepositoryException, IOException {
+        super.initialize(registry, nodeTypeManager, cache);
 
         this.factories = getContext().getValueFactories();
 
@@ -573,7 +575,7 @@ public class CmisConnector extends Connector {
 
                     rename(object, after);
                 }
-            
+
                 // run move action
                 if (delta.getParentChanges().hasNewPrimaryParent()) {
                     FileableCmisObject object = (FileableCmisObject)cmisObject;
@@ -588,7 +590,7 @@ public class CmisConnector extends Connector {
                         rename(object, name.replace("-temp", ""));
                     }
                 }
-                
+
                 break;
         }
     }
@@ -676,7 +678,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS object to JCR node.
-     * 
+     *
      * @param id the identifier of the CMIS object
      * @return JCR node document.
      */
@@ -706,7 +708,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates CMIS folder object to JCR node
-     * 
+     *
      * @param cmisObject CMIS folder object
      * @return JCR node document.
      */
@@ -736,7 +738,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates cmis document object to JCR node.
-     * 
+     *
      * @param cmisObject cmis document node
      * @return JCR node document.
      */
@@ -769,7 +771,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts binary content into JCR node.
-     * 
+     *
      * @param id the id of the CMIS document.
      * @return JCR node representation.
      */
@@ -798,7 +800,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS object's properties to JCR node properties.
-     * 
+     *
      * @param object CMIS object
      * @param writer JCR node representation.
      */
@@ -816,7 +818,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Converts CMIS folder children to JCR node children
-     * 
+     *
      * @param folder CMIS folder
      * @param writer JCR node representation
      */
@@ -830,7 +832,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Translates CMIS repository information into Node.
-     * 
+     *
      * @return node document.
      */
     private Document cmisRepository() {
@@ -850,7 +852,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Creates content stream using JCR node.
-     * 
+     *
      * @param document JCR node representation
      * @return CMIS content stream object
      */
@@ -879,7 +881,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Import CMIS types to JCR repository.
-     * 
+     *
      * @param types CMIS types
      * @param typeManager JCR type manager
      * @param registry
@@ -896,7 +898,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Import given CMIS type to the JCR repository.
-     * 
+     *
      * @param cmisType cmis object type
      * @param typeManager JCR type manager/
      * @param registry
@@ -943,7 +945,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Determines supertypes for the given CMIS type in terms of JCR.
-     * 
+     *
      * @param cmisType given CMIS type
      * @return supertypes in JCR lexicon.
      */
@@ -961,7 +963,7 @@ public class CmisConnector extends Connector {
 
     /**
      * Defines node type for the repository info.
-     * 
+     *
      * @param typeManager JCR node type manager.
      * @throws RepositoryException
      */

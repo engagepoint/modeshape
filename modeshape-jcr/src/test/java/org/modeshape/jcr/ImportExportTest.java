@@ -49,6 +49,8 @@ import javax.jcr.security.AccessControlList;
 import javax.jcr.security.AccessControlManager;
 import javax.jcr.security.Privilege;
 import javax.jcr.version.Version;
+
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.common.junit.SkipLongRunning;
@@ -964,6 +966,7 @@ public class ImportExportTest extends SingleUseAbstractTest {
         assertImport("io/system-export-with-versioning.xml", "/", ImportBehavior.REMOVE_EXISTING); // no matching UUIDs expected
     }
 
+    @Ignore
     @Test
     @FixFor( "MODE-2172" )
     public void shouldDocumentImportCheckedInNodes() throws Exception {

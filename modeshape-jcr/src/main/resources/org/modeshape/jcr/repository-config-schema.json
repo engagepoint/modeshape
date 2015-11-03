@@ -23,6 +23,10 @@
             "description" : "Whether the repository should expect and detect whether JCR clients modify the content within transactions. The default value of 'auto' will automatically detect the use of both user- and container-managed transactions and also works when the JCR client does not use transactions; this will work in most situations. The value of 'none' specifies that the repository should not attempt to detect existing transactions; this setting is an optimization that should be used *only* if JCR clients will never use transactions to change the repository content.",
             "enum" : [ "auto", "none" ]
         },
+        "node-unfiled-path" : {
+            "type" : "string",
+            "description" : "Path to a node in the federation that is going to keep unfiled documents"
+        },
         "monitoring" : {
             "type" : "object",
             "description" : "The specification for the monitoring system for the repository.",
@@ -32,6 +36,28 @@
                     "type" : "boolean",
                     "default" : true,
                     "description" : "The flag specifying whether the repositories should record monitoring statistics. This is enabled by default."
+                },
+                "metrics" : {
+                    "type" : "object",
+                    "description" : "Section with properties for repository Metrics implementation",
+                    "additionalProperties" : false,
+                    "properties" : {
+                        "useRepositoryMetrics" : {
+                            "type" : "boolean",
+                            "default" : true,
+                            "description" : "The flag specifying whether the metrics of JCR repository will be collected"
+                        },
+                        "logReporterPeriodInMinutes" : {
+                            "type" : "integer",
+                            "default" : "15",
+                            "description" : "The number of minutes between writing metrics to log. By default the interval is 15 minutes."
+                        },
+                        "csvReporterPeriodInMinutes" : {
+                            "type" : "integer",
+                            "default" : "15",
+                            "description" : "The number of minutes between writing metrics to csv files. By default the interval is 15 minutes."
+                        }
+                    }
                 },
                 "description" : {
                     "type" : "string",
@@ -74,6 +100,10 @@
                 "cacheName" : {
                     "type" : "string",
                     "description" : "The name of the Infinispan cache that this repository should use. If not specified, the repository's name is used."
+                },
+                "inmemoryCacheName" : {
+                    "type" : "string",
+                    "description" : "The name for the field containing the name of the Infinispan cache that is used for caching runtime objects in memory."
                 },
                 "cacheConfiguration" : {
                     "type" : "string",
@@ -690,6 +720,27 @@
                         "description" : {
                             "type" : "string",
                             "description" : "The optional description of this section of the configuration. It is unused by ModeShape."
+                        },
+                    }
+                },
+                "rolesMapping" : {
+                    "type" : "object",
+                    "description" : "Custom roles mapping to standard ModeShape roles.",
+                    "properties" : {
+                        "readonly" : {
+                            "type" : "string",
+                            "default" : "readonly",
+                            "description" : "readonly role custom mapping"
+                        },
+                        "readwrite" : {
+                            "type" : "string",
+                            "default" : "readwrite",
+                            "description" : "readwrite role custom mapping"
+                        },
+                        "admin" : {
+                            "type" : "string",
+                            "default" : "admin",
+                            "description" : "admin role custom mapping"
                         },
                     }
                 },

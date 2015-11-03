@@ -29,6 +29,7 @@ import javax.jcr.RepositoryException;
 import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.sql.DataSource;
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
@@ -156,7 +157,8 @@ public class JdbcMetadataConnector extends ReadOnlyConnector {
 
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) throws RepositoryException, IOException {
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache ) throws RepositoryException, IOException {
         initMetadataCollector();
         initDataSource();
         initNodeTypes(nodeTypeManager);

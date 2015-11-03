@@ -32,8 +32,10 @@ import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
 import org.modeshape.jcr.JcrI18n;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeKey;
+import org.modeshape.jcr.cache.document.DocumentConstants;
 import org.modeshape.jcr.cache.document.DocumentStore;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
 import org.modeshape.jcr.cache.document.LocalDocumentStore;
@@ -365,6 +367,17 @@ public class ExternalDocumentStore implements DocumentStore {
         return null;
     }
 
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  String childKey ){
+        return null; // don't support this
+    }
+
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  Name childName,
+                                                  int snsIndex){
+        return null; // don't support this
+    }
+
     @Override
     public ExternalBinaryValue getExternalBinary( String sourceName,
                                                   String id ) {
@@ -375,6 +388,21 @@ public class ExternalDocumentStore implements DocumentStore {
             return null;
         }
         return connector.getBinaryValue(id);
+    }
+
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+        return DocumentConstants.KEY_UNFILED;
+    }
+
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        return 0;  //To change body of implemented methods use File | Settings | File Templates.
+    }
+
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return false;
     }
 
     private boolean isLocalSource( String key ) {

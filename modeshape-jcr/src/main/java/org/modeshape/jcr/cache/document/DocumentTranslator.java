@@ -15,6 +15,7 @@
  */
 package org.modeshape.jcr.cache.document;
 
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.net.URI;
 import java.util.ArrayList;
@@ -44,7 +45,9 @@ import org.modeshape.common.text.NoOpEncoder;
 import org.modeshape.common.text.TextDecoder;
 import org.modeshape.common.text.TextEncoder;
 import org.modeshape.common.util.StringUtil;
+import org.modeshape.jcr.CacheService;
 import org.modeshape.jcr.ExecutionContext;
+import org.modeshape.jcr.GenericCacheFactory;
 import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.NodeTypes;
 import org.modeshape.jcr.api.value.DateTime;
@@ -57,6 +60,7 @@ import org.modeshape.jcr.cache.document.SessionNode.ChangedAdditionalParents;
 import org.modeshape.jcr.cache.document.SessionNode.ChangedChildren;
 import org.modeshape.jcr.cache.document.SessionNode.Insertions;
 import org.modeshape.jcr.cache.document.SessionNode.ReferrerChanges;
+import org.modeshape.jcr.federation.FederatedDocumentStore;
 import org.modeshape.jcr.value.BinaryFactory;
 import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.DateTimeFactory;
@@ -76,6 +80,7 @@ import org.modeshape.jcr.value.binary.BinaryStoreException;
 import org.modeshape.jcr.value.binary.EmptyBinaryValue;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 import org.modeshape.jcr.value.binary.InMemoryBinaryValue;
+import org.modeshape.jcr.value.binary.TempBinaryValue;
 
 /**
  * A utility class that encapsulates all the logic for reading from and writing to {@link Document} instances.
@@ -101,6 +106,8 @@ public class DocumentTranslator implements DocumentConstants {
     private final ReferenceFactory simplerefs;
     private final TextEncoder encoder = NoOpEncoder.getInstance();
     private final TextDecoder decoder = NoOpEncoder.getInstance();
+
+    private CacheService<String, Name> namesCache = GenericCacheFactory.getNewCache();
 
     public DocumentTranslator( ExecutionContext context,
                                DocumentStore documentStore,
@@ -741,7 +748,7 @@ public class DocumentTranslator implements DocumentConstants {
                     // There is more than one block, so update the block size ...
                     doc.getDocument(CHILDREN_INFO).setNumber(BLOCK_SIZE, blockCount);
 
-                    doc = documentStore.edit(docInfo.nextKey, true);
+                    doc = Schematic.newDocument(documentStore.getChildrenBlock(docInfo.nextKey));
                     lastDoc = doc;
                     assert docInfo != null;
                     lastDocKey = docInfo.nextKey;
@@ -890,12 +897,13 @@ public class DocumentTranslator implements DocumentConstants {
 
         // Now look at the 'childrenInfo' document for info about the next block of children ...
         ChildReferencesInfo info = getChildReferencesInfo(document);
+        final String documentKey = document.getString(KEY);
         if (!hasChildren) {
-            return ImmutableChildReferences.create(externalChildRefs, info, cache, allowsSNS);
+            return ImmutableChildReferences.create(externalChildRefs, info, cache, documentKey, allowsSNS);
         } else if (!hasFederatedSegments) {
-            return ImmutableChildReferences.create(internalChildRefs, info, cache, allowsSNS);
+            return ImmutableChildReferences.create(internalChildRefs, info, cache, documentKey, allowsSNS);
         } else {
-            return ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, allowsSNS);
+            return ImmutableChildReferences.create(internalChildRefs, info, externalChildRefs, cache, documentKey, allowsSNS);
         }
     }
 
@@ -957,13 +965,17 @@ public class DocumentTranslator implements DocumentConstants {
         }
     }
 
-    protected ChildReference childReferenceFrom( Object value ) {
+    public ChildReference childReferenceFrom( Object value ) {
         if (value instanceof Document) {
             Document doc = (Document)value;
             String keyStr = doc.getString(KEY);
             NodeKey key = new NodeKey(keyStr);
             String nameStr = doc.getString(NAME);
-            Name name = names.create(nameStr, decoder);
+            Name name = namesCache.get(nameStr + NAME_SUFFIX);
+            if (name == null) {
+                name = names.create(nameStr, decoder);
+                namesCache.put(nameStr + NAME_SUFFIX, name);
+            }
             // We always use 1 for the SNS index, since the SNS index is dependent upon SNS nodes before it
             return new ChildReference(key, name, 1);
         }
@@ -1150,7 +1162,7 @@ public class DocumentTranslator implements DocumentConstants {
             return ((NodeKey)value).toString();
         }
         if (value instanceof UUID) {
-            return Schematic.newDocument("$uuid", this.strings.create((UUID)value));
+            return Schematic.newDocument(KEY_UUID, this.strings.create((UUID)value));
         }
         if (value instanceof Boolean) {
             return value;
@@ -1166,7 +1178,7 @@ public class DocumentTranslator implements DocumentConstants {
         }
         if (value instanceof Name) {
             Name name = (Name)value;
-            return Schematic.newDocument("$name", name.getString(encoder));
+            return Schematic.newDocument(KEY_NAME, name.getString(encoder));
         }
         if (value instanceof Path) {
             Path path = (Path)value;
@@ -1176,13 +1188,13 @@ public class DocumentTranslator implements DocumentConstants {
                 segments.add(str);
             }
             boolean relative = !path.isAbsolute();
-            return Schematic.newDocument("$path", segments, "$relative", relative);
+            return Schematic.newDocument(KEY_PATH, segments, KEY_RELATIVE, relative);
         }
         if (value instanceof DateTime) {
-            return Schematic.newDocument("$date", this.strings.create((DateTime)value));
+            return Schematic.newDocument(KEY_DATE, this.strings.create((DateTime)value));
         }
         if (value instanceof BigDecimal) {
-            return Schematic.newDocument("$dec", this.strings.create((BigDecimal)value));
+            return Schematic.newDocument(KEY_DECIMAL, this.strings.create((BigDecimal)value));
         }
         if (value instanceof Reference) {
             Reference ref = (Reference)value;
@@ -1195,10 +1207,10 @@ public class DocumentTranslator implements DocumentConstants {
 
             String refString = ref instanceof NodeKeyReference ? ((NodeKeyReference)ref).getNodeKey().toString() : this.strings.create(ref);
             boolean isForeign = ref.isForeign();
-            return Schematic.newDocument(key, refString, "$foreign", isForeign);
+            return Schematic.newDocument(key, refString, KEY_FOREIGN, isForeign);
         }
         if (value instanceof URI) {
-            return Schematic.newDocument("$uri", this.strings.create((URI)value));
+            return Schematic.newDocument(KEY_URI, this.strings.create((URI)value));
         }
         if (value instanceof ExternalBinaryValue) {
             ExternalBinaryValue externalBinaryValue = (ExternalBinaryValue)value;
@@ -1226,7 +1238,7 @@ public class DocumentTranslator implements DocumentConstants {
     }
 
     protected final String keyForBinaryReferenceDocument( String sha1 ) {
-        return sha1 + "-ref";
+        return sha1 + REFERENCE_SUFFIX;
     }
 
     /**
@@ -1246,8 +1258,13 @@ public class DocumentTranslator implements DocumentConstants {
         EditableDocument entry = documentStore.edit(key, false, false);
         if (entry == null) {
             // The document doesn't yet exist, so create it ...
-            Document content = Schematic.newDocument(SHA1, sha1, REFERENCE_COUNT, 1L);
-            documentStore.localStore().put(key, content);
+            // if key are external, entry exist but documentStore.get() always return null,
+            // so it don't need to overwrite for exclude concurrency write to local store
+            if (!(documentStore instanceof FederatedDocumentStore) || isLocalSource(key)) {
+
+                Document content = Schematic.newDocument(SHA1, sha1, REFERENCE_COUNT, 1L);
+                documentStore.localStore().put(key, content);
+            }
         } else {
             Long countValue = entry.getLong(REFERENCE_COUNT);
             entry.setNumber(REFERENCE_COUNT, countValue != null ? countValue + 1 : 1L);
@@ -1259,6 +1276,12 @@ public class DocumentTranslator implements DocumentConstants {
         if (usedBinaryKeys != null) {
             usedBinaryKeys.add(binaryKey);
         }
+    }
+
+    private boolean isLocalSource(String key) {
+        return !NodeKey.isValidFormat(key) // the key isn't a std key format (probably some internal format)
+                || StringUtil.isBlank(documentStore.getLocalSourceKey()) // there isn't a local source configured yet (e.g. system startup)
+                || key.startsWith(documentStore.getLocalSourceKey()); // the sources differ
     }
 
     /**
@@ -1365,18 +1388,18 @@ public class DocumentTranslator implements DocumentConstants {
             Document doc = (Document)value;
             String valueStr = null;
             List<?> array = null;
-            if (!Null.matches(valueStr = doc.getString("$name"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_NAME))) {
                 return names.create(valueStr, decoder);
             }
-            if (!Null.matches(array = doc.getArray("$path"))) {
+            if (!Null.matches(array = doc.getArray(KEY_PATH))) {
                 List<Segment> segments = segmentsFrom(array);
-                boolean relative = doc.getBoolean("$relative");
+                boolean relative = doc.getBoolean(KEY_RELATIVE);
                 return relative ? paths.createRelativePath(segments) : paths.createAbsolutePath(segments);
             }
-            if (!Null.matches(valueStr = doc.getString("$date"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DATE))) {
                 return dates.create(valueStr);
             }
-            if (!Null.matches(valueStr = doc.getString("$dec"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_DECIMAL))) {
                 return decimals.create(valueStr);
             }
             if (!Null.matches(valueStr = doc.getString(REFERENCE_FIELD))) {
@@ -1388,10 +1411,10 @@ public class DocumentTranslator implements DocumentConstants {
             if (!Null.matches(valueStr = doc.getString(SIMPLE_REFERENCE_FIELD))) {
                 return createReferenceFromString(simplerefs, doc, valueStr);
             }
-            if (!Null.matches(valueStr = doc.getString("$uuid"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_UUID))) {
                 return UUID.fromString(valueStr);
             }
-            if (!Null.matches(valueStr = doc.getString("$uri"))) {
+            if (!Null.matches(valueStr = doc.getString(KEY_URI))) {
                 return uris.create(valueStr);
             }
             if (!Null.matches(valueStr = doc.getString(EXTERNAL_BINARY_ID_FIELD))) {
@@ -1402,9 +1425,16 @@ public class DocumentTranslator implements DocumentConstants {
             if (!Null.matches(valueStr = doc.getString(SHA1_FIELD))) {
                 long size = doc.getLong(LENGTH_FIELD);
                 try {
+                    // Check if it is a path to the temporary file which was used for temporary storage of document content stream created in connector
+                    // Must be converted to TempBinaryValue
+                    if (valueStr.contains(KEY_TMP)) {
+                        return new TempBinaryValue(null, size, new BinaryKey(valueStr));
+                    }
                     return binaries.find(new BinaryKey(valueStr), size);
                 } catch (BinaryStoreException e) {
                     throw new RuntimeException(e);
+                } catch (IOException ex) {
+                    throw new RuntimeException(ex);
                 }
             }
         }

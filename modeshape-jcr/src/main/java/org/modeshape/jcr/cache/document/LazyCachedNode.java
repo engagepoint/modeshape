@@ -17,11 +17,13 @@ package org.modeshape.jcr.cache.document;
 
 import java.io.Serializable;
 import java.lang.ref.WeakReference;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Iterator;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -230,6 +232,13 @@ public class LazyCachedNode implements CachedNode, Serializable {
         if (currentReferences.supportsGetChildReferenceByKey()) {
             // Just using the node key is faster if it is supported by the implementation ...
             parentRefToMe = currentReferences.getChild(key);
+            // Try to purge the cache and check parent reference one more time
+            if (parentRefToMe == null) {
+                purgeWorkspaceCache(cache, currentParent.getKey());
+                currentParent = parent(cache);
+                currentReferences = currentParent.getChildReferences(cache);
+                parentRefToMe = currentReferences.getChild(key);
+            }
         } else {
             // Directly look up the ChildReference by going to the cache (and possibly connector) ...
             NodeKey parentKey = getParentKey(cache);
@@ -245,6 +254,19 @@ public class LazyCachedNode implements CachedNode, Serializable {
         // in the midst of being moved or removed. Either way, we don't have much choice but to throw an exception about
         // us not being found...
         throw new NodeNotFoundInParentException(key, getParentKey(cache));
+    }
+
+    private void purgeWorkspaceCache(WorkspaceCache cache, final NodeKey key) {
+        cache.workspaceCache().purge(new Iterable<NodeKey>() {
+            private List<NodeKey> nodeKeys;
+
+            @Override
+            public Iterator<NodeKey> iterator() {
+                nodeKeys = new ArrayList<>();
+                nodeKeys.add(key);
+                return nodeKeys.iterator();
+            }
+        });
     }
 
     protected Map<Name, Property> properties() {

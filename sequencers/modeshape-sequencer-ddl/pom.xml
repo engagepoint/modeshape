@@ -4,7 +4,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-sequencers</artifactId>
-        <version>4.4.0.Final</version>
+        <version>4.4.0.1-EP-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The groupId and version values are inherited from parent -->
@@ -13,4 +13,16 @@
     <name>ModeShape Sequencer for DDL Files</name>
     <description>ModeShape Sequencer that processes DDL files</description>
     <url>http://www.modeshape.org</url>
+
+    <build>
+        <plugins>
+            <plugin>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <skip>${skipTestsInUnsupportedModules}</skip>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
 </project>

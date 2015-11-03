@@ -4,7 +4,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-jbossas</artifactId>
-    <version>4.4.0.Final</version>
+    <version>4.4.0.1-EP-SNAPSHOT</version>
 
     <name>ModeShape BOM for use within a JBoss App Server</name>
 
@@ -52,8 +52,8 @@
         <!-- ***************** -->
         <!-- Repository Deployment URLs -->
         <!-- ***************** -->
-        <jboss.releases.repo.url>https://repository.jboss.org/nexus/service/local/staging/deploy/maven2/</jboss.releases.repo.url>
-        <jboss.snapshots.repo.url>https://repository.jboss.org/nexus/content/repositories/snapshots/</jboss.snapshots.repo.url>
+<!--        <jboss.releases.repo.url>https://repository.jboss.org/nexus/service/local/staging/deploy/maven2/</jboss.releases.repo.url>
+        <jboss.snapshots.repo.url>https://repository.jboss.org/nexus/content/repositories/snapshots/</jboss.snapshots.repo.url>-->
 
         <jcr.version>2.0</jcr.version>
         <version.org.wildfly>9.0.0.Final</version.org.wildfly>
@@ -115,7 +115,7 @@
         </dependencies>
     </dependencyManagement>
 
-    <distributionManagement>
+<!--    <distributionManagement>
       <repository>
         <id>jboss-releases-repository</id>
         <name>JBoss Releases Repository</name>
@@ -126,5 +126,5 @@
         <name>JBoss Snapshots Repository</name>
         <url>${jboss.snapshots.repo.url}</url>
       </snapshotRepository>
-    </distributionManagement>
+    </distributionManagement>-->
 </project>

@@ -26,9 +26,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import javax.jcr.NamespaceRegistry;
+
+import org.infinispan.Cache;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
 import org.modeshape.jcr.JcrNtLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.spi.federation.DocumentChanges;
 import org.modeshape.jcr.spi.federation.DocumentReader;
@@ -59,6 +62,7 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     protected final Map<String, Document> documentsByLocation = new LinkedHashMap<String, Document>();
     protected final Map<String, Document> documentsById = new HashMap<String, Document>();
+    protected  Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections;
 
     /**
      * Flag which allow the mock data to be the same across repository restarts (i.e. connector re-initialization). This is set
@@ -74,9 +78,18 @@ public class MockConnector extends WritableConnector implements Pageable {
         return factories().getStringFactory().create(obj);
     }
 
+    protected Map<String, Document> getDocumentsByLocationMap() {
+        return documentsByLocation;
+    }
+
+    protected Map<String, Document> getDocumentsByIdMap() {
+        return documentsById;
+    }
+
     @Override
     public void initialize( NamespaceRegistry registry,
-                            NodeTypeManager nodeTypeManager ) {
+                            NodeTypeManager nodeTypeManager,
+                            Cache cache) {
         boolean alreadyInitialized = !persistentDocumentsById.isEmpty() || !persistentDocumentsByLocation.isEmpty();
 
         if (!alreadyInitialized || !persistentDataAcrossRestarts) {
@@ -85,16 +98,16 @@ public class MockConnector extends WritableConnector implements Pageable {
 
         if (!alreadyInitialized) {
             // store the static data only once
-            persistentDocumentsByLocation.putAll(documentsByLocation);
-            persistentDocumentsById.putAll(documentsById);
+            persistentDocumentsByLocation.putAll(getDocumentsByLocationMap());
+            persistentDocumentsById.putAll(getDocumentsByIdMap());
         }
 
         if (persistentDataAcrossRestarts) {
             // make sure the same data that was created when first initialization was performed is saved
-            documentsByLocation.clear();
-            documentsByLocation.putAll(persistentDocumentsByLocation);
-            documentsById.clear();
-            documentsById.putAll(persistentDocumentsById);
+            getDocumentsByLocationMap().clear();
+            getDocumentsByLocationMap().putAll(persistentDocumentsByLocation);
+            getDocumentsByIdMap().clear();
+            getDocumentsByIdMap().putAll(persistentDocumentsById);
         }
     }
 
@@ -103,53 +116,53 @@ public class MockConnector extends WritableConnector implements Pageable {
         EditableDocument doc1 = newDocument(id1).setPrimaryType(JcrNtLexicon.UNSTRUCTURED)
                                                 .addProperty(nameFrom("federated1_prop1"), "a string")
                                                 .addProperty("federated1_prop2", 12).document();
-        documentsByLocation.put(DOC1_LOCATION, doc1);
-        documentsById.put(id1, doc1);
+        getDocumentsByLocationMap().put(DOC1_LOCATION, doc1);
+        getDocumentsByIdMap().put(id1, doc1);
 
         String id2 = newId();
         String id3 = newId();
         EditableDocument doc3 = newDocument(id3).setPrimaryType(JcrNtLexicon.UNSTRUCTURED)
                                                 .addProperty("federated3_prop1", "yet another string").setParent(id2).document();
-        documentsById.put(id3, doc3);
-        documentsByLocation.put(DOC3_LOCATION, doc3);
+        getDocumentsByIdMap().put(id3, doc3);
+        getDocumentsByLocationMap().put(DOC3_LOCATION, doc3);
 
         EditableDocument doc2 = newDocument(id2).setPrimaryType(JcrNtLexicon.UNSTRUCTURED)
                                                 .addProperty("federated2_prop1", "another string")
                                                 .addProperty("federated2_prop2", Boolean.FALSE).addChild(id3, "federated3")
                                                 .document();
-        documentsByLocation.put(DOC2_LOCATION, doc2);
-        documentsById.put(id2, doc2);
+        getDocumentsByLocationMap().put(DOC2_LOCATION, doc2);
+        getDocumentsByIdMap().put(id2, doc2);
 
         String id4 = newId();
         EditableDocument doc4 = newDocument(id4).setPrimaryType(JcrNtLexicon.UNSTRUCTURED).setParent(PAGED_DOCUMENT_ID)
                                                 .document();
-        documentsById.put(id4, doc4);
+        getDocumentsByIdMap().put(id4, doc4);
 
         String id5 = newId();
         EditableDocument doc5 = newDocument(id5).setPrimaryType(JcrNtLexicon.UNSTRUCTURED).setParent(PAGED_DOCUMENT_ID)
                                                 .document();
-        documentsById.put(id5, doc5);
+        getDocumentsByIdMap().put(id5, doc5);
 
         String id6 = newId();
         EditableDocument doc6 = newDocument(id6).setPrimaryType(JcrNtLexicon.UNSTRUCTURED).setParent(PAGED_DOCUMENT_ID)
                                                 .document();
-        documentsById.put(id6, doc6);
+        getDocumentsByIdMap().put(id6, doc6);
 
         EditableDocument pagedDoc = newDocument(PAGED_DOCUMENT_ID).setPrimaryType(JcrNtLexicon.UNSTRUCTURED)
                                                                   .addChild(id4, "federated4").addChild(id5, "federated5")
                                                                   .addChild(id6, "federated6").document();
-        documentsById.put(PAGED_DOCUMENT_ID, pagedDoc);
-        documentsByLocation.put(PAGED_DOC_LOCATION, pagedDoc);
+        getDocumentsByIdMap().put(PAGED_DOCUMENT_ID, pagedDoc);
+        getDocumentsByLocationMap().put(PAGED_DOC_LOCATION, pagedDoc);
 
         EditableDocument nonQueryableDoc = newDocument(NON_QUERYABLE_DOCUMENT_ID).setPrimaryType(JcrNtLexicon.UNSTRUCTURED)
                                                                                  .setNotQueryable().document();
-        documentsById.put(NON_QUERYABLE_DOCUMENT_ID, nonQueryableDoc);
-        documentsByLocation.put(NONT_QUERYABLE_DOC_LOCATION, nonQueryableDoc);
+        getDocumentsByIdMap().put(NON_QUERYABLE_DOCUMENT_ID, nonQueryableDoc);
+        getDocumentsByLocationMap().put(NONT_QUERYABLE_DOC_LOCATION, nonQueryableDoc);
     }
 
     @Override
     public Document getDocumentById( String id ) {
-        Document doc = documentsById.get(id);
+        Document doc = getDocumentsByIdMap().get(id);
         // this is hard-coded in order to be able to validate the paging mechanism
         if (PAGED_DOCUMENT_ID.equals(id)) {
             DocumentReader reader = readDocument(doc);
@@ -163,7 +176,7 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     @Override
     public String getDocumentId( String path ) {
-        Document document = documentsByLocation.get(path);
+        Document document = getDocumentsByLocationMap().get(path);
         return document != null ? readDocument(document).getDocumentId() : null;
     }
 
@@ -174,7 +187,7 @@ public class MockConnector extends WritableConnector implements Pageable {
     }
 
     protected String getDocumentPathById( String id ) {
-        for (Map.Entry<String, Document> entry : documentsByLocation.entrySet()) {
+        for (Map.Entry<String, Document> entry : getDocumentsByLocationMap().entrySet()) {
             Document doc = entry.getValue();
             if (readDocument(doc).getDocumentId().equals(id)) return entry.getKey();
         }
@@ -183,13 +196,13 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     @Override
     public boolean removeDocument( String id ) {
-        Document doc = documentsById.get(id);
+        Document doc = getDocumentsByIdMap().get(id);
         if (doc != null) {
             preRemoveDocument(id, doc);
             String loc = getDocumentPathById(id);
             // Now remove them ...
-            documentsById.remove(id);
-            documentsByLocation.remove(loc);
+            getDocumentsByIdMap().remove(id);
+            getDocumentsByLocationMap().remove(loc);
             return true;
         }
         return false;
@@ -197,7 +210,7 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     @Override
     public boolean hasDocument( String id ) {
-        return documentsById.containsKey(id);
+        return getDocumentsByIdMap().containsKey(id);
     }
 
     @Override
@@ -246,7 +259,7 @@ public class MockConnector extends WritableConnector implements Pageable {
         if (!documentsById.containsKey(id)) {
             return;
         }
-        Document existingDocument = documentsById.get(id);
+        Document existingDocument = getDocumentsByIdMap().get(id);
         DocumentReader existingDocumentReader = readDocument(existingDocument);
 
         DocumentWriter updatedDocumentWriter = newDocument(id);
@@ -263,10 +276,10 @@ public class MockConnector extends WritableConnector implements Pageable {
 
     protected void persistDocument( String id,
                                     Document doc ) {
-        documentsById.put(id, doc);
+        getDocumentsByIdMap().put(id, doc);
         String location = getDocumentPathById(id);
         if (location != null) {
-            documentsByLocation.put(location, doc);
+            getDocumentsByLocationMap().put(location, doc);
         } else {
             // Need to get the path of the parent(s) and determine the path ...
             for (String parentId : readDocument(doc).getParentIds()) {
@@ -274,7 +287,7 @@ public class MockConnector extends WritableConnector implements Pageable {
                 Document parent = getDocumentById(parentId);
                 Name childName = readDocument(parent).getChildrenMap().get(id);
                 String childPath = parentPath + "/" + stringFrom(childName);
-                documentsByLocation.put(childPath, doc);
+                getDocumentsByLocationMap().put(childPath, doc);
             }
         }
     }
@@ -375,7 +388,7 @@ public class MockConnector extends WritableConnector implements Pageable {
     @Override
     public Document getChildren( PageKey pageKey ) {
         String parentId = pageKey.getParentId();
-        Document doc = documentsById.get(parentId);
+        Document doc = getDocumentsByIdMap().get(parentId);
         assert doc != null;
         DocumentReader reader = readDocument(doc);
         List<? extends Document> children = reader.getChildren();
