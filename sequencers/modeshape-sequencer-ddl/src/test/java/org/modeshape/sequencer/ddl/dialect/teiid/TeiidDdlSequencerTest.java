@@ -22,6 +22,7 @@ import static org.modeshape.sequencer.ddl.StandardDdlLexicon.PARSER_ID;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import org.junit.After;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.common.junit.SkipLongRunning;
@@ -34,6 +35,7 @@ import org.modeshape.sequencer.ddl.dialect.teiid.TeiidDdlConstants.TeiidDataType
 /**
  * Unit test for the {@link org.modeshape.sequencer.ddl.DdlSequencer} when Teiid dialects are parsed.
  */
+@Ignore
 public class TeiidDdlSequencerTest extends AbstractDdlSequencerTest {
 
     private Node statementsNode;

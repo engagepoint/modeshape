@@ -32,8 +32,10 @@ import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
 import org.modeshape.jcr.JcrI18n;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeKey;
+import org.modeshape.jcr.cache.document.DocumentConstants;
 import org.modeshape.jcr.cache.document.DocumentStore;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
 import org.modeshape.jcr.cache.document.LocalDocumentStore;
@@ -548,6 +550,49 @@ public class ExternalDocumentStore implements DocumentStore {
             return localStore().edit(key, createIfMissing, acquireLock);
         }
         return null;
+    }
+
+    /**
+     * Unsupported operation for external documents store.
+     */
+    @Override
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  String childKey ){
+        return null; // don't support this
+    }
+
+    /**
+     * Unsupported operation for external documents store.
+     */
+    @Override
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  Name childName,
+                                                  int snsIndex){
+        return null; // don't support this
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+        return DocumentConstants.KEY_UNFILED;
+    }
+
+    /**
+     * Unsupported operation for external documents store.
+     */
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        return 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return false;
     }
 
 }

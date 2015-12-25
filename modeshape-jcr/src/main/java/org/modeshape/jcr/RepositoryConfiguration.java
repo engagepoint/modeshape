@@ -40,6 +40,7 @@ import javax.naming.Context;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.security.auth.login.LoginException;
+import org.infinispan.Cache;
 import org.infinispan.manager.CacheContainer;
 import org.infinispan.schematic.SchemaLibrary;
 import org.infinispan.schematic.SchemaLibrary.Problem;
@@ -231,8 +232,8 @@ public class RepositoryConfiguration {
         /**
          * The name for the field whose value is a document containing the monitoring information.
          */
-        public static final String MONITORING = "monitoring";   
-        
+        public static final String MONITORING = "monitoring";
+
         /**
          * The name for the field whose value is the size of the event buffer
          */
@@ -924,6 +925,15 @@ public class RepositoryConfiguration {
         return getCacheContainer(null);
     }
 
+    public <K, V> Cache<K, V> getCacheForName(String cacheName) throws IOException, NamingException {
+        CacheContainer container = getContentCacheContainer();
+        Cache<K, V> cache = null;
+        if (cacheName != null && !cacheName.isEmpty()) {
+            cache = container.getCache(cacheName);
+        }
+        return cache;
+    }
+
     CacheContainer getWorkspaceContentCacheContainer() throws IOException, NamingException {
         String config = getWorkspaceCacheConfiguration();
         return getCacheContainer(config);
@@ -962,7 +972,7 @@ public class RepositoryConfiguration {
 
     /**
      * Returns the reindexing configuration.
-     * 
+     *
      * @return a {@link org.modeshape.jcr.RepositoryConfiguration.Reindexing} instance, never {@code null}.
      */
     public Reindexing getReindexing() {
@@ -1415,7 +1425,7 @@ public class RepositoryConfiguration {
         String mode = doc.getString(FieldName.TRANSACTION_MODE);
         return mode != null ? TransactionMode.valueOf(mode.trim().toUpperCase()) : Default.TRANSACTION_MODE;
     }
-    
+
     public int getEventBusSize() {
         return doc.getInteger(FieldName.EVENT_BUS_SIZE, Default.EVENT_BUS_SIZE);
     }
@@ -1913,7 +1923,7 @@ public class RepositoryConfiguration {
         IF_MISSING,
         INCREMENTAL
     }
-    
+
     /**
      * The reindexing configuration information.
      */
@@ -1927,7 +1937,7 @@ public class RepositoryConfiguration {
 
         /**
          * Get whether the reindexing should be done synchronously or asynchronously
-         * 
+         *
          * @return {@code true} if the reindexing should be performed asynchronously, {@code false} otherwise
          */
         public boolean isAsync() {
@@ -1936,7 +1946,7 @@ public class RepositoryConfiguration {
 
         /**
          * Gets the way reindexing should be performed.
-         * 
+         *
          * @return a {@link ReindexingMode} instance, never {@code null}
          */
         public ReindexingMode mode() {

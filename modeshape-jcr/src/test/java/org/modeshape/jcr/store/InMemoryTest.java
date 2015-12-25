@@ -33,6 +33,7 @@ import org.junit.Before;
 import org.junit.Test;
 import org.modeshape.common.statistic.Stopwatch;
 import org.modeshape.jcr.CustomLoaderTest;
+import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.ModeShapeEngine;
 import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.TestingEnvironment;
@@ -73,6 +74,11 @@ public class InMemoryTest implements CustomLoaderTest {
         engine.deploy(config);
         repository = engine.startRepository(config.getName()).get();
         session = repository.login();
+
+        //remove unfiled node;
+        session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
+        session.save();
+
         MODESHAPE_STARTUP.stop();
         STARTUP.stop();
     }

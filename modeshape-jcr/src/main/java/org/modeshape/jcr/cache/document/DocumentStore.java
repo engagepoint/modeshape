@@ -22,6 +22,7 @@ import javax.transaction.xa.XAResource;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.DocumentStoreException;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
@@ -214,4 +215,56 @@ public interface DocumentStore {
      */
     public ExternalBinaryValue getExternalBinary( String sourceName,
                                                   String id );
+
+    /**
+     * Returns a single child reference from the supplied parent to the supplied child.
+     *
+     * @param parentKey the key for the parent
+     * @param childKey  the key for the child
+     * @return the a child reference, or null if the implementation doesn't support this method or the
+     * parent does not contain a child with the given key
+     */
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  String childKey );
+
+    /**
+     * Returns a single child reference from the supplied parent to the supplied child.
+     *
+     * @param parentKey the key for the parent
+     * @param childName the name for the child
+     * @param snsIndex  sms index for the child
+     * @return the a child reference, or null if the implementation doesn't support this method or the
+     * parent does not contain a child with the given key
+     */
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  Name childName,
+                                                  int snsIndex );
+
+    /**
+     * Returns the identifier of unfiled node.
+     *
+     * @param primaryType   node type which are mapped for specific type to store as unfiled
+     * @param workspaceName workspace name
+     * @return the identifier of unfiled node.
+     */
+    public String getUnfiledStorageKey( Name primaryType,
+                                        String workspaceName );
+
+    /**
+     * Returns a count of children by name when SNS enabled.
+     *
+     * @param parentKey the key for the parent
+     * @param name      the name for the child
+     * @return a count of children by name.
+     */
+    public int getChildCount( String parentKey,
+                              Name name );
+
+    /**
+     * Is connector queryable and needs indexing.
+     *
+     * @param key the key of the connector
+     * @return <code>true</code> when skip indexing, otherwise <code>false</code>
+     */
+    public boolean shouldSkipIndexingForKey( String key );
 }

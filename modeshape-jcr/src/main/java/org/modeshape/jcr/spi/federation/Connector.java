@@ -356,7 +356,7 @@ public abstract class Connector {
      * completed. See initialize() for details, and no this method is indeed used.
      */
     @SuppressWarnings( "unused" )
-    private void postInitialize() {
+    protected void postInitialize() {
         if (!initialized) {
             initialized = true;
 
@@ -364,6 +364,21 @@ public abstract class Connector {
             // Add any code here that needs to run after #initialize(...), which will be overwritten by subclasses
             // ------------------------------------------------------------------------------------------------------------
         }
+    }
+
+    /**
+     * Sets is #initialized {@link Connector}.
+     * @param initialized <code>true</code> if initialized.
+     */
+    protected void setInitialized(final boolean initialized) {
+        this.initialized = initialized;
+    }
+
+    /**
+     * @return <code>true</code> if {@link Connector} initialized.
+     */
+    public boolean isInitialized() {
+        return initialized;
     }
 
     /**
@@ -423,6 +438,12 @@ public abstract class Connector {
      */
     public Document getChildReference( String parentKey,
                                        String childKey ) {
+        return null;
+    }
+
+    public Document getChildReference( String parentKey,
+                                       Name childName,
+                                       int snsIndex ) {
         return null;
     }
 

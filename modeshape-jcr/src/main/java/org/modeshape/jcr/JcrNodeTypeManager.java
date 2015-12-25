@@ -75,6 +75,7 @@ public class JcrNodeTypeManager implements NodeTypeManager {
     private final JcrSession session;
     private final RepositoryNodeTypeManager repositoryTypeManager;
     private Schemata schemata;
+    private CacheService<String, JcrNodeType> jcrNodeTypeCache = GenericCacheFactory.getNewCache();
 
     JcrNodeTypeManager( JcrSession session,
                         RepositoryNodeTypeManager repositoryTypeManager ) {
@@ -142,12 +143,16 @@ public class JcrNodeTypeManager implements NodeTypeManager {
      * @see NodeTypes#getNodeType(Name)
      */
     JcrNodeType getNodeType( Name nodeTypeName ) {
-        JcrNodeType nodeType = nodeTypes().getNodeType(nodeTypeName);
+        String identifier = nodeTypeName.getLocalName() + "_" + nodeTypeName.getNamespaceUri();
+        JcrNodeType nodeType = jcrNodeTypeCache.get(identifier);
+        if (nodeType == null) {
+            nodeType = nodeTypes().getNodeType(nodeTypeName);
 
-        if (nodeType != null) {
-            nodeType = nodeType.with(context(), session);
+            if (nodeType != null) {
+                nodeType = nodeType.with(context(), session);
+            }
+            jcrNodeTypeCache.put(identifier, nodeType);
         }
-
         return nodeType;
     }
 

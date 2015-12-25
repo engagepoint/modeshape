@@ -28,9 +28,29 @@ package org.modeshape.connector.cmis;
 public class ObjectId {
     // this are object types we can outline
     public enum Type {
-        REPOSITORY_INFO,
-        CONTENT,
-        OBJECT
+        REPOSITORY_INFO("REPOSITORY_INFO"),
+        CONTENT("CONTENT"),
+        OBJECT("OBJECT"),
+        UNFILED_STORAGE("jcr:unfiled");
+
+        private String value;
+
+        Type(final String value) {
+            this.value = value;
+        }
+
+        public static Type fromValue(final String fromValue) {
+            for (Type type : values()) {
+                if (type.value.equals(fromValue)) {
+                    return type;
+                }
+            }
+            return null;
+        }
+
+        public String getValue() {
+            return value;
+        }
     }
 
     private Type type;
@@ -92,7 +112,7 @@ public class ObjectId {
      */
     public static String toString( Type type,
                                    String id ) {
-        return type == Type.OBJECT ? id : id + "/" + type.toString();
+        return type == Type.OBJECT ? id : id + "/" + type.getValue();
     }
 
 }

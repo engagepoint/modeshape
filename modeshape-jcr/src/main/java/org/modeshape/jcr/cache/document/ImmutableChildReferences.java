@@ -70,18 +70,20 @@ public class ImmutableChildReferences {
     public static ChildReferences create( ChildReferences first,
                                           ChildReferencesInfo firstSegmentingInfo,
                                           WorkspaceCache cache,
+                                          String nodeKey,
                                           boolean allowsSNS) {
         if (firstSegmentingInfo == null || firstSegmentingInfo.nextKey == null) return first;
-        return new Segmented(cache, first, firstSegmentingInfo, allowsSNS);
+        return new Segmented(nodeKey, cache, first, firstSegmentingInfo, allowsSNS);
     }
 
     public static ChildReferences create( ChildReferences first,
                                           ChildReferencesInfo firstSegmentingInfo,
                                           ChildReferences second,
                                           WorkspaceCache cache,
+                                          String nodeKey,
                                           boolean allowsSNS) {
         if (firstSegmentingInfo == null || firstSegmentingInfo.nextKey == null) return union(first, second);
-        Segmented segmentedReferences = new Segmented(cache, first, firstSegmentingInfo, allowsSNS);
+        Segmented segmentedReferences = new Segmented(nodeKey, cache, first, firstSegmentingInfo, allowsSNS);
         return union(segmentedReferences, second);
     }
 
@@ -497,11 +499,14 @@ public class ImmutableChildReferences {
         protected final long totalSize;
         protected final boolean allowsSNS;
         private Segment firstSegment;
+        private String nodeKey;
 
-        public Segmented( WorkspaceCache cache,
+        public Segmented( String nodeKey,
+                          WorkspaceCache cache,
                           ChildReferences firstSegment,
                           ChildReferencesInfo info,
                           boolean allowsSNS) {
+            this.nodeKey = nodeKey;
             this.cache = cache;
             this.totalSize = info.totalSize;
             this.firstSegment = new Segment(firstSegment, info.nextKey, allowsSNS);
@@ -520,6 +525,15 @@ public class ImmutableChildReferences {
 
         @Override
         public int getChildCount( Name name ) {
+
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                DocumentStore documentStore = cache.documentStore();
+                int childCount = documentStore.getChildCount(nodeKey, name);
+                if (childCount >= 0 ) return childCount;
+            }
+
+            // default logic
             int result = 0;
             Segment segment = this.firstSegment;
             while (segment != null) {
@@ -533,6 +547,16 @@ public class ImmutableChildReferences {
         public ChildReference getChild( Name name,
                                         int snsIndex,
                                         Context context ) {
+
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference =
+                        cache.documentStore().getChildReferenceAsRef(nodeKey, name, snsIndex);
+                if (childReference != null)
+                    return childReference;
+            }
+
+            // default logic
             ChildReference result = null;
             Segment segment = this.firstSegment;
             while (segment != null) {
@@ -547,6 +571,15 @@ public class ImmutableChildReferences {
 
         @Override
         public boolean hasChild( NodeKey key ) {
+
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference =
+                        cache.documentStore().getChildReferenceAsRef(nodeKey, key.toString());
+                if (childReference != null)
+                    return true;
+            }
+
             Segment segment = this.firstSegment;
             while (segment != null) {
                 if (segment.getReferences().hasChild(key)) {
@@ -565,6 +598,15 @@ public class ImmutableChildReferences {
         @Override
         public ChildReference getChild( NodeKey key,
                                         Context context ) {
+
+            // enhanced logic
+            if (size() == ChildReferences.UNKNOWN_SIZE) {
+                ChildReference childReference = cache.documentStore().getChildReferenceAsRef(nodeKey, key.toString());
+                if (childReference != null)
+                    return childReference;
+            }
+
+            // default logic
             ChildReference result = null;
             Segment segment = this.firstSegment;
             while (segment != null) {

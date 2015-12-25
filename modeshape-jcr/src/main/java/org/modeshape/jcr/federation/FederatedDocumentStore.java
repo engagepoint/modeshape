@@ -24,19 +24,25 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import org.infinispan.schematic.SchematicDb;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableDocument;
+import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.logging.Logger;
 import org.modeshape.common.util.SecureHash.Algorithm;
 import org.modeshape.common.util.StringUtil;
 import org.modeshape.jcr.Connectors;
 import org.modeshape.jcr.JcrI18n;
+import org.modeshape.jcr.JcrLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.cache.MutableCachedNode;
 import org.modeshape.jcr.cache.NodeKey;
+import org.modeshape.jcr.cache.document.DocumentConstants;
 import org.modeshape.jcr.cache.document.DocumentStore;
 import org.modeshape.jcr.cache.document.DocumentTranslator;
 import org.modeshape.jcr.cache.document.LocalDocumentStore;
@@ -46,8 +52,10 @@ import org.modeshape.jcr.spi.federation.ConnectorException;
 import org.modeshape.jcr.spi.federation.DocumentChanges;
 import org.modeshape.jcr.spi.federation.DocumentReader;
 import org.modeshape.jcr.spi.federation.DocumentWriter;
+import org.modeshape.jcr.spi.federation.EnhancedConnector;
 import org.modeshape.jcr.spi.federation.PageKey;
 import org.modeshape.jcr.spi.federation.Pageable;
+import org.modeshape.jcr.spi.federation.UnfiledSupportConnector;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.ReferenceFactory;
@@ -70,6 +78,7 @@ public class FederatedDocumentStore implements DocumentStore {
     private final Connectors connectors;
     private DocumentTranslator translator;
     private String localSourceKey;
+    private List<Connector> unfiledSupportConnectors = new ArrayList<>();
 
     /**
      * Creates a new instance with the given connectors and local db.
@@ -81,6 +90,7 @@ public class FederatedDocumentStore implements DocumentStore {
                                    SchematicDb localDb ) {
         this.connectors = connectors;
         this.localDocumentStore = new LocalDocumentStore(localDb);
+        this.unfiledSupportConnectors = getUnfiledSupportConnectors(this.connectors);
     }
 
     protected final DocumentTranslator translator() {
@@ -99,10 +109,16 @@ public class FederatedDocumentStore implements DocumentStore {
     public String newDocumentKey( String parentKey,
                                   Name documentName,
                                   Name documentPrimaryType ) {
-        if (isLocalSource(parentKey)) {
+        boolean isParentUnfiled = isSystemUnfiled(parentKey);
+        if (isLocalSource(parentKey) && !isParentUnfiled) {
             return localStore().newDocumentKey(parentKey, documentName, null);
         }
-        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        Connector connector;
+        if (isParentUnfiled) {
+            connector = getUnfiledConnectorForType(documentPrimaryType);
+        } else {
+            connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        }
         if (connector != null) {
             checkConnectorIsWritable(connector);
             String parentDocumentId = documentIdFromNodeKey(parentKey);
@@ -121,7 +137,14 @@ public class FederatedDocumentStore implements DocumentStore {
         if (isLocalSource(key)) {
             return localStore().putIfAbsent(key, document);
         }
-        Connector connector = connectors.getConnectorForSourceKey(sourceKey(key));
+
+        Connector connector;
+        if (isSystemUnfiled(key)) {
+            connector = getUnfiledConnectorForType(translator.getPrimaryType(document));
+        } else {
+            connector = connectors.getConnectorForSourceKey(sourceKey(key));
+        }
+
         if (connector != null) {
             checkConnectorIsWritable(connector);
             EditableDocument editableDocument = replaceNodeKeysWithDocumentIds(document);
@@ -380,7 +403,7 @@ public class FederatedDocumentStore implements DocumentStore {
                 return externalNodeKey;
             }
         }
-        return null;
+        return DocumentConstants.DUMMY_PREFIX + UUID.randomUUID().toString();
     }
 
     @Override
@@ -441,7 +464,7 @@ public class FederatedDocumentStore implements DocumentStore {
     }
 
     private boolean isBinaryMetadataDocumentKey( String key ) {
-        return key.endsWith("-ref") && Algorithm.SHA_1.isHexadecimal(key.substring(0, 40)); // 40 hexadecimal characters long
+        return key.endsWith(DocumentConstants.REFERENCE_SUFFIX) && Algorithm.SHA_1.isHexadecimal(key.substring(0, 40)); // 40 hexadecimal characters long
     }
 
     private String sourceKey( String nodeKey ) {
@@ -595,6 +618,104 @@ public class FederatedDocumentStore implements DocumentStore {
         if (connector.isReadonly()) {
             throw new ConnectorException(JcrI18n.connectorIsReadOnly.text(connector.getSourceName()));
         }
+    }
+
+    @Override
+    public ChildReference getChildReferenceAsRef(String parentKey,
+                                                 String childKey) {
+        Document childReferenceDoc = getChildReference(parentKey, childKey);
+        return (childReferenceDoc != null)
+                ? translator.childReferenceFrom(childReferenceDoc)
+                : null;
+    }
+
+    @Override
+    public ChildReference getChildReferenceAsRef(String parentKey, Name childName, int snsIndex) {
+        if (isLocalSource(parentKey)) {
+            return localStore().getChildReferenceAsRef( parentKey,  childName,  snsIndex);
+        }
+        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        if (connector != null) {
+            parentKey = documentIdFromNodeKey(parentKey);
+            //childKey = documentIdFromNodeKey(childKey);
+            Document doc = connector.getChildReference(parentKey, childName, snsIndex);
+            if (doc != null) {
+                String key = doc.getString(DocumentTranslator.KEY);
+                key = documentIdToNodeKeyString(connector.getSourceName(), key);
+                doc = doc.with(DocumentTranslator.KEY, key);
+            }
+            return translator.childReferenceFrom(doc);
+        }
+        return null;
+    }
+
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspace) {
+        Connector unfiledConnectorForType = getUnfiledConnectorForType(primaryType);
+        return getUnfiledStorageKey(unfiledConnectorForType);
+    }
+
+    public String getUnfiledStorageKey(Connector unfiledConnectorForType) {
+        if (unfiledConnectorForType != null)
+            return new NodeKey(NodeKey.keyForSourceName(unfiledConnectorForType.getSourceName()),
+                    FEDERATED_WORKSPACE_KEY,
+                    "/" + DocumentConstants.KEY_UNFILED).toString();
+        return DocumentConstants.KEY_UNFILED;
+    }
+
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        if (isLocalSource(parentKey)) {
+            return localStore().getChildCount(parentKey, name);
+        }
+        Connector connector = connectors.getConnectorForSourceKey(sourceKey(parentKey));
+        if (connector != null && connector instanceof EnhancedConnector) {
+            parentKey = documentIdFromNodeKey(parentKey);
+            int childCount = ((EnhancedConnector) connector).getChildCount(parentKey, name);
+
+            return childCount;
+        }
+        return -1;
+    }
+
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return !isLocalSource(key) && !connectors.getConnectorForSourceKey(sourceKey(key)).isQueryable();
+    }
+
+    private List<Connector> getUnfiledSupportConnectors(Connectors connectors) {
+        // we can't make types cache at the moment as namespace registry and not available
+        // as well as connectors haven't been initialized yet
+
+        List<Connector> result = new ArrayList<>();
+        List<RepositoryConfiguration.Component> connectorsConfig
+                = connectors.getRepositoryConfiguration().getFederation().getConnectors(new SimpleProblems());
+
+        for (RepositoryConfiguration.Component component : connectorsConfig) {
+            Connector conn = connectors.getConnectorForSourceName(component.getName());
+            if (conn != null && conn instanceof UnfiledSupportConnector) {
+                result.add(conn);
+            }
+        }
+
+        return result;
+    }
+
+    /**
+    * get connector mapped for specific type to store as unfiled
+    */
+    private Connector getUnfiledConnectorForType(Name type) {
+        if (type == null) return null;
+        for (Connector connector : unfiledSupportConnectors) {
+            if (((UnfiledSupportConnector) connector).getApplicableUnfiledTypes().contains(type))
+                return connector;
+        }
+
+        return null;
+    }
+
+    private boolean isSystemUnfiled(String key) {
+        return (key.contains(JcrLexicon.UNFILED_STORAGE.toString()));
     }
 
 }

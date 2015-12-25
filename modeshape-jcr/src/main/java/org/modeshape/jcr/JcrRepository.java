@@ -52,6 +52,7 @@ import javax.jcr.NoSuchWorkspaceException;
 import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.nodetype.NodeType;
 import javax.naming.InitialContext;
 import javax.naming.NamingException;
 import javax.naming.NoInitialContextException;
@@ -106,6 +107,7 @@ import org.modeshape.jcr.cache.RepositoryCache;
 import org.modeshape.jcr.cache.RepositoryEnvironment;
 import org.modeshape.jcr.cache.SessionCache;
 import org.modeshape.jcr.cache.WorkspaceNotFoundException;
+import org.modeshape.jcr.cache.document.DocumentConstants;
 import org.modeshape.jcr.cache.document.DocumentStore;
 import org.modeshape.jcr.cache.document.LocalDocumentStore;
 import org.modeshape.jcr.cache.document.TransactionalWorkspaceCaches;
@@ -196,6 +198,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     private final Lock stateLock = new ReentrantLock();
     private final AtomicBoolean allowAutoStartDuringLogin = new AtomicBoolean(AUTO_START_REPO_UPON_LOGIN);
     private Problems configurationProblems = null;
+    private Connectors connectors;
 
     /**
      * Create a Repository instance given the {@link RepositoryConfiguration configuration}.
@@ -251,6 +254,10 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
     @Override
     public String getName() {
         return repositoryName.get();
+    }
+
+    public Connectors getConnectors() {
+        return this.connectors;
     }
 
     @Override
@@ -390,6 +397,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                 state.completeInitialization();
                 this.state.set(State.RUNNING);
                 state.postInitialize();
+                this.connectors = state.getConnectors();
             }
             return state;
         } catch (Exception e) {
@@ -835,7 +843,7 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
         descriptors.put(Repository.IDENTIFIER_STABILITY, valueFor(factories, Repository.IDENTIFIER_STABILITY_INDEFINITE_DURATION));
         descriptors.put(Repository.OPTION_XML_IMPORT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_XML_EXPORT_SUPPORTED, valueFor(factories, true));
-        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, false));
+        descriptors.put(Repository.OPTION_UNFILED_CONTENT_SUPPORTED, valueFor(factories, true));
         descriptors.put(Repository.OPTION_SIMPLE_VERSIONING_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_ACTIVITIES_SUPPORTED, valueFor(factories, false));
         descriptors.put(Repository.OPTION_BASELINES_SUPPORTED, valueFor(factories, false));
@@ -1272,6 +1280,14 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
             return cacheChannel;
         }
 
+        public Connectors getConnectors() {
+            return connectors;
+        }
+
+        public RepositoryConfiguration getRepositoryConfiguration() {
+            return config;
+        }
+
         protected Transactions createTransactions( String cacheName,
                                                    TransactionMode mode,
                                                    TransactionManager txnMgr ) {
@@ -1315,6 +1331,28 @@ public class JcrRepository implements org.modeshape.jcr.api.Repository {
                         public Void call() throws Exception {
                             for (String workspaceName : repositoryCache().getWorkspaceNames()) {
                                 initialContentImporter().importInitialContent(workspaceName);
+
+                                // unfiled
+                                JcrSession internalSession = runningState().loginInternalSession(workspaceName);
+                                try {
+                                    JcrRootNode root = internalSession.getRootNode();
+                                    NodeKey desiredKey = new NodeKey(runningState().documentStore().getLocalSourceKey(),
+                                            NodeKey.keyForWorkspaceName(workspaceName),
+                                            DocumentConstants.KEY_UNFILED);
+
+                                    try {
+                                        root.getNode("unfiled");
+                                    } catch (javax.jcr.PathNotFoundException nfeIgnore) {
+                                        AbstractJcrNode unfiled = root.addNode("unfiled", "nt:folder", desiredKey, false);
+                                        unfiled.addMixin(NodeType.MIX_REFERENCEABLE);
+                                        internalSession.save();
+                                    }
+
+
+                                } finally {
+                                    internalSession.logout();
+                                }
+                                //
                             }
                             return null;
                         }

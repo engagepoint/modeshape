@@ -745,7 +745,7 @@ class RepositoryNodeTypeManager implements ChangeSetListener, NodeTypes.Supplier
             registerNodeTypes(nodeTypes, false, false, false);
             return true;
         } catch (Throwable e) {
-            logger.error(e, JcrI18n.errorRefreshingNodeTypes, repository.name());
+            logger.debug(e, JcrI18n.errorRefreshingNodeTypes.text(null, repository.name()));
             return false;
         } finally {
             this.nodeTypesLock.writeLock().unlock();

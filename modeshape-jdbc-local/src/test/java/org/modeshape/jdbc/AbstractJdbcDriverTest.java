@@ -32,6 +32,7 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.BeforeClass;
 import org.junit.Test;
+import org.modeshape.jcr.JcrLexicon;
 import org.modeshape.jcr.JcrRepository;
 import org.modeshape.jcr.JcrRepository.QueryLanguage;
 import org.modeshape.jcr.ModeShapeEngine;
@@ -83,6 +84,9 @@ public abstract class AbstractJdbcDriverTest extends MultiUseAbstractTest {
             other.addNode("NodeA", "nt:unstructured").setProperty("something", "value2 quick brown cat");
             other.addNode("NodeA", "nt:unstructured").setProperty("something", "value1 quick black dog");
             session.getRootNode().addNode("NodeB", "nt:unstructured").setProperty("myUrl", "http://www.acme.com/foo/bar");
+
+            //remove unfiled node;
+            session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
             session.save();
 
         } finally {

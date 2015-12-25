@@ -66,6 +66,11 @@ public class ConcurrentWriteTest extends SingleUseAbstractTest {
 
         // Set the transaction timeout so that we can debug code called within the transaction ...
         repository.runningState().txnManager().setTransactionTimeout(500);
+
+        //remove unfiled node;
+        JcrSession session = repository.login();
+        session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
+        session.save();
     }
 
     /**

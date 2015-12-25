@@ -268,6 +268,9 @@ public class JcrQueryManagerTest extends MultiUseAbstractTest {
                 Node b = session.getRootNode().addNode("NodeB", "nt:unstructured");
                 b.setProperty("myUrl", "http://www.acme.com/foo/bar");
                 b.setProperty("pathProperty", a.getPath());
+
+                //remove unfiled node;
+                session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
                 session.save();
 
                 // Initialize the nodes count

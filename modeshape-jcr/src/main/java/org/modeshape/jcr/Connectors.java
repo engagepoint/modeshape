@@ -16,24 +16,6 @@
 
 package org.modeshape.jcr;
 
-import java.io.IOException;
-import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.atomic.AtomicReference;
-import javax.jcr.NamespaceRegistry;
-import javax.jcr.PathNotFoundException;
-import javax.jcr.RepositoryException;
-import javax.jcr.Session;
-import javax.jcr.nodetype.NodeTypeManager;
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
@@ -73,6 +55,26 @@ import org.modeshape.jcr.value.Property;
 import org.modeshape.jcr.value.PropertyFactory;
 import org.modeshape.jcr.value.WorkspaceAndPath;
 
+import java.io.IOException;
+import java.lang.reflect.Method;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+
+import javax.jcr.NamespaceRegistry;
+import javax.jcr.PathNotFoundException;
+import javax.jcr.RepositoryException;
+import javax.jcr.Session;
+import javax.jcr.nodetype.NodeTypeManager;
+
 /**
  * Class which maintains (based on the configuration) the list of available connectors for a repository.
  * 
@@ -90,6 +92,21 @@ public final class Connectors {
     private boolean initialized = false;
     private final AtomicReference<Snapshot> snapshot = new AtomicReference<>();
     private volatile DocumentTranslator translator;
+
+    /**
+     * A map of [sourceName, connector] instances.
+     */
+    private Map<String, Connector> sourceKeyToConnectorMap = new HashMap<String, Connector>();
+
+    /**
+     * A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace.
+     */
+    private Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> preconfiguredProjections = new HashMap<String, List<RepositoryConfiguration.ProjectionConfiguration>>();
+
+    /**
+     * A map of (externalNodeKey, Projection) instances holds the existing projections in-memory.
+     */
+    private Map<String, Projection> projections;
 
     protected Connectors( JcrRepository.RunningState repository,
                           Collection<Component> components,
@@ -500,6 +517,13 @@ public final class Connectors {
 
         connector.initialize(registry, nodeTypeManager);
 
+        // possible problem with config to workspace
+        // this is a temporary fix -> available only for the case with a single workspace and projection
+        Map<String, List<ProjectionConfiguration>> preconfiguredProjections = getPreconfiguredProjectionsFor(connector);
+        if (Reflection.getField("preconfiguredProjections", connector.getClass()) != null) {
+            Reflection.setValue(connector, "preconfiguredProjections", preconfiguredProjections);
+        }
+
         // If successful, call the 'postInitialize' method reflectively (due to inability to call directly) ...
         Method postInitialize = Reflection.findMethod(Connector.class, "postInitialize");
         Reflection.invokeAccessibly(connector, postInitialize, new Object[] {});
@@ -825,6 +849,30 @@ public final class Connectors {
                 }
             }
             return workspaceNames;
+        }
+
+        /**
+         * Get the set of projections for the supplied connector.
+         *
+         * @param connector the connector
+         * @return projections
+         */
+        public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjectionsFor(Connector connector) {
+            String connectorSrcName = connector.getSourceName();
+            Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> result = new HashMap<>();
+
+            for (Map.Entry<String, List<RepositoryConfiguration.ProjectionConfiguration>> entry : preconfiguredProjections.entrySet()) {
+                List<RepositoryConfiguration.ProjectionConfiguration> list = new LinkedList<>();
+                for (ProjectionConfiguration config : entry.getValue()) {
+                    if (config.getSourceName().equals(connectorSrcName)) {
+                        list.add(config);
+                    }
+                }
+                if (!list.isEmpty()) {
+                    result.put(entry.getKey(), list);
+                }
+            }
+            return result;
         }
 
         /**
@@ -1431,5 +1479,27 @@ public final class Connectors {
             SchematicEntry entry = localStore.get(key);
             return entry != null;
         }
+    }
+
+    /**
+     * Preconfigured projections for each workspace.
+     *
+     * @return A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace.
+     */
+    public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjections() {
+        return this.snapshot.get().preconfiguredProjections;
+    }
+
+    /**
+     * Preconfigured projections for each workspace.
+     *
+     * @return A map of [workspaceName, projection] instances which holds the preconfigured projections for each workspace.
+     */
+    public Map<String, List<RepositoryConfiguration.ProjectionConfiguration>> getPreconfiguredProjectionsFor(Connector connector) {
+        return this.snapshot.get().getPreconfiguredProjectionsFor(connector);
+    }
+
+    public RepositoryConfiguration getRepositoryConfiguration() {
+        return repository.getRepositoryConfiguration();
     }
 }

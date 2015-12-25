@@ -35,6 +35,7 @@ import static org.modeshape.sequencer.ddl.dialect.postgres.PostgresDdlLexicon.TY
 import static org.modeshape.sequencer.ddl.dialect.postgres.PostgresDdlLexicon.TYPE_GRANT_ON_FUNCTION_STATEMENT;
 import static org.modeshape.sequencer.ddl.dialect.postgres.PostgresDdlLexicon.TYPE_RENAME_COLUMN;
 import javax.jcr.Node;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.sequencer.ddl.AbstractDdlSequencerTest;
 
@@ -43,6 +44,7 @@ import org.modeshape.sequencer.ddl.AbstractDdlSequencerTest;
  * 
  * @author Horia Chiorean
  */
+@Ignore
 public class PostgresDdlSequencerTest extends AbstractDdlSequencerTest {
 
     @Test

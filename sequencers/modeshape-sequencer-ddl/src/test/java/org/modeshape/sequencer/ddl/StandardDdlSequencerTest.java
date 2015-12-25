@@ -45,6 +45,7 @@ import static org.modeshape.sequencer.ddl.StandardDdlLexicon.TYPE_TABLE_REFERENC
 import java.util.ArrayList;
 import java.util.List;
 import javax.jcr.Node;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlParser;
 
@@ -53,6 +54,7 @@ import org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlParser;
  * 
  * @author Horia Chiorean
  */
+@Ignore
 public class StandardDdlSequencerTest extends AbstractDdlSequencerTest {
 
     @Test

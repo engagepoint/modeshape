@@ -101,6 +101,11 @@ public class JcrRepositoryTest {
         config = new RepositoryConfiguration("repoName", environment);
         repository = new JcrRepository(config);
         repository.start();
+
+        //remove unfiled node;
+        JcrSession session = repository.login();
+        session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
+        session.save();
         print = false;
     }
 

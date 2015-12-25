@@ -17,6 +17,10 @@
 package org.modeshape.jcr;
 
 import javax.jcr.Node;
+import javax.jcr.RepositoryException;
+import javax.jcr.query.Query;
+import javax.jcr.query.QueryResult;
+
 import org.junit.BeforeClass;
 import org.junit.Test;
 import org.modeshape.common.util.FileUtil;
@@ -38,5 +42,13 @@ public class LocalIndexProviderQueryTest extends JcrQueryManagerTest {
         session().save();
         added.remove();
         session().save();
+    }
+
+    @SuppressWarnings( "deprecation" )
+    @Test
+    public void shouldBeAbleToExecuteXPathQueryWithElementTestForChildrenOfRoot() throws RepositoryException {
+        Query query = session.getWorkspace().getQueryManager().createQuery("/jcr:root/element()", Query.XPATH);
+        QueryResult result = query.execute();
+        validateQuery().rowCount(3).hasColumns("jcr:primaryType", "jcr:path", "jcr:score").validate(query, result);
     }
 }

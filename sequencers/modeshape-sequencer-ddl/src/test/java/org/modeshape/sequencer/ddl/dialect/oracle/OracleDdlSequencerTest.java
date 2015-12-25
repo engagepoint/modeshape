@@ -38,6 +38,7 @@ import static org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlLexicon.TYPE_C
 import static org.modeshape.sequencer.ddl.dialect.oracle.OracleDdlLexicon.TYPE_FUNCTION_PARAMETER;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.sequencer.ddl.AbstractDdlSequencerTest;
 import org.modeshape.sequencer.ddl.StandardDdlLexicon;
@@ -47,6 +48,7 @@ import org.modeshape.sequencer.ddl.StandardDdlLexicon;
  * 
  * @author Horia Chiorean
  */
+@Ignore
 public class OracleDdlSequencerTest extends AbstractDdlSequencerTest {
 
     @Test

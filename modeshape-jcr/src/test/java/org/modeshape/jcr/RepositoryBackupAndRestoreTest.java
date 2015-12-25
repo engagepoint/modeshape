@@ -125,6 +125,7 @@ public class RepositoryBackupAndRestoreTest extends SingleUseAbstractTest {
      * Test that a repository containing the same binary data (files) as the ones from this test backed up using ModeShape 3.8.1
      * is restored correctly.
      */
+    @Ignore
     @Test
     @FixFor( "MODE-2440" )
     public void shouldRestoreLegacy381Repository() throws Exception {

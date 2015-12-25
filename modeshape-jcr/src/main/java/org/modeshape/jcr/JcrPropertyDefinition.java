@@ -16,9 +16,11 @@
 package org.modeshape.jcr;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -1091,7 +1093,7 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
                 }
             }
 
-            return false;
+            return expressions.contains(convertedValue);
         }
 
         @Override
@@ -1206,16 +1208,16 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
 
     private static class BooleanConstraintChecker implements ConstraintChecker {
 
-        private final Boolean constraint;
+        private final List<Boolean> constraint = new ArrayList<>(2);
         private final ValueFactories valueFactories;
 
         protected BooleanConstraintChecker( ExecutionContext executionContext,
                                             String... constraints ) {
             this.valueFactories = executionContext.getValueFactories();
             if (constraints != null && constraints.length > 0) {
-                constraint = valueFactories.getBooleanFactory().create(constraints[0]);
-            } else {
-                constraint = null;
+                for (String s : constraints) {
+                    constraint.add(valueFactories.getBooleanFactory().create(s));
+                }
             }
         }
 
@@ -1228,7 +1230,7 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
         public boolean matches( Value value,
                                 JcrSession session ) {
             try {
-                return constraint == null || (value.getBoolean() && constraint);
+                return constraint == null || (constraint.contains(value.getBoolean()));
             } catch (RepositoryException e) {
                 return false;
             }
@@ -1239,11 +1241,11 @@ class JcrPropertyDefinition extends JcrItemDefinition implements PropertyDefinit
             if (!other.getClass().equals(this.getClass())) {
                 return false;
             }
-            Boolean otherConstraint = ((BooleanConstraintChecker)other).getConstraint();
-            return otherConstraint == null || otherConstraint.equals(constraint);
+            List<Boolean> otherConstraint = ((BooleanConstraintChecker)other).getConstraint();
+            return otherConstraint == null || otherConstraint.containsAll(constraint);
         }
 
-        private Boolean getConstraint() {
+        private List<Boolean> getConstraint() {
             return constraint;
         }
     }

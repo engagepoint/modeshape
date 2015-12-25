@@ -52,6 +52,7 @@ import javax.jcr.Repository;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.UnsupportedRepositoryOperationException;
+import javax.jcr.Workspace;
 import javax.jcr.lock.LockException;
 import javax.jcr.nodetype.ConstraintViolationException;
 import javax.jcr.nodetype.NoSuchNodeTypeException;
@@ -497,12 +498,23 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
     AbstractJcrNode node( NodeKey nodeKey,
                           AbstractJcrNode.Type expectedType,
                           NodeKey parentKey ) throws ItemNotFoundException {
-        CachedNode cachedNode = cache.getNode(nodeKey);
-        if (cachedNode == null) {
-            // The node must not exist or must have been deleted ...
-            throw new ItemNotFoundException(nodeKey.toString());
+        CachedNode cachedNode = null;
+        AbstractJcrNode node = null;
+
+        if (nodeKey != null) {
+            cachedNode = cache.getNode(nodeKey);
+            if (cachedNode == null) {
+                // The node must not exist or must have been deleted ...
+                throw new ItemNotFoundException(nodeKey.toString());
+            }
+            node = jcrNodes.get(nodeKey);
+        } else {
+            try {
+                cachedNode = cache.getNode(nodeKey);
+                node = jcrNodes.get(nodeKey);
+            } catch (Exception e) {}
         }
-        AbstractJcrNode node = jcrNodes.get(nodeKey);
+
         if (node == null) {
             node = node(cachedNode, expectedType, parentKey);
         } else if (parentKey != null) {
@@ -550,7 +562,11 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
                 if (expectedType == null) {
                     // If this node from the system workspace, then the default is Type.SYSTEM rather than Type.NODE ...
                     if (repository().systemWorkspaceKey().equals(nodeKey.getWorkspaceKey())) {
-                        expectedType = Type.SYSTEM;
+                        // catch if unfiled sub-tree is going to be requested and then return NODE
+                        boolean isUnfiledChild =
+                                cachedNode.getPath(cache).toString()
+                                        .startsWith(Workspace.PATH_UNFILED_NODE);
+                        expectedType = isUnfiledChild ? Type.NODE : Type.SYSTEM;
                     } else {
                         expectedType = Type.NODE;
                     }
@@ -2487,5 +2503,9 @@ public class JcrSession implements org.modeshape.jcr.api.Session {
         private void signalSaveOfSystemChanges() {
             cache().checkForTransaction();
         }
+    }
+
+    public String getUnfiledNodeKey(String primaryType, String workspaceName) {
+        return repository.runningState().documentStore().getUnfiledStorageKey(nameFactory().create(primaryType), workspaceName);
     }
 }

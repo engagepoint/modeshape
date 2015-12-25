@@ -38,6 +38,7 @@ import org.modeshape.common.SystemFailureException;
 import org.modeshape.jcr.InfinispanUtil;
 import org.modeshape.jcr.InfinispanUtil.Combiner;
 import org.modeshape.jcr.InfinispanUtil.Location;
+import org.modeshape.jcr.cache.ChildReference;
 import org.modeshape.jcr.value.Name;
 import org.modeshape.jcr.value.binary.ExternalBinaryValue;
 
@@ -435,5 +436,48 @@ public class LocalDocumentStore implements DocumentStore {
                                                  DocumentOperationResults newResult ) {
             return priorResult.combine(newResult);
         }
+    }
+
+    /**
+     * Unsupported operation for local documents store.
+     */
+    @Override
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  String childKey ){
+        return null; // don't support this
+    }
+
+    /**
+     * Unsupported operation for local documents store.
+     */
+    @Override
+    public ChildReference getChildReferenceAsRef( String parentKey,
+                                                  Name childName,
+                                                  int snsIndex){
+        return null; // don't support this
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public String getUnfiledStorageKey(Name primaryType, String workspaceName) {
+        return DocumentConstants.KEY_UNFILED;
+    }
+
+    /**
+     * Unsupported operation for local documents store.
+     */
+    @Override
+    public int getChildCount(String parentKey, Name name) {
+        return 0;
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public boolean shouldSkipIndexingForKey(String key) {
+        return false;
     }
 }

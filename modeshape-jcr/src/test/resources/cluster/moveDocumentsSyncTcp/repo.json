@@ -1,0 +1,35 @@
+{
+  "name": "ClusteredRepository${cluster.testname}",
+  "jndiName": "",
+  "workspaces": {
+    "default": "default",
+    "allowCreation": true,
+    "initialContent": {
+      "default": "../modeshape-jcr/target/test-classes/cluster/${cluster.testname}/initial-data.xml"
+    }
+  },
+  "monitoring": {
+    "enabled": true
+  },
+  "security": {
+    "anonymous": {
+      "roles": [
+        "readonly",
+        "readwrite",
+        "admin"
+      ],
+      "useOnFailedLogin": true
+    }
+  },
+  "storage": {
+    "cacheName": "metadata",
+    "cacheConfiguration": "../modeshape-jcr/target/test-classes/cluster/${cluster.testname}/infinispan.xml",
+    "binaryStorage": {
+      "type": "cache",
+      "cacheConfiguration": "../modeshape-jcr/target/test-classes/cluster/${cluster.testname}/infinispan.xml",
+      "dataCacheName": "binary-data",
+      "metadataCacheName": "binary-meta-data",
+      "minimumBinarySizeInBytes": 4096
+    }
+  }
+}

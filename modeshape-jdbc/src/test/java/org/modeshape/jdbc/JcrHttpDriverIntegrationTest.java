@@ -148,7 +148,8 @@ public class JcrHttpDriverIntegrationTest {
         String[] expectedResults = new String[] {
             "jcr:primaryType[STRING]    jcr:mixinTypes[STRING]    jcr:path[STRING]    jcr:name[STRING]    mode:localName[STRING]    mode:depth[LONG]",
             "mode:root    null    /    null    null    0",
-            "mode:system    null    /jcr:system    jcr:system    system    1"};
+            "mode:system    null    /jcr:system    jcr:system    system    1",
+            "nt:folder    mix:referenceable    /unfiled    unfiled    unfiled    1"};
         ConnectionResultsComparator.executeTest(connection, query, expectedResults, 3);
     }
 

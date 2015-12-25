@@ -49,6 +49,23 @@ public interface DocumentConstants {
     public static final String BUCKET_ID_LENGTH = "$bucketIdLen";
     public static final String SIZE = "$size";
     public static final String BUCKETS = "$buckets";
+    public static final String REFERENCE_SUFFIX = "-ref";
+    public static final String NAME_SUFFIX = "_name";
+    public static final String DUMMY_PREFIX = "DUMMY_";
+    public static final String KEY_DECIMAL = "$dec";
+    public static final String KEY_DATE = "$date";
+    public static final String KEY_NAME = "$name";
+    public static final String KEY_PATH = "$path";
+    public static final String KEY_RELATIVE = "$relative";
+    public static final String KEY_UUID = "$uuid";
+    public static final String KEY_FOREIGN = "$foreign";
+    public static final String KEY_URI = "$uri";
+    public static final String KEY_TMP = ".tmp";
+
+    /**
+     * Unfiled Node key.
+     */
+    public static final String KEY_UNFILED = "jcr:unfiled";
 
     /**
      * A constant that can be used by a connector implementation as a supplementary document field, that indicates the maximum

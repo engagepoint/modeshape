@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<infinispan xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+            xsi:schemaLocation="urn:infinispan:config:7.2 http://www.infinispan.org/schemas/infinispan-config-7.2.xsd"
+            xmlns="urn:infinispan:config:7.2">
+    <jgroups>
+        <stack-file name="tcp"
+                    path="../modeshape-jcr/target/test-classes/cluster/${cluster.testname}/jgroups.xml"/>
+    </jgroups>
+    <cache-container default-cache="repo_cache">
+        <jmx duplicate-domains="true"/>
+        <transport
+                cluster="cluster-${cluster.testname}"
+                stack="tcp"/>
+        <replicated-cache name="repo_cache" mode="SYNC" statistics="false">
+            <state-transfer timeout="2000"/>
+            <locking
+                    isolation="READ_COMMITTED"
+                    write-skew="false"
+                    acquire-timeout="1000"/>
+            <transaction
+                    mode="NON_XA"
+                    locking="PESSIMISTIC"/>
+        </replicated-cache>
+    </cache-container>
+</infinispan>

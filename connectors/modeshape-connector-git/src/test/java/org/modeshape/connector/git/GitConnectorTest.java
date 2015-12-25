@@ -30,6 +30,7 @@ import javax.jcr.Value;
 import org.junit.AfterClass;
 import org.junit.Before;
 import org.junit.BeforeClass;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.jcr.MultiUseAbstractTest;
@@ -107,6 +108,7 @@ public class GitConnectorTest extends MultiUseAbstractTest {
         assertChildrenInclude(branches, "master");
     }
 
+    @Ignore
     @Test
     public void shouldReadTreeSubgraph() throws Exception {
         Node git = gitRemoteNode();
@@ -174,6 +176,7 @@ public class GitConnectorTest extends MultiUseAbstractTest {
         assertChildrenInclude(tagTree, "pom.xml", "dna-jcr", "dna-common", ".project");
     }
 
+    @Ignore
     @Test
     public void shouldContainTagsAndBranchNamesAndCommitsUnderTreeNode() throws Exception {
         Node git = gitRemoteNode();

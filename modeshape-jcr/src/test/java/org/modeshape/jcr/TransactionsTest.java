@@ -367,6 +367,11 @@ public class TransactionsTest extends SingleUseAbstractTest {
         InputStream configFile = getClass().getClassLoader()
                                            .getResourceAsStream("config/repo-config-filesystem-jbosstxn-pessimistic.json");
         startRepositoryWithConfiguration(configFile);
+
+        //remove unfiled node;
+        super.session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
+        super.session.save();
+
         int threadsCount = 10;
         ExecutorService executorService = Executors.newFixedThreadPool(threadsCount);
         List<Future<Void>> results = new ArrayList<>(threadsCount);

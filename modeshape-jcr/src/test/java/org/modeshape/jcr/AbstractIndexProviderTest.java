@@ -58,6 +58,11 @@ public abstract class AbstractIndexProviderTest extends SingleUseAbstractTest {
 
         // Now start the repository ...
         startRepositoryWithConfiguration(repositoryConfiguration());
+
+        //remove unfiled node;
+        super.session.getNodeByIdentifier(JcrLexicon.UNFILED_STORAGE.getString()).remove();
+        super.session.save();
+
         printMessage("Started repository...");
     }
 

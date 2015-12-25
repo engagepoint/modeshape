@@ -617,7 +617,11 @@ public class XPathToQueryTranslator {
                 String value = ((Literal)param2).getValue();
 
                 if (param1 instanceof FunctionCall) {
-                    where.nodeName(tableName).isLike(value);
+                    if (((FunctionCall) param1).getName().toString().equals("UPPER-CASE")) {
+                        where.upperCaseOf().nodeName(tableName).isLike(value);
+                    } else {
+                        where.nodeName(tableName).isLike(value);
+                    }
                 } else if (param1 instanceof AttributeNameTest) {
                     NameTest attributeName = ((AttributeNameTest)param1).getNameTest();
                     where.propertyValue(tableName, nameFrom(attributeName)).isLike(value);

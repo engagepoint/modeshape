@@ -41,7 +41,7 @@
                 "option.shareable.nodes.supported":"true",
                 "option.simple.versioning.supported":"false",
                 "option.transactions.supported":"true",
-                "option.unfiled.content.supported":"false",
+                "option.unfiled.content.supported":"true",
                 "option.update.mixin.node.types.supported":"true",
                 "option.update.primary.node.type.supported":"true",
                 "option.versioning.supported":"true",
