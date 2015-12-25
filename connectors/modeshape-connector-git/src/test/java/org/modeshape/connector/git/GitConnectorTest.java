@@ -41,6 +41,7 @@ import org.modeshape.jcr.api.federation.FederationManager;
 /**
  * Unit test for {@link org.modeshape.connector.git.GitConnector}
  */
+@Ignore
 public class GitConnectorTest extends MultiUseAbstractTest {
 
     private Node testRoot;
