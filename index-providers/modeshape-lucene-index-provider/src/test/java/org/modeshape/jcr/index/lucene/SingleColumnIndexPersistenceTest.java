@@ -116,6 +116,7 @@ public class SingleColumnIndexPersistenceTest extends AbstractIndexPersistenceTe
         assertEquals(0, index.estimateTotalCount());
     }
 
+    @Ignore
     @Test
     public void shouldUpdateValuesBetweenRestarts() throws Exception {
         String nodeKey = UUID.randomUUID().toString();
