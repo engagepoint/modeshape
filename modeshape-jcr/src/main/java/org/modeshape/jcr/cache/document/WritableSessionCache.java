@@ -216,6 +216,38 @@ public class WritableSessionCache extends AbstractSessionCache {
         return sessionNode;
     }
 
+    /**
+     * Does the same as the {@link WritableSessionCache#mutable(NodeKey)} except for adding
+     * a mutable node in #changedNodes and #changedNodesInOrder collections.
+     *
+     * @param key the key for the node; may not be null
+     * @return the mutable child node
+     */
+    private SessionNode mutableExternalUnfiled( NodeKey key ) {
+        SessionNode sessionNode = null;
+        Lock lock = this.lock.readLock();
+        try {
+            lock.lock();
+            sessionNode = changedNodes.get(key);
+        } finally {
+            lock.unlock();
+        }
+        if (sessionNode == null || sessionNode == REMOVED) {
+            sessionNode = new SessionNode(key, false);
+            lock = this.lock.writeLock();
+            try {
+                lock.lock();
+                sessionNode = changedNodes.get(key);
+                if (sessionNode == null) {
+                    sessionNode = new SessionNode(key, false);
+                }
+            } finally {
+                lock.unlock();
+            }
+        }
+        return sessionNode;
+    }
+
     @Override
     public boolean isReadOnly() {
         return false;
@@ -634,6 +666,10 @@ public class WritableSessionCache extends AbstractSessionCache {
 
                     // Get a monitor via the transaction ...
                     try {
+
+                        //Remove external unfiled nodes from changeList
+                        removeExternalUnfiledNodeKey(this.changedNodesInOrder);
+
                         // Lock the nodes in Infinispan  and bring the latest version of these nodes in the shared workspace cache
                         WorkspaceCache thisPersistedCache = lockNodes(this.changedNodesInOrder);
                         WorkspaceCache thatPersistedCache = that.lockNodes(that.changedNodesInOrder);
@@ -744,6 +780,40 @@ public class WritableSessionCache extends AbstractSessionCache {
         // if the node is not new and also missing from the document, another transaction has deleted it
         if (!node.isNew() && !workspaceCache().documentStore().containsKey(keyString)) {
             throw new DocumentNotFoundException(keyString);
+        }
+    }
+
+    /**
+     * This method finds and removes external unfiled @NodeKey from #changedNodes and #changedNodesInOrder
+     */
+    private void removeExternalUnfiledNodeKey( Set<NodeKey> changedNodesInOrder ) {
+
+        NodeKey unfiledKey = null;
+        for (NodeKey key : changedNodesInOrder) {
+
+            // find external unfiled node key and exclude inner unfiled node
+            if (isExternalUnfiledNodeKey(key)) {
+                unfiledKey = key;
+            }
+        }
+
+        // don't remove from changedNodes unfiled node key if it's new for creating it
+        // or it has changes with renamed children's
+        removeExternalUnfiledNodeKeyFromChanges(unfiledKey);
+    }
+
+    private boolean isExternalUnfiledNodeKey( NodeKey key ) {
+        String id = key.getIdentifier();
+        return id.contains(DocumentConstants.KEY_UNFILED) && !id.equals(DocumentConstants.KEY_UNFILED);
+    }
+
+    private void removeExternalUnfiledNodeKeyFromChanges( NodeKey key ) {
+        if (key != null) {
+            SessionNode changedUnfiled = this.changedNodes.get(key);
+            if (!changedUnfiled.isNew() && changedUnfiled.changedChildren().getNewNames().isEmpty()) {
+                this.changedNodesInOrder.remove(key);
+                this.changedNodes.remove(key);
+            }
         }
     }
 
@@ -1006,8 +1076,16 @@ public class WritableSessionCache extends AbstractSessionCache {
                     translator.setKey(doc, key);
                     translator.setParents(doc, newParent, null, additionalParents);
                     translator.addInternalProperties(doc, node.getAddedInternalProperties());
-                    
-                    SessionNode mutableParent = mutable(newParent);
+
+                    SessionNode mutableParent;
+                    //verify is parent are unfiled and from external source.
+                    if (isExternalUnfiledNodeKey(newParent)) {
+                        //enhanced logic for unfiled parent, only for external source.
+                        mutableParent = mutableExternalUnfiled(newParent);
+                    } else {
+                        //default logic.
+                        mutableParent = mutable(newParent);
+                    }
                     Name parentPrimaryType = mutableParent.getPrimaryType(this);
                     Set<Name> parentMixinTypes = mutableParent.getMixinTypes(this);
                     boolean parentAllowsSNS = nodeTypes != null && nodeTypes.allowsNameSiblings(parentPrimaryType, parentMixinTypes);
