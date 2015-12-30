@@ -758,8 +758,10 @@ public class WritableSessionCache extends AbstractSessionCache {
             }
 
         } catch (RuntimeException e) {
+            workspaceCache().purge(changedNodesInOrder);
             throw e;
         } catch (Exception e) {
+            workspaceCache().purge(changedNodesInOrder);
             throw new WrappedException(e);
         } finally {
             try {
