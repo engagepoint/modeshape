@@ -1,10 +1,9 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-jbossas</artifactId>
-    <version>4.5.0.1-EP-SNAPSHOT</version>
+    <version>4.5.0.1-EP</version>
 
     <name>ModeShape BOM for use within a JBoss App Server</name>
 
@@ -32,7 +31,8 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-    </scm>
+      <tag>modeshape-4.5.0.1-EP</tag>
+  </scm>
 
     <issueManagement>
         <system>jira</system>

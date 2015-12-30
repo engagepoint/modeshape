@@ -1,16 +1,15 @@
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
     <parent>
         <groupId>org.jboss</groupId>
         <artifactId>jboss-parent</artifactId>
         <version>16</version>
-        <relativePath></relativePath>
+        <relativePath />
     </parent>
 
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>4.5.0.1-EP-SNAPSHOT</version>
+    <version>4.5.0.1-EP</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -35,7 +34,8 @@
         <connection>scm:git:git@github.com:engagepoint</connection>
         <developerConnection>scm:git:git@github.com:engagepoint</developerConnection>
         <url>http://github.com/engagepoint/modeshape</url>
-    </scm>
+      <tag>modeshape-4.5.0.1-EP</tag>
+  </scm>
 
     <issueManagement>
         <system>jira</system>
@@ -218,7 +218,7 @@
         <!--By default, we use whatever the underlying machine supports. However, certain sub-modules may change this -->
         <preferIpv4>false</preferIpv4>
         <preferIpv6>true</preferIpv6>
-        <debug.argline/>
+        <debug.argline />
         <!--
           Global dependency version information
           -->
@@ -444,7 +444,7 @@
                 <dataSource.driverClassName>org.h2.Driver</dataSource.driverClassName>
                 <dataSource.url>jdbc:h2:mem:modeshape;DB_CLOSE_DELAY=-1</dataSource.url>
                 <dataSource.username>sa</dataSource.username>
-                <dataSource.password/>
+                <dataSource.password />
                 <infinispan.jdbc.id_column.type>VARCHAR(400)</infinispan.jdbc.id_column.type>
                 <infinispan.jdbc.data_column.type>BINARY</infinispan.jdbc.data_column.type>
                 <infinispan.jdbc.timestamp_column.type>BIGINT</infinispan.jdbc.timestamp_column.type>
@@ -535,7 +535,7 @@
                 <dataSource.driverClassName>com.mysql.jdbc.Driver</dataSource.driverClassName>
                 <dataSource.url>jdbc:mysql://localhost:3306/modeshape</dataSource.url>
                 <dataSource.username>root</dataSource.username>
-                <dataSource.password></dataSource.password>
+                <dataSource.password />
                 <infinispan.jdbc.id_column.type>VARCHAR(400)</infinispan.jdbc.id_column.type>
                 <infinispan.jdbc.data_column.type>BLOB</infinispan.jdbc.data_column.type>
                 <infinispan.jdbc.timestamp_column.type>BIGINT</infinispan.jdbc.timestamp_column.type>
@@ -841,7 +841,7 @@
                             <home>${project.build.directory}/cargo</home>
                             <type>embedded</type>
                         </container>
-                        <configuration >
+                        <configuration>
                             <properties>
                                 <cargo.logging>high</cargo.logging>
                                 <cargo.servlet.users>dnauser:password:connect,readwrite,admin|unauthorized:password:bogus</cargo.servlet.users>
@@ -1054,8 +1054,7 @@
                         </goals>
                         <configuration>
                             <rules>
-                                <illegalTransitiveDependencyCheck
-                                        implementation="de.is24.maven.enforcer.rules.IllegalTransitiveDependencyCheck">
+                                <illegalTransitiveDependencyCheck implementation="de.is24.maven.enforcer.rules.IllegalTransitiveDependencyCheck">
                                     <regexIgnoredClasses>
                                         <regexIgnoredClass>com\.sun\.net\.httpserver\..+</regexIgnoredClass>
                                         <regexIgnoredClass>javax\..+</regexIgnoredClass>
