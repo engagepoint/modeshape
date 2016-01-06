@@ -24,7 +24,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import javax.transaction.TransactionManager;
 import javax.transaction.xa.XAResource;
 import org.infinispan.schematic.SchematicDb;
@@ -322,7 +321,7 @@ public class FederatedDocumentStore implements DocumentStore {
             return localStore().containsKey(key);
         }
         Connector connector = connectors.getConnectorForSourceKey(sourceKey(key));
-        return connector != null && connector.hasDocument(documentIdFromNodeKey(key));
+        return connector != null && connector.isInitialized() && connector.hasDocument(documentIdFromNodeKey(key));
     }
 
     @Override
@@ -395,7 +394,7 @@ public class FederatedDocumentStore implements DocumentStore {
                                             String alias ) {
         String sourceKey = NodeKey.keyForSourceName(sourceName);
         Connector connector = connectors.getConnectorForSourceKey(sourceKey);
-        if (connector != null) {
+        if (connector != null && connector.isInitialized()) {
             String externalNodeId = connector.getDocumentId(externalPath);
             if (externalNodeId != null) {
                 String externalNodeKey = documentIdToNodeKeyString(sourceName, externalNodeId);
@@ -403,7 +402,7 @@ public class FederatedDocumentStore implements DocumentStore {
                 return externalNodeKey;
             }
         }
-        return DocumentConstants.DUMMY_PREFIX + UUID.randomUUID().toString();
+        return null;
     }
 
     @Override

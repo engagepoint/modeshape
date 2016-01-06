@@ -29,7 +29,7 @@ import org.modeshape.jcr.value.Path;
 
 /**
  * Implementation of the {@link FederationManager} interface.
- * 
+ *
  * @author Horia Chiorean (hchiorea@redhat.com)
  */
 public class ModeShapeFederationManager implements FederationManager {
@@ -37,20 +37,20 @@ public class ModeShapeFederationManager implements FederationManager {
     private final JcrSession session;
     private final DocumentStore documentStore;
 
-    protected ModeShapeFederationManager( JcrSession session,
-                                          DocumentStore documentStore ) {
+    protected ModeShapeFederationManager(JcrSession session,
+                                         DocumentStore documentStore) {
         this.session = session;
         this.documentStore = documentStore;
     }
 
     @Override
-    public void createProjection( String absNodePath,
-                                  String sourceName,
-                                  String externalPath,
-                                  String alias ) throws RepositoryException {
+    public void createProjection(String absNodePath,
+                                 String sourceName,
+                                 String externalPath,
+                                 String alias) throws RepositoryException {
         AbstractJcrNode node = session.getNode(absNodePath);
         if (session.nodeTypeManager().nodeTypes().isUnorderedCollection(node.getPrimaryTypeName(), node.getMixinTypeNames())) {
-            throw new ConstraintViolationException(JcrI18n.operationNotSupportedForUnorderedCollections.text("create projection"));    
+            throw new ConstraintViolationException(JcrI18n.operationNotSupportedForUnorderedCollections.text("create projection"));
         }
         NodeKey parentNodeToBecomeFederatedKey = node.key();
 
@@ -70,14 +70,16 @@ public class ModeShapeFederationManager implements FederationManager {
 
         SessionCache sessionCache = this.session.spawnSessionCache(false);
         String externalNodeKey = documentStore.createExternalProjection(parentNodeToBecomeFederatedKey.toString(), sourceName,
-                                                                        externalPath, projectionAlias);
-        MutableCachedNode mutable = sessionCache.mutable(parentNodeToBecomeFederatedKey);
-        mutable.addFederatedSegment(externalNodeKey, projectionAlias);
-        sessionCache.save();
+                externalPath, projectionAlias);
+        if (externalNodeKey != null) {
+            MutableCachedNode mutable = sessionCache.mutable(parentNodeToBecomeFederatedKey);
+            mutable.addFederatedSegment(externalNodeKey, projectionAlias);
+            sessionCache.save();
+        }
     }
 
     @Override
-    public void removeProjection( String projectionPath ) throws RepositoryException {
+    public void removeProjection(String projectionPath) throws RepositoryException {
         CheckArg.isNotNull(projectionPath, "projectionPath");
 
         Path path = session.pathFactory().create(projectionPath);

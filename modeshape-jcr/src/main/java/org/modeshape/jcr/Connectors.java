@@ -252,6 +252,7 @@ public final class Connectors {
                     MutableCachedNode parentNode = sessionCache.mutable(projectedNodeKey);
                     parentNode.removeFederatedSegment(externalNodeKeyString);
                     sessionCache.save();
+                    removeStoredProjection(externalNodeKeyString);
                 }
             }
         }
