@@ -508,6 +508,9 @@ public final class Connectors {
         // Set the Environment
         Reflection.setValue(connector, "environment", repository.environment());
 
+        // Set the Repository Configuration
+        Reflection.setValue(connector, "repositoryConfiguration", repository.getRepositoryConfiguration());
+
         // Set the ExtraPropertiesStore instance, which is unique to this connector ...
         LocalDocumentStore store = repository.documentStore().localStore();
         String name = connector.getSourceName();

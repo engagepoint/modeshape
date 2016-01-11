@@ -32,6 +32,7 @@ import org.modeshape.jcr.Environment;
 import org.modeshape.jcr.ExecutionContext;
 import org.modeshape.jcr.JcrI18n;
 import org.modeshape.jcr.JcrLexicon;
+import org.modeshape.jcr.RepositoryConfiguration;
 import org.modeshape.jcr.api.nodetype.NodeTypeManager;
 import org.modeshape.jcr.cache.DocumentAlreadyExistsException;
 import org.modeshape.jcr.cache.DocumentNotFoundException;
@@ -83,6 +84,11 @@ public abstract class Connector {
      * The name of the repository that owns this connector, set via reflection immediately after instantiation.
      */
     private String repositoryName;
+
+    /**
+     * Repository configuration.
+     */
+    private RepositoryConfiguration repositoryConfiguration;
 
     /**
      * The execution context, set via reflection before ModeShape calls {@link #initialize(NamespaceRegistry, NodeTypeManager)}.
@@ -185,6 +191,14 @@ public abstract class Connector {
      */
     public final String getRepositoryName() {
         return repositoryName;
+    }
+
+    /**
+     * Get the instance of the repository configuration.
+     * @return the repository configuration; never null
+     */
+    public RepositoryConfiguration getRepositoryConfiguration() {
+        return repositoryConfiguration;
     }
 
     /**
