@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-index-providers</artifactId>
-        <version>4.5.0.3-EP-SNAPSHOT</version>
+        <version>4.5.0.3-EP</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <!-- The groupId and version values are inherited from parent -->
