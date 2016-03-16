@@ -263,7 +263,7 @@ class JcrWorkspace implements org.modeshape.jcr.api.Workspace {
 
         Set<NodeKey> sourceKeys = session.cache().getNodeKeysAtAndBelow(sourceNode.key());
         boolean sourceContainsExternalNodes = false;
-        for (NodeKey sourceKey : sourceKeys) {
+       /* for (NodeKey sourceKey : sourceKeys) {
             String sourceNodeSourceKey = sourceKey.getSourceKey();
             if (!rootSourceKey.equalsIgnoreCase(sourceNodeSourceKey)) {
                 sourceContainsExternalNodes = true;
@@ -273,7 +273,7 @@ class JcrWorkspace implements org.modeshape.jcr.api.Workspace {
                                                                                                 destSourceName));
                 }
             }
-        }
+        }*/
 
         String sourceNodeSourceKey = sourceNode.key().getSourceKey();
         if (sourceContainsExternalNodes && !sourceNodeSourceKey.equalsIgnoreCase(destExternalKey)) {
