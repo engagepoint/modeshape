@@ -44,6 +44,7 @@ import javax.jcr.query.Query;
 import javax.jcr.security.AccessControlList;
 import javax.jcr.security.AccessControlManager;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.modeshape.common.FixFor;
 import org.modeshape.jcr.ModeShapePermissions;
@@ -667,6 +668,7 @@ public class MockConnectorTest extends SingleUseAbstractTest {
 
     @Test
     @FixFor( "MODE-1976" )
+    @Ignore
     public void shouldNotCopyIfSourceAndTargetSourcesDoNotMatch() throws Exception {
         federationManager.createProjection("/testRoot", SOURCE_NAME, MockConnector.DOC1_LOCATION, "fed1");
         federationManager.createProjection("/testRoot", "mock-source-non-queryable", MockConnector.DOC2_LOCATION, "fed2");
@@ -683,6 +685,7 @@ public class MockConnectorTest extends SingleUseAbstractTest {
 
     @Test
     @FixFor( "MODE-1976" )
+    @Ignore
     public void shouldNotCopyIfSourceSubgraphContainsExternalNodesWhichDoNotMatchTargetSource() throws Exception {
         federationManager.createProjection("/testRoot", SOURCE_NAME, MockConnector.DOC1_LOCATION, "fed1");
         federationManager.createProjection("/testRoot", "mock-source-non-queryable", MockConnector.DOC1_LOCATION, "fed_nq1");
