@@ -2346,13 +2346,12 @@ public class RepositoryConfiguration {
             if (expressionMatcher.matches()) {
                 this.pathExpression = pathExpression;
                 this.sourceName = sourceName;
-                workspaceName = expressionMatcher.group(1);
-                projectedPath = expressionMatcher.group(2);
-                projectedPath = expressionMatcher.group(2);
+                workspaceName = expressionMatcher.group(1).trim();
+                projectedPath = expressionMatcher.group(2).trim();
                 if (projectedPath.endsWith("/") && projectedPath.length() > 1) {
                     projectedPath = projectedPath.substring(0, projectedPath.length() - 1);
                 }
-                externalPath = expressionMatcher.group(7);
+                externalPath = expressionMatcher.group(7).trim();
             } else {
                 throw new IllegalArgumentException(JcrI18n.invalidProjectionExpression.text(pathExpression));
             }
