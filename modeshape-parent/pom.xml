@@ -9,7 +9,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>org.modeshape</groupId>
     <artifactId>modeshape-parent</artifactId>
-    <version>4.5.0.4-EP</version>
+    <version>4.5.0.5-EP-SNAPSHOT</version>
     <name>ModeShape Parent</name>
 
     <url>http://www.modeshape.org</url>
@@ -34,7 +34,7 @@
         <connection>scm:git:git@github.com:engagepoint</connection>
         <developerConnection>scm:git:git@github.com:engagepoint</developerConnection>
         <url>http://github.com/engagepoint/modeshape</url>
-      <tag>modeshape-4.5.0.4-EP</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <issueManagement>
