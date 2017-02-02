@@ -56,6 +56,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -415,17 +417,22 @@ public class BackupService {
                 // but by doing this we make sure that we include the latest changes in the backup (at least those
                 // changes made before the observer is disconnected)...
                 repositoryCache.register(observer);
+                List<String> binaryKeys = new ArrayList<String>();
 
                 try {
                     // PHASE 1:
                     // Perform the backup of the repository cache content ...
                     int counter = 0;
+
                     Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
                     while (true) {
                         String key = sequence.next();
                         if (key == null) break;
                         SchematicEntry entry = documentStore.get(key);
                         if (entry != null) {
+                            String id = getDocumentId(entry);
+                            binaryKeys.add(id);
+
                             writeToContentArea(entry);
                             ++counter;
                         }
@@ -458,8 +465,11 @@ public class BackupService {
                     int counter = 0;
                     for (BinaryKey binaryKey : binaryStore.getAllBinaryKeys()) {
                         try {
-                            writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
-                            ++counter;
+                            if (binaryKeys.contains(binaryKey.toString()+"-ref")) {
+
+                                writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
+                                ++counter;
+                            }
                         } catch (BinaryStoreException e) {
                             problems.addError(JcrI18n.problemsWritingBinaryToBackup, binaryKey, backupLocation(), e.getMessage());
                         }
@@ -518,6 +528,15 @@ public class BackupService {
             }
 
             return problems;
+        }
+
+        String getDocumentId(SchematicEntry doc) {
+            if (doc.asDocument().containsField("metadata")) {
+                Document metadata = doc.asDocument().getDocument("metadata");
+                return metadata.getString("id");
+
+            }
+            return "";
         }
     }
 

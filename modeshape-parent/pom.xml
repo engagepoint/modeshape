@@ -35,7 +35,7 @@
         <connection>scm:git:git@github.com:engagepoint</connection>
         <developerConnection>scm:git:git@github.com:engagepoint</developerConnection>
         <url>http://github.com/engagepoint/modeshape</url>
-      <tag>modeshape-3.7.30-HF-EP-SNAPSHOT-SNAPSHOT</tag>
+      <tag>modeshape-3.7.30-HF-EP-SNAPSHOT</tag>
   </scm>
 
     <issueManagement>
