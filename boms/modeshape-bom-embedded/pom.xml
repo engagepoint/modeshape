@@ -3,7 +3,7 @@
 
     <groupId>org.modeshape.bom</groupId>
     <artifactId>modeshape-bom-embedded</artifactId>
-    <version>4.5.0.2-EP</version>
+    <version>4.5.0.2-HF-EP-SNAPSHOT</version>
 
     <name>ModeShape BOM for embedded usage</name>
 
@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-      <tag>modeshape-4.5.0.2-EP</tag>
+      <tag>modeshape-4.5.0.2-HF-EP-SNAPSHOT</tag>
   </scm>
 
     <issueManagement>
