@@ -32,6 +32,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.jcr.RepositoryException;
 import javax.transaction.SystemException;
 import org.infinispan.Cache;
@@ -538,7 +540,7 @@ public class BackupService {
                 restoreBinaryFiles();
             }
 
-            removeExistingDocuments();
+            //removeExistingDocuments();
             restoreDocuments(backupDirectory); // first pass of documents
             restoreDocuments(changeDirectory); // documents changed while backup was being made
             return problems;
@@ -632,6 +634,8 @@ public class BackupService {
             String sha1 = filename.replace(BINARY_EXTENSION, "");
             return new BinaryKey(sha1);
         }
+        private static final String UUID_REGEX = "^[0-9a-fA-F]{8,14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}.*$";
+        private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
 
         protected void restoreDocuments( File directory ) {
             BackupDocumentReader reader = new BackupDocumentReader(directory, DOCUMENTS_FILENAME_PREFIX, problems);
@@ -640,12 +644,45 @@ public class BackupService {
             while (true) {
                 Document doc = reader.read();
                 if (doc == null) break;
-                documentStore.put(doc);
-
-                ++count;
+                if (isADocument(doc) && !isAProjection(doc)) {
+                    documentStore.put(doc);
+                    ++count;
+                }
                 LOGGER.debug("restoring {0} doc {1}", (count + 1), doc);
             }
             LOGGER.debug("Restored {0} documents from {1}", count, directory.getAbsolutePath());
         }
+
+        boolean isADocument(Document doc) {
+            if (doc.containsField("metadata")) {
+                Document metadata = doc.getDocument("metadata");
+                String id = metadata.getString("id");
+                Matcher matcher = UUID_PATTERN.matcher(id);
+                return matcher.matches();
+            }
+            return false;
+        }
+
+        boolean isAProjection(Document doc) {
+            if (doc.containsField("content")) {
+                Document metadata = doc.getDocument("content");
+                if (metadata.containsField("properties")) {
+                    Document properties = metadata.getDocument("properties");
+                    if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
+                        Document jcr = properties.getDocument("http://www.jcp.org/jcr/1.0");
+                        if (jcr.containsField("primaryType")) {
+                            Document primaryType = jcr.getDocument("primaryType");
+                            if (primaryType.containsField("$name")) {
+                                String name = primaryType.getString("$name");
+                                return "mode:projection".equals(name);
+                            }
+                        }
+                    }
+                }
+
+            }
+            return false;
+        }
+
     }
 }
