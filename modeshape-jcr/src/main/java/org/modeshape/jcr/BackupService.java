@@ -23,7 +23,6 @@
  */
 package org.modeshape.jcr;
 
-import javax.jcr.RepositoryException;
 import org.infinispan.Cache;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.schematic.Schematic;
@@ -49,13 +48,18 @@ import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.binary.BinaryStore;
 import org.modeshape.jcr.value.binary.BinaryStoreException;
+
+import javax.jcr.RepositoryException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.Writer;
+import java.nio.channels.Channels;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.BlockingQueue;
@@ -68,6 +72,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * A service used to generate backups from content and restore repository content from backups.
@@ -361,6 +367,9 @@ public class BackupService {
                 problems.addError(JcrI18n.problemsWritingDocumentToBackup, file.getAbsolutePath(), t.getMessage());
             }
         }
+        private static final String UUID_REGEX = "^[0-9a-fA-F]{14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$";
+        private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
+
 
         @Override
         public Problems execute() {
@@ -423,18 +432,26 @@ public class BackupService {
                     // PHASE 1:
                     // Perform the backup of the repository cache content ...
                     int counter = 0;
-
+                    File journal = new File(this.backupDirectory, "journal.csv");
                     Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
-                    while (true) {
-                        String key = sequence.next();
-                        if (key == null) break;
-                        SchematicEntry entry = documentStore.get(key);
-                        if (entry != null) {
-                            String id = getDocumentId(entry);
-                            binaryKeys.add(id);
 
-                            writeToContentArea(entry);
-                            ++counter;
+                    Writer writer =  new FileWriter(journal);
+                    try {
+                        while (true) {
+                            String key = sequence.next();
+                            if (key == null) break;
+                            SchematicEntry entry = documentStore.get(key);
+                            if (entry != null) {
+                                processDoc(writer, entry, binaryKeys);
+                                writeToContentArea(entry);
+                                ++counter;
+                            }
+                        }
+
+                    } finally {
+
+                        if (null != writer) {
+                            writer.close();
                         }
                     }
                     LOGGER.debug("Wrote {0} documents to {1}", counter, backupDirectory.getAbsolutePath());
@@ -465,7 +482,7 @@ public class BackupService {
                     int counter = 0;
                     for (BinaryKey binaryKey : binaryStore.getAllBinaryKeys()) {
                         try {
-                            if (binaryKeys.contains(binaryKey.toString()+"-ref")) {
+                            if (binaryKeys.contains(binaryKey.toString())) {
 
                                 writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
                                 ++counter;
@@ -530,13 +547,83 @@ public class BackupService {
             return problems;
         }
 
-        String getDocumentId(SchematicEntry doc) {
-            if (doc.asDocument().containsField("metadata")) {
-                Document metadata = doc.asDocument().getDocument("metadata");
-                return metadata.getString("id");
+        boolean isMatched(Document doc, Pattern pattern) {
+            if (doc.containsField("metadata")) {
+                Document metadata = doc.getDocument("metadata");
+                String id = metadata.getString("id");
+                Matcher matcher = pattern.matcher(id);
+                return matcher.matches();
+            }
+            return false;
+        }
+
+        Document getJcrPropertiesDoc(Document doc) {
+            if (doc.containsField("content")) {
+                Document content = doc.getDocument("content");
+                if (content.containsField("properties")) {
+                    Document properties = content.getDocument("properties");
+                    if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
+                        return properties.getDocument("http://www.jcp.org/jcr/1.0");
+
+                    }
+                }
 
             }
-            return "";
+            return null;
+        }
+
+
+        private void processMetadata(Document doc, StringBuilder builder) {
+            if (doc.containsField("metadata")) {
+                Document metadata = doc.getDocument("metadata");
+                if (metadata.containsField("id")) {
+                    String id = metadata.getString("id");
+                    builder.append(id.substring(14));
+                    builder.append(",");
+                }
+
+            }
+        }
+
+        private void processContent(Document jcr, StringBuilder builder, List<String> bodyRefs) {
+            if (jcr.containsField("data")) {
+                Document data = jcr.getDocument("data");
+                if (null != data && data.containsField("$sha1")) {
+                    String ref = data.getString("$sha1");
+                    bodyRefs.add(ref);
+                    builder.append(ref);
+                    builder.append(",");
+                }
+                if (null != data && data.containsField("$len")) {
+                    Long len = data.getLong("$len");
+                    builder.append(len);
+                    builder.append(",");
+                }
+            }
+        }
+
+        private void processDoc(Writer writer, SchematicEntry entry, List<String> bodyRefs) throws IOException {
+            Document doc = entry.asDocument();
+            if (isMatched(doc, UUID_PATTERN)) {
+                StringBuilder builder = new StringBuilder();
+                Document jcr = getJcrPropertiesDoc(doc);
+                if (null !=jcr && jcr.containsField("primaryType")) {
+                    Document primaryType = jcr.getDocument("primaryType");
+                    if (primaryType.containsField("$name")) {
+                        String name = primaryType.getString("$name");
+                        if (!"mode:projection".equals(name)){
+                            processMetadata(doc, builder);
+                            processContent(jcr, builder, bodyRefs);
+                            String row = builder.toString();
+                            if (!"".equals(row)) {
+                                writer.append(row);
+                                writer.append("\r\n");
+                            }
+                        }
+
+                    }
+                }
+            }
         }
     }
 
