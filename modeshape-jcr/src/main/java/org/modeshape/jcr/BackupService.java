@@ -546,7 +546,7 @@ public class BackupService {
 
             processExistingDocuments();
             restoreDocuments(backupDirectory); // first pass of documents
-            restoreDocuments(changeDirectory); // documents changed while backup was being made
+            //restoreDocuments(changeDirectory); // documents changed while backup was being made
             return problems;
         }
 
@@ -754,9 +754,9 @@ public class BackupService {
                 } else if (isCustom(doc, "mode:root")) {
                     Document rootContent = doc.getDocument("content");
                     Document rootChildrenInfo = rootContent.getDocument("childrenInfo");
-                    if (rootChildrenInfo.getLong("count")>1) {
+                    //if (rootChildrenInfo.getLong("count")>1) {
                         updateJcrEntry(doc, rootKey);
-                    }
+                    //}
                 } else if (isMatched(doc, UUID_PATTERN) && !isCustom(doc,"mode:projection")) {
                     updateDocumentEntry(doc);
                     ++count;

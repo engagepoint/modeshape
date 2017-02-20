@@ -1206,8 +1206,8 @@ public class JsonReader {
                     case '\n':
                     case '\r':
                         // The string was not properly terminated ...
-                        throw error("The string was not terminated before the end of line or end of document, at line "
-                                    + lineNumber + ", column " + columnNumber);
+                //        throw error("The string was not terminated before the end of line or end of document, at line "
+                //                    + lineNumber + ", column " + columnNumber);
                     case '\\':
                         // Escape sequence ...
                         c = next();
