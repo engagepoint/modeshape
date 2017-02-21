@@ -27,6 +27,7 @@ import org.infinispan.Cache;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
+import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableArray;
 import org.infinispan.schematic.document.EditableDocument;
@@ -36,6 +37,7 @@ import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.i18n.I18n;
 import org.modeshape.common.logging.Logger;
+import org.modeshape.common.util.Base64;
 import org.modeshape.common.util.CheckArg;
 import org.modeshape.common.util.IoUtil;
 import org.modeshape.common.util.NamedThreadFactory;
@@ -587,18 +589,30 @@ public class BackupService {
 
         private void processContent(Document jcr, StringBuilder builder, List<String> bodyRefs) {
             if (jcr.containsField("data")) {
-                Document data = jcr.getDocument("data");
-                if (null != data && data.containsField("$sha1")) {
-                    String ref = data.getString("$sha1");
-                    bodyRefs.add(ref);
-                    builder.append(ref);
+
+                Binary dataAsBinary = jcr.getBinary("data");
+                if (null != dataAsBinary) {
+                    builder.append(dataAsBinary.length());
                     builder.append(",");
+                } else {
+                    Document data = jcr.getDocument("data");
+                    if (null != data) {
+                        if (data.containsField("$len")) {
+                          Long len = data.getLong("$len");
+                          builder.append(len);
+                          builder.append(",");
+                        }
+                        if (data.containsField("$sha1")) {
+                            String ref = data.getString("$sha1");
+                            bodyRefs.add(ref);
+                            builder.append(ref);
+                            builder.append(",");
+                        }
+                    }
+
                 }
-                if (null != data && data.containsField("$len")) {
-                    Long len = data.getLong("$len");
-                    builder.append(len);
-                    builder.append(",");
-                }
+
+
             }
         }
 
