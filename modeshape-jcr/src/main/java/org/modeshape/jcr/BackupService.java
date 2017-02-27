@@ -37,7 +37,6 @@ import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
 import org.modeshape.common.i18n.I18n;
 import org.modeshape.common.logging.Logger;
-import org.modeshape.common.util.Base64;
 import org.modeshape.common.util.CheckArg;
 import org.modeshape.common.util.IoUtil;
 import org.modeshape.common.util.NamedThreadFactory;
@@ -61,9 +60,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
-import java.nio.channels.Channels;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashSet;
+import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -428,7 +426,7 @@ public class BackupService {
                 // but by doing this we make sure that we include the latest changes in the backup (at least those
                 // changes made before the observer is disconnected)...
                 repositoryCache.register(observer);
-                List<String> binaryKeys = new ArrayList<String>();
+                HashSet<String> binaryKeys = new HashSet<String>();
 
                 try {
                     // PHASE 1:
@@ -587,7 +585,7 @@ public class BackupService {
             }
         }
 
-        private void processContent(Document jcr, StringBuilder builder, List<String> bodyRefs) {
+        private void processContent(Document jcr, StringBuilder builder, Set<String> bodyRefs) {
             if (jcr.containsField("data")) {
 
                 Binary dataAsBinary = jcr.getBinary("data");
@@ -616,7 +614,7 @@ public class BackupService {
             }
         }
 
-        private void processDoc(Writer writer, SchematicEntry entry, List<String> bodyRefs) throws IOException {
+        private void processDoc(Writer writer, SchematicEntry entry, Set<String> bodyRefs) throws IOException {
             Document doc = entry.asDocument();
             if (isMatched(doc, UUID_PATTERN)) {
                 StringBuilder builder = new StringBuilder();
