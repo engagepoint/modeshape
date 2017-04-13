@@ -32,6 +32,7 @@ import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableArray;
 import org.infinispan.schematic.document.EditableDocument;
 import org.infinispan.schematic.document.Json;
+import org.infinispan.schematic.internal.document.BasicDocument;
 import org.modeshape.common.annotation.NotThreadSafe;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
@@ -60,7 +61,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.Writer;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
@@ -266,7 +271,7 @@ public class BackupService {
         protected final BlockingQueue<NodeKey> changedDocumentQueue;
         private final long documentsPerFile;
         private final boolean compress;
-        private BackupDocumentWriter contentWriter;
+        private BackupDocumentWriterWrapper contentWriter;
         private BackupDocumentWriter changesWriter;
 
         protected BackupActivity( File backupDirectory,
@@ -311,7 +316,7 @@ public class BackupService {
             return true;
         }
 
-        protected void writeToContentArea( SchematicEntry document ) {
+        protected void writeToContentArea( SchematicEntry document ) throws IOException {
             contentWriter.write(document.asDocument());
         }
 
@@ -367,9 +372,6 @@ public class BackupService {
                 problems.addError(JcrI18n.problemsWritingDocumentToBackup, file.getAbsolutePath(), t.getMessage());
             }
         }
-        private static final String UUID_REGEX = "^[0-9a-fA-F]{14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$";
-        private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
-
 
         @Override
         public Problems execute() {
@@ -378,8 +380,8 @@ public class BackupService {
 
             LOGGER.debug("Starting backup of '{0}' repository into {1}", repositoryName(), backupLocation());
 
-            this.contentWriter = new BackupDocumentWriter(backupDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
-                                                          problems);
+            this.contentWriter = new BackupDocumentWriterWrapper(backupDirectory, new BackupDocumentWriter(backupDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
+                                                          problems));
             this.changesWriter = new BackupDocumentWriter(changeDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
                                                           problems);
             long numBinaryValues = 0L;
@@ -426,23 +428,21 @@ public class BackupService {
                 // but by doing this we make sure that we include the latest changes in the backup (at least those
                 // changes made before the observer is disconnected)...
                 repositoryCache.register(observer);
-                HashSet<String> binaryKeys = new HashSet<String>();
 
                 try {
                     // PHASE 1:
                     // Perform the backup of the repository cache content ...
                     int counter = 0;
-                    File journal = new File(this.backupDirectory, "journal.csv");
-                    Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
 
-                    Writer writer =  new FileWriter(journal);
+                    Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
+                    contentWriter.initJournalWriter();
+
                     try {
                         while (true) {
                             String key = sequence.next();
                             if (key == null) break;
                             SchematicEntry entry = documentStore.get(key);
                             if (entry != null) {
-                                processDoc(writer, entry, binaryKeys);
                                 writeToContentArea(entry);
                                 ++counter;
                             }
@@ -450,9 +450,7 @@ public class BackupService {
 
                     } finally {
 
-                        if (null != writer) {
-                            writer.close();
-                        }
+                       contentWriter.closeJournalWriter();
                     }
                     LOGGER.debug("Wrote {0} documents to {1}", counter, backupDirectory.getAbsolutePath());
 
@@ -482,8 +480,7 @@ public class BackupService {
                     int counter = 0;
                     for (BinaryKey binaryKey : binaryStore.getAllBinaryKeys()) {
                         try {
-                            if (binaryKeys.contains(binaryKey.toString())) {
-
+                            if (contentWriter.containsBynaryKey(binaryKey.toString())) {
                                 writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
                                 ++counter;
                             }
@@ -545,97 +542,6 @@ public class BackupService {
             }
 
             return problems;
-        }
-
-        boolean isMatched(Document doc, Pattern pattern) {
-            if (doc.containsField("metadata")) {
-                Document metadata = doc.getDocument("metadata");
-                String id = metadata.getString("id");
-                Matcher matcher = pattern.matcher(id);
-                return matcher.matches();
-            }
-            return false;
-        }
-
-        Document getJcrPropertiesDoc(Document doc) {
-            if (doc.containsField("content")) {
-                Document content = doc.getDocument("content");
-                if (content.containsField("properties")) {
-                    Document properties = content.getDocument("properties");
-                    if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
-                        return properties.getDocument("http://www.jcp.org/jcr/1.0");
-
-                    }
-                }
-
-            }
-            return null;
-        }
-
-
-        private void processMetadata(Document doc, StringBuilder builder) {
-            if (doc.containsField("metadata")) {
-                Document metadata = doc.getDocument("metadata");
-                if (metadata.containsField("id")) {
-                    String id = metadata.getString("id");
-                    builder.append(id.substring(14));
-                    builder.append(",");
-                }
-
-            }
-        }
-
-        private void processContent(Document jcr, StringBuilder builder, Set<String> bodyRefs) {
-            if (jcr.containsField("data")) {
-
-                Binary dataAsBinary = jcr.getBinary("data");
-                if (null != dataAsBinary) {
-                    builder.append(dataAsBinary.length());
-                    builder.append(",");
-                } else {
-                    Document data = jcr.getDocument("data");
-                    if (null != data) {
-                        if (data.containsField("$len")) {
-                          Long len = data.getLong("$len");
-                          builder.append(len);
-                          builder.append(",");
-                        }
-                        if (data.containsField("$sha1")) {
-                            String ref = data.getString("$sha1");
-                            bodyRefs.add(ref);
-                            builder.append(ref);
-                            builder.append(",");
-                        }
-                    }
-
-                }
-
-
-            }
-        }
-
-        private void processDoc(Writer writer, SchematicEntry entry, Set<String> bodyRefs) throws IOException {
-            Document doc = entry.asDocument();
-            if (isMatched(doc, UUID_PATTERN)) {
-                StringBuilder builder = new StringBuilder();
-                Document jcr = getJcrPropertiesDoc(doc);
-                if (null !=jcr && jcr.containsField("primaryType")) {
-                    Document primaryType = jcr.getDocument("primaryType");
-                    if (primaryType.containsField("$name")) {
-                        String name = primaryType.getString("$name");
-                        if (!"mode:projection".equals(name)){
-                            processMetadata(doc, builder);
-                            processContent(jcr, builder, bodyRefs);
-                            String row = builder.toString();
-                            if (!"".equals(row)) {
-                                writer.append(row);
-                                writer.append("\r\n");
-                            }
-                        }
-
-                    }
-                }
-            }
         }
     }
 
