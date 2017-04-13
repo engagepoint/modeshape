@@ -15,6 +15,25 @@
  */
 package org.modeshape.jcr;
 
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import javax.jcr.RepositoryException;
+import javax.transaction.SystemException;
 import org.infinispan.Cache;
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
@@ -22,7 +41,6 @@ import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableArray;
 import org.infinispan.schematic.document.EditableDocument;
 import org.infinispan.schematic.document.Json;
-import org.infinispan.schematic.internal.document.BasicDocument;
 import org.modeshape.common.annotation.NotThreadSafe;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
@@ -42,30 +60,6 @@ import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.binary.BinaryStore;
 import org.modeshape.jcr.value.binary.BinaryStoreException;
-
-import javax.jcr.RepositoryException;
-import javax.transaction.SystemException;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.BlockingQueue;
-import java.util.concurrent.CancellationException;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * A service used to generate backups from content and restore repository content from backups.
@@ -544,9 +538,9 @@ public class BackupService {
                 restoreBinaryFiles();
             }
 
-            processExistingDocuments();
+            removeExistingDocuments();
             restoreDocuments(backupDirectory); // first pass of documents
-            //restoreDocuments(changeDirectory); // documents changed while backup was being made
+            restoreDocuments(changeDirectory); // documents changed while backup was being made
             return problems;
         }
 
@@ -638,109 +632,6 @@ public class BackupService {
             String sha1 = filename.replace(BINARY_EXTENSION, "");
             return new BinaryKey(sha1);
         }
-        private static final String UUID_REGEX = "^[0-9a-fA-F]{8,14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}.*$";
-        private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
-
-
-        private static final String JCRUNFILED_REGEX = "^[0-9a-fA-F]{14}jcr\\:unfiled$";
-        private static final Pattern JCRUNFILED_PATTERN = Pattern.compile(JCRUNFILED_REGEX);
-
-        private String rootKey;
-        private String jcrUnfiledKey;
-
-        private void updateJcrEntry(Document docFromBackup, String existingNodeKey) {
-            SchematicEntry existingEntry = documentStore.get(existingNodeKey);
-            Document content = existingEntry.asDocument().getDocument("content");
-            Document childrenInfo = content.getDocument("childrenInfo");
-            Long childrenCount = 0L;
-            if (childrenInfo!= null && childrenInfo.containsField("count")) {
-                childrenCount += childrenInfo.getLong("count");
-            }
-            List<Document> children = new ArrayList<>();
-            if (content!=null && content.containsField("children")) {
-                List<Document> oldChildren = (List<Document>) content.getArray("children");
-                if (oldChildren != null) {
-                    children.addAll(oldChildren);
-                }
-            }
-            Document contentNew = docFromBackup.getDocument("content");
-            List<Document> childrenNew = (List<Document>) contentNew.getArray("children");
-            if (childrenNew != null) {
-                for (Document child : childrenNew) {
-                    String childKey = child.getString("key");
-                    Matcher matcher = UUID_PATTERN.matcher(childKey);
-                    if (matcher.matches()) {
-                        Document updatedChild = child
-                                .with("key", modifyKey(childKey));
-                        children.add(updatedChild);
-                        childrenCount++;
-                    }
-                }
-                Document updatedChildrenInfo = null;
-                if (childrenInfo == null) {
-                    updatedChildrenInfo = new BasicDocument("count", childrenCount);
-
-                } else {
-                    updatedChildrenInfo = childrenInfo.with("count", childrenCount);
-                }
-                Document updatedContent = null;
-                if (content.containsField("childrenInfo") && content.containsField("children")) {
-                    updatedContent = content
-                            .with("childrenInfo", updatedChildrenInfo)
-                            .with("children", children);
-                } else {
-                    updatedContent = new BasicDocument();
-                    for (Document.Field field : content.fields()) {
-                        String name = field.getName();
-                        ((BasicDocument)updatedContent).put(name, field.getValue());
-                    }
-                    ((BasicDocument)updatedContent).put("childrenInfo", updatedChildrenInfo);
-                    ((BasicDocument)updatedContent).put("children", children);
-
-                }
-                Document updatedDocument = existingEntry.asDocument().with("content", updatedContent);
-                documentStore.remove(existingNodeKey);
-                documentStore.put(updatedDocument);
-            }
-        }
-
-        private void updateDocumentEntry(Document doc) {
-            Document metadata = doc.getDocument("metadata");
-            String id = metadata.getString("id");
-            if (!id.endsWith("-ref")) {
-                Document updatedMetadata = metadata.with("id", modifyKey(id));
-                Document content = doc.getDocument("content");
-                String key = content.getString("key");
-                String parent = content.getString("parent");
-                Document updatedContent = content
-                        .with("key", modifyKey(key))
-                        .with("parent", modifyKey(parent));
-                if (content.containsField("children")) {
-                    List<Document> children = (List<Document>) content.getArray("children");
-                    List<Document> updatedChildren = new ArrayList<>();
-                    for (Document child : children) {
-                        String childKey = child.getString("key");
-                        Matcher matcher = UUID_PATTERN.matcher(childKey);
-                        if (matcher.matches()) {
-                            updatedChildren.add(child.with("key", modifyKey(childKey)));
-                        } else {
-                            updatedChildren.add(child);
-                        }
-                    }
-                    updatedContent = updatedContent.with("children", updatedChildren);
-                }
-                documentStore.put(
-                        doc
-                                .with("metadata", updatedMetadata)
-                                .with("content", updatedContent));
-            } else {
-                documentStore.put(doc);
-            }
-        }
-
-        private String modifyKey(String key) {
-            return rootKey.substring(0, 14) + key.substring(14);
-        }
 
         protected void restoreDocuments( File directory ) {
             BackupDocumentReader reader = new BackupDocumentReader(directory, DOCUMENTS_FILENAME_PREFIX, problems);
@@ -749,87 +640,12 @@ public class BackupService {
             while (true) {
                 Document doc = reader.read();
                 if (doc == null) break;
-                if (isMatched(doc, JCRUNFILED_PATTERN)) {
-                    updateJcrEntry(doc, jcrUnfiledKey);
-                } else if (isCustom(doc, "mode:root")) {
-                    Document rootContent = doc.getDocument("content");
-                    Document rootChildrenInfo = rootContent.getDocument("childrenInfo");
-                    //if (rootChildrenInfo.getLong("count")>1) {
-                        updateJcrEntry(doc, rootKey);
-                    //}
-                } else if (isMatched(doc, UUID_PATTERN) && !isCustom(doc,"mode:projection")) {
-                    updateDocumentEntry(doc);
-                    ++count;
-                }
+                documentStore.put(doc);
+
+                ++count;
                 LOGGER.debug("restoring {0} doc {1}", (count + 1), doc);
             }
             LOGGER.debug("Restored {0} documents from {1}", count, directory.getAbsolutePath());
-        }
-
-        boolean isMatched(Document doc, Pattern pattern) {
-            if (doc.containsField("metadata")) {
-                Document metadata = doc.getDocument("metadata");
-                String id = metadata.getString("id");
-                Matcher matcher = pattern.matcher(id);
-                return matcher.matches();
-            }
-            return false;
-        }
-
-
-        boolean isCustom(Document doc, String custom) {
-            if (doc.containsField("content")) {
-                Document metadata = doc.getDocument("content");
-                if (metadata.containsField("properties")) {
-                    Document properties = metadata.getDocument("properties");
-                    if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
-                        Document jcr = properties.getDocument("http://www.jcp.org/jcr/1.0");
-                        if (jcr.containsField("primaryType")) {
-                            Document primaryType = jcr.getDocument("primaryType");
-                            if (primaryType.containsField("$name")) {
-                                String name = primaryType.getString("$name");
-                                return custom.equals(name);
-                            }
-                        }
-                    }
-                }
-
-            }
-            return false;
-        }
-
-        public void processExistingDocuments() {
-            Cache<String, SchematicEntry> cache = documentStore.localCache();
-            try {
-                Sequence<String> keySequence = InfinispanUtil.getAllKeys(cache);
-                while (true) {
-                    String key = keySequence.next();
-                    if (key == null) break;
-                    SchematicEntry entry = cache.get(key);
-                    if (isMatched(entry.asDocument(), JCRUNFILED_PATTERN)) {
-                        Document metadata = entry.asDocument().getDocument("metadata");
-                        jcrUnfiledKey = metadata.getString("id");
-                    } else if (isCustom(entry.asDocument(), "mode:root")) {
-                        Document metadata = entry.asDocument().getDocument("metadata");
-                        Document content = entry.asDocument().getDocument("content");
-                        Document childrenInfo = content.getDocument("childrenInfo");
-                        if (childrenInfo.getLong("count") > 1) {
-                            this.rootKey = metadata.getString("id");
-                        }
-
-                    }
-                }
-            } catch (InterruptedException e2) {
-                Thread.interrupted();
-                I18n msg = JcrI18n.interruptedWhilePerformingBackup;
-                this.problems.addError(msg, repositoryName(), backupLocation(), e2.getMessage());
-            } catch (CancellationException e2) {
-                this.problems.addError(JcrI18n.backupOperationWasCancelled, repositoryName(), backupLocation(),
-                        e2.getMessage());
-            } catch (ExecutionException e2) {
-                I18n msg = JcrI18n.problemObtainingDocumentsToBackup;
-                this.problems.addError(msg, repositoryName(), backupLocation(), e2.getMessage());
-            }
         }
     }
 }
