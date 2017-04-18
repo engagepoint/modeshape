@@ -27,12 +27,10 @@ import org.infinispan.Cache;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.schematic.Schematic;
 import org.infinispan.schematic.SchematicEntry;
-import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.document.EditableArray;
 import org.infinispan.schematic.document.EditableDocument;
 import org.infinispan.schematic.document.Json;
-import org.infinispan.schematic.internal.document.BasicDocument;
 import org.modeshape.common.annotation.NotThreadSafe;
 import org.modeshape.common.collection.Problems;
 import org.modeshape.common.collection.SimpleProblems;
@@ -56,17 +54,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.io.Writer;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -77,8 +67,6 @@ import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * A service used to generate backups from content and restore repository content from backups.
@@ -435,22 +423,16 @@ public class BackupService {
                     int counter = 0;
 
                     Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
-                    contentWriter.initJournalWriter();
+                    contentWriter.init();
 
-                    try {
-                        while (true) {
-                            String key = sequence.next();
-                            if (key == null) break;
-                            SchematicEntry entry = documentStore.get(key);
-                            if (entry != null) {
-                                writeToContentArea(entry);
-                                ++counter;
-                            }
+                    while (true) {
+                        String key = sequence.next();
+                        if (key == null) break;
+                        SchematicEntry entry = documentStore.get(key);
+                        if (entry != null) {
+                            writeToContentArea(entry);
+                            ++counter;
                         }
-
-                    } finally {
-
-                       contentWriter.closeJournalWriter();
                     }
                     LOGGER.debug("Wrote {0} documents to {1}", counter, backupDirectory.getAbsolutePath());
 

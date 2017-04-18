@@ -1,54 +1,44 @@
 package org.modeshape.jcr;
 
-import org.infinispan.schematic.SchematicEntry;
-import org.infinispan.schematic.document.Binary;
 import org.infinispan.schematic.document.Document;
-import org.infinispan.schematic.internal.document.BasicDocument;
-import org.modeshape.common.collection.Problems;
+import org.modeshape.common.logging.Logger;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.io.Writer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
+import static org.modeshape.jcr.BackupDocumentWriterUtil.appendChildren;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.createDocWithKeyAndName;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.extractDocumentKey;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.extractDocumentParentKey;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.filterChildren;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespaceNode;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespacesNode;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isRoot;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isSystemNode;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isUnfiledDocument;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isUnfiledFolder;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.updateParentForNode;
 /**
  * @author evgeniy.shevchenko
  * @version 1.0 4/13/2017
  */
 
 public class BackupDocumentWriterWrapper  {
+    protected static final Logger LOGGER = Logger.getLogger(BackupDocumentWriterWrapper.class);
+
     private final BackupDocumentWriter backupDocumentWriter;
-    private static final String UUID_REGEX = "^[0-9a-fA-F]{14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$";
-    private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
-    private static final String JCRUNFILED_REGEX = "^[0-9a-fA-F]{14}\\{http\\:\\/\\/www\\.jcp\\.org\\/jcr\\/1\\.0\\}unfiled$";
-    private static final Pattern JCRUNFILED_PATTERN = Pattern.compile(JCRUNFILED_REGEX);
-    HashSet<String> binaryKeys = new HashSet<String>();
-    private final File journal;
-    private Writer writer;
-    public BackupDocumentWriterWrapper(final File backupDirectory, BackupDocumentWriter backupDocumentWriter) {
-        this.backupDocumentWriter = backupDocumentWriter;
-        journal = new File(backupDirectory, "journal.csv");
+    private final BackupDocumentWriterJournal journal;
 
-    }
+    private Document rootFolder;
+    private List<Document> unfiledDocuments= new ArrayList<Document>();
+    private Document unfiledFolder;
 
-    void initJournalWriter() throws IOException {
-        writer =  new FileWriter(journal);
-    }
-
-    void closeJournalWriter() throws IOException {
-        if (null != writer) {
-            writer.close();
-        }
-    }
-    private Map<String, String> namespaces = new HashMap<String, String>(){{
+    private Map<String, String> embeddedNamespaces = new HashMap<String, String>(){{
         put("jcr", "mode:namespaces-http://www.jcp.org/jcr/1.0");
         put("nt", "mode:namespaces-http://www.jcp.org/jcr/nt/1.0");
         put("mix", "mode:namespaces-http://www.jcp.org/jcr/mix/1.0");
@@ -60,127 +50,84 @@ public class BackupDocumentWriterWrapper  {
         put("xsi", "mode:namespaces-http://www.w3.org/2001/XMLSchema-instance");
     }};
 
-    private Document updateSystemFolder(Document systemFolder) {
-
-        Document content = systemFolder.getDocument("content");
-        Document childrenInfo = content.getDocument("childrenInfo");
-        List<Document> children = new ArrayList<Document>();
-        if (content!=null && content.containsField("children")) {
-            List<Document> oldChildren = (List<Document>) content.getArray("children");
-            for (Document item : oldChildren) {
-                String name = item.getString("name");
-                if (null != name && !"jcr:unfiled".equals(name)) {
-                    children.add(item);
-                }
-            }
-        }
-        Document updatedContent = content
-                .with("childrenInfo", childrenInfo.with("count", children.size()))
-                .with("children", children);
-        return  systemFolder.with("content", updatedContent);
+    public BackupDocumentWriterWrapper(final File backupDirectory, final BackupDocumentWriter backupDocumentWriter) {
+        this.backupDocumentWriter = backupDocumentWriter;
+        journal = new BackupDocumentWriterJournal(new File(backupDirectory, "journal.csv"));
     }
 
-    private boolean isSystem(Document doc) {
-        return isContentMatches(doc, "mode:system");
+    void init() throws IOException {
+        journal.init();
     }
 
-    private boolean isMetadataMatches(Document doc, Pattern pattern) {
-        if (doc.containsField("metadata")) {
-            Document metadata = doc.getDocument("metadata");
-            String id = metadata.getString("id");
-            Matcher matcher = pattern.matcher(id);
-            return matcher.matches();
+    private Document excludeUnfiledNode(Document systemFolder) {
+        return  filterChildren(systemFolder, Arrays.asList("jcr:unfiled"));
+    }
+
+    private Document insertUnfiledNodeIntoRoot() {
+        return appendChildren(rootFolder, Arrays.asList(createDocWithKeyAndName(unfiledFolderKey(), "jcr:unfiled")));
+    }
+
+    private Document excludeRedundantNodesFromUnfiledFolder() {
+        Document doc = filterChildren(unfiledFolder, embeddedNamespaces.keySet());
+        Document metadata = doc.getDocument("metadata");
+        return updateParentForNode(doc.with("metadata", metadata.with("id", unfiledFolderKey())), rootFolderKey());
+    }
+
+    private String rootFolderKey(){
+        if (null == rootFolder) {
+            throw new IllegalStateException("Root folder is null");
         }
-        return false;
+        return rootFolder.getDocument("metadata").getString("id");
+    }
+
+    private String unfiledFolderKey(){
+        return rootFolderKey().substring(0, 14) + "jcr:unfiled";
+    }
+    
+    private Document insertEmbeddedNamespaces(Document doc) {
+        List<Document> items = new ArrayList<Document>();
+        for (Map.Entry<String, String> entry : embeddedNamespaces.entrySet()) {
+            items.add(createDocWithKeyAndName(extractDocumentKey(doc) + entry.getValue(), entry.getKey()));
+        }
+        return appendChildren(doc, items);
+    }
+
+    private Document fixNamespaceParentKey(Document doc) {
+        return updateParentForNode(doc, extractDocumentParentKey(doc) + "mode:namespaces");
     }
 
     public void write(Document doc) throws IOException {
-        processDoc(doc);
-        if (isMetadataMatches(doc, JCRUNFILED_PATTERN)) {
-            Document content = doc.getDocument("content");
-            Document childrenInfo = content.getDocument("childrenInfo");
-            List<Document> children = new ArrayList<Document>();
-            if (content!=null && content.containsField("children")) {
-                List<Document> oldChildren = (List<Document>) content.getArray("children");
-                for (Document item : oldChildren) {
-                    String name = item.getString("name");
-                    if (!namespaces.containsKey(name)) {
-                        children.add(item);
-                    }
-                }
-                Document updatedContent =  content
-                        .with("childrenInfo", childrenInfo.with("count", children.size()))
-                        .with("children", children);
-                doc = doc.with("content", updatedContent);
-            }
-
-        } else if (isNamespaces(doc)) {
-            Document content = doc.getDocument("content");
-            String key = content.getString("key").substring(0, 14);
-            Document childrenInfo = content.getDocument("childrenInfo");
-            List<Document> children = new ArrayList<Document>();
-            if (content!=null && content.containsField("children")) {
-                List<Document> oldChildren = (List<Document>) content.getArray("children");
-                for (Document item : oldChildren) {
-                    children.add(item);
-                }
-            }
-            for (Map.Entry<String, String> entry : namespaces.entrySet()) {
-                Document item = new BasicDocument();
-                ((BasicDocument)item).put("key", key + entry.getValue());
-                ((BasicDocument)item).put("name", entry.getKey());
-                children.add(item);
-            }
-            Document updatedContent =  content
-                    .with("childrenInfo", childrenInfo.with("count", children.size()))
-                    .with("children", children);
-            doc = doc.with("content", updatedContent);
-
+        if (isRoot(doc)) {
+            rootFolder = doc;
+        } else if (isUnfiledFolder(doc)) {
+            unfiledFolder = doc;
+        } else if (isNamespacesNode(doc)) {
+            backupDocumentWriter.write(insertEmbeddedNamespaces(doc));
+        } else if (isNamespaceNode(doc)) {
+            backupDocumentWriter.write(fixNamespaceParentKey(doc));
+        } else if (isSystemNode(doc)) {
+            doc = excludeUnfiledNode(doc);
+            backupDocumentWriter.write(doc);
+        } else if (isUnfiledDocument(doc)) {
+            unfiledDocuments.add(doc);
+            journal.addInfoToJournal(doc);
+        } else {
+            backupDocumentWriter.write(doc);
+            journal.addInfoToJournal(doc);
         }
-        else if (isNamespace(doc)) {
-            Document content = doc.getDocument("content");
-            String parent = content.getString("parent");
-            doc = doc
-                    .with("content",
-                            content.with("parent",
-                                    parent.substring(0, 14) + "mode:namespaces"));
-        } else if (isSystem(doc)) {
-            doc = updateSystemFolder(doc);
-        }
-        backupDocumentWriter.write(doc);
     }
-
-    private boolean isContentMatches(Document doc, String custom) {
-        if (doc.containsField("content")) {
-            Document metadata = doc.getDocument("content");
-            if (metadata.containsField("properties")) {
-                Document properties = metadata.getDocument("properties");
-                if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
-                    Document jcr = properties.getDocument("http://www.jcp.org/jcr/1.0");
-                    if (jcr.containsField("primaryType")) {
-                        Document primaryType = jcr.getDocument("primaryType");
-                        if (primaryType.containsField("$name")) {
-                            String name = primaryType.getString("$name");
-                            return custom.equals(name);
-                        }
-                    }
-                }
-            }
-
-        }
-        return false;
-    }
-
-    private boolean isNamespace(Document doc) {
-        return isContentMatches(doc, "mode:namespace");
-    }
-
-    private boolean isNamespaces(Document doc) {
-        return isContentMatches(doc, "mode:namespaces");
-    }
-
 
     public void close() {
+        backupDocumentWriter.write(insertUnfiledNodeIntoRoot());
+        backupDocumentWriter.write(excludeRedundantNodesFromUnfiledFolder());
+        for (Document doc : unfiledDocuments) {
+            backupDocumentWriter.write(updateParentForNode(doc, unfiledFolderKey()));
+        }
+        try {
+            journal.close();
+        } catch (IOException e) {
+            LOGGER.error(e, JcrI18n.problemsWritingDocumentToBackup);
+        }
         backupDocumentWriter.close();
     }
 
@@ -191,88 +138,8 @@ public class BackupDocumentWriterWrapper  {
         return backupDocumentWriter.getDocumentCount();
     }
 
-    private void processDoc(Document doc) throws IOException {
-        if (isMetadataMatches(doc, UUID_PATTERN)) {
-            StringBuilder builder = new StringBuilder();
-            Document jcr = getJcrPropertiesDoc(doc);
-            if (null !=jcr && jcr.containsField("primaryType")) {
-                Document primaryType = jcr.getDocument("primaryType");
-                if (primaryType.containsField("$name")) {
-                    String name = primaryType.getString("$name");
-                    if (!"mode:projection".equals(name)){
-                        processMetadata(doc, builder);
-                        processContent(jcr, builder);
-                        String row = builder.toString();
-                        if (!"".equals(row)) {
-                            writer.append(row);
-                            writer.append("\r\n");
-                        }
-                    }
-
-                }
-            }
-        }
-    }
-
-    private Document getJcrPropertiesDoc(Document doc) {
-        if (doc.containsField("content")) {
-            Document content = doc.getDocument("content");
-            if (content.containsField("properties")) {
-                Document properties = content.getDocument("properties");
-                if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
-                    return properties.getDocument("http://www.jcp.org/jcr/1.0");
-
-                }
-            }
-
-        }
-        return null;
-    }
-
-
-    private void processMetadata(Document doc, StringBuilder builder) {
-        if (doc.containsField("metadata")) {
-            Document metadata = doc.getDocument("metadata");
-            if (metadata.containsField("id")) {
-                String id = metadata.getString("id");
-                builder.append(id.substring(14));
-                builder.append(",");
-            }
-
-        }
-    }
-
-    private void processContent(Document jcr, StringBuilder builder) {
-        if (jcr.containsField("data")) {
-
-            Binary dataAsBinary = jcr.getBinary("data");
-            if (null != dataAsBinary) {
-                builder.append(dataAsBinary.length());
-                builder.append(",");
-            } else {
-                Document data = jcr.getDocument("data");
-                if (null != data) {
-                    if (data.containsField("$len")) {
-                        Long len = data.getLong("$len");
-                        builder.append(len);
-                        builder.append(",");
-                    }
-                    if (data.containsField("$sha1")) {
-                        String ref = data.getString("$sha1");
-                        binaryKeys.add(ref);
-                        builder.append(ref);
-                        builder.append(",");
-                    }
-                }
-
-            }
-
-
-        }
-    }
-
     public boolean containsBynaryKey(String binaryKey) {
-        return binaryKeys.contains(binaryKey.toString());
+        return journal.containsBynaryKey(binaryKey);
     }
 
 }
