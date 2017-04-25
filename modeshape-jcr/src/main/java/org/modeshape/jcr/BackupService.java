@@ -23,7 +23,6 @@
  */
 package org.modeshape.jcr;
 
-import javax.jcr.RepositoryException;
 import org.infinispan.Cache;
 import org.infinispan.loaders.CacheLoaderException;
 import org.infinispan.schematic.Schematic;
@@ -49,6 +48,8 @@ import org.modeshape.jcr.value.BinaryKey;
 import org.modeshape.jcr.value.BinaryValue;
 import org.modeshape.jcr.value.binary.BinaryStore;
 import org.modeshape.jcr.value.binary.BinaryStoreException;
+
+import javax.jcr.RepositoryException;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -258,7 +259,7 @@ public class BackupService {
         protected final BlockingQueue<NodeKey> changedDocumentQueue;
         private final long documentsPerFile;
         private final boolean compress;
-        private BackupDocumentWriter contentWriter;
+        private BackupDocumentWriterWrapper contentWriter;
         private BackupDocumentWriter changesWriter;
 
         protected BackupActivity( File backupDirectory,
@@ -303,7 +304,7 @@ public class BackupService {
             return true;
         }
 
-        protected void writeToContentArea( SchematicEntry document ) {
+        protected void writeToContentArea( SchematicEntry document ) throws IOException {
             contentWriter.write(document.asDocument());
         }
 
@@ -367,8 +368,8 @@ public class BackupService {
 
             LOGGER.debug("Starting backup of '{0}' repository into {1}", repositoryName(), backupLocation());
 
-            this.contentWriter = new BackupDocumentWriter(backupDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
-                                                          problems);
+            this.contentWriter = new BackupDocumentWriterWrapper(backupDirectory, new BackupDocumentWriter(backupDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
+                                                          problems));
             this.changesWriter = new BackupDocumentWriter(changeDirectory, DOCUMENTS_FILENAME_PREFIX, documentsPerFile, compress,
                                                           problems);
             long numBinaryValues = 0L;
@@ -421,6 +422,8 @@ public class BackupService {
                     // Perform the backup of the repository cache content ...
                     int counter = 0;
                     Sequence<String> sequence = InfinispanUtil.getAllKeys(documentStore.localCache());
+                    contentWriter.init();
+
                     while (true) {
                         String key = sequence.next();
                         if (key == null) break;
@@ -458,8 +461,10 @@ public class BackupService {
                     int counter = 0;
                     for (BinaryKey binaryKey : binaryStore.getAllBinaryKeys()) {
                         try {
-                            writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
-                            ++counter;
+                            if (contentWriter.containsBynaryKey(binaryKey.toString())) {
+                                writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
+                                ++counter;
+                            }
                         } catch (BinaryStoreException e) {
                             problems.addError(JcrI18n.problemsWritingBinaryToBackup, binaryKey, backupLocation(), e.getMessage());
                         }
