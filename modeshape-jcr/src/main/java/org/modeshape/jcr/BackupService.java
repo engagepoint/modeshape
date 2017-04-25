@@ -22,6 +22,8 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.util.Arrays;
+import java.util.List;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.CountDownLatch;
@@ -537,13 +539,27 @@ public class BackupService {
                 removeExistingBinaryFiles();
                 restoreBinaryFiles();
             }
-
+            List<Document> additionalDocToRestore = RestoreDocumentUtil.extractNodesToMove(documentStore);
             removeExistingDocuments();
             restoreDocuments(backupDirectory); // first pass of documents
             restoreDocuments(changeDirectory); // documents changed while backup was being made
+            fixModeIndexesNode(additionalDocToRestore);
             return problems;
         }
 
+        private void fixModeIndexesNode(List<Document> additionalDocToRestore) {
+            Document systemRoot = RestoreDocumentUtil.findSystemNode(documentStore);
+            String systemRootId = RestoreDocumentUtil.extractDocumentId(systemRoot);
+            String rootPrefix = systemRootId.substring(0, 14);
+            for (Document doc : additionalDocToRestore) {
+                Document updated = RestoreDocumentUtil.updateRootPrefix(doc, rootPrefix);
+                documentStore.put(updated);
+            }
+            systemRoot = RestoreDocumentUtil.appendChildren(systemRoot, Arrays.asList(RestoreDocumentUtil.createDocWithKeyAndName(rootPrefix + "/jcr:system/jcr:nodeTypes/mode:indexes", "mode:indexes")));
+            documentStore.remove(systemRootId);
+            documentStore.put(systemRoot);
+
+        }
         public void removeExistingBinaryFiles() {
             // simply mark all of the existing binary values as unused; if an unused binary value is restored,
             // it will simply be kept without having store it ...
