@@ -521,7 +521,7 @@ public class BackupService {
     @NotThreadSafe
     public static final class RestoreActivity extends Activity {
         private final RestoreOptions options;
-
+        Document systemRoot;
         protected RestoreActivity( File backupDirectory,
                                    org.modeshape.jcr.cache.document.LocalDocumentStore documentStore,
                                    BinaryStore binaryStore,
@@ -548,14 +548,13 @@ public class BackupService {
         }
 
         private void fixModeIndexesNode(List<Document> additionalDocToRestore) {
-            Document systemRoot = RestoreDocumentUtil.findSystemNode(documentStore);
             String systemRootId = RestoreDocumentUtil.extractDocumentId(systemRoot);
             String rootPrefix = systemRootId.substring(0, 14);
             for (Document doc : additionalDocToRestore) {
                 Document updated = RestoreDocumentUtil.updateRootPrefix(doc, rootPrefix);
                 documentStore.put(updated);
             }
-            systemRoot = RestoreDocumentUtil.appendChildren(systemRoot, Arrays.asList(RestoreDocumentUtil.createDocWithKeyAndName(rootPrefix + "/jcr:system/jcr:nodeTypes/mode:indexes", "mode:indexes")));
+            systemRoot = RestoreDocumentUtil.appendChildren(systemRoot, Arrays.asList(RestoreDocumentUtil.createDocWithKeyAndName(rootPrefix + "mode:indexes", "mode:indexes")));
             documentStore.remove(systemRootId);
             documentStore.put(systemRoot);
 
@@ -656,6 +655,9 @@ public class BackupService {
             while (true) {
                 Document doc = reader.read();
                 if (doc == null) break;
+                if (RestoreDocumentUtil.isSystemNode(doc)) {
+                    this.systemRoot = doc;
+                }
                 documentStore.put(doc);
 
                 ++count;

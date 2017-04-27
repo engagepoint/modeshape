@@ -15,6 +15,7 @@
  */
 package org.modeshape.jcr;
 
+import org.infinispan.schematic.DocumentFactory;
 import org.infinispan.schematic.SchematicEntry;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.internal.document.BasicDocument;
@@ -34,14 +35,9 @@ import java.util.regex.Pattern;
  */
 
 public class RestoreDocumentUtil {
-    private static final String ROOT_REGEX = "^[0-9a-fA-F]{14}\\/$";
-    private static final Pattern ROOT_PATTERN = Pattern.compile(ROOT_REGEX);
 
 
-    private static final String INDEX_PROVIDER_REGEX = "^[0-9a-fA-F]{14}\\/jcr:system\\/jcr\\:nodeTypes\\/mode\\:indexProvider.*";
-    private static final Pattern INDEX_PROVIDER_PATTERN = Pattern.compile(INDEX_PROVIDER_REGEX);
-
-    private static final String MODE_INDEXES_REGEX = "^[0-9a-fA-F]{14}\\/jcr:system\\/jcr\\:nodeTypes\\/mode\\:indexes.*";
+    private static final String MODE_INDEXES_REGEX = "^[0-9a-fA-F]{14}mode\\:indexes$";
     private static final Pattern MODE_INDEXES_PATTERN = Pattern.compile(MODE_INDEXES_REGEX);
 
 
@@ -56,9 +52,7 @@ public class RestoreDocumentUtil {
         return false;
     }
 
-    public static boolean isIndexProviderNode(Document doc) {
-        return isMetadataMatches(doc, INDEX_PROVIDER_PATTERN);
-    }
+
 
     public static boolean isModeIndexesNode(Document doc) {
         return isMetadataMatches(doc, MODE_INDEXES_PATTERN);
@@ -105,6 +99,10 @@ public class RestoreDocumentUtil {
         return isContentMatches(doc, "mode:system");
     }
 
+    public static boolean isNodeTypesNode(Document doc) {
+        return isContentMatches(doc, "mode:nodeTypes");
+    }
+
 
     private static Document updateMetadata(Document doc, String rootPrefix) {
         if (doc.containsField("metadata")) {
@@ -139,11 +137,15 @@ public class RestoreDocumentUtil {
             String oldParent = extractDocumentParent(doc);
             String newKey = rootPrefix + oldKey.substring(14);
             String newParent = rootPrefix + oldParent.substring(14);
-            Document updatedContent = content
-                    .with("key", newKey)
-                    .with("parent", newParent)
-                    .with("children", updateChildren(content, rootPrefix));
-            return updatedContent;
+            List<Document> updatedChildren = updateChildren(content, rootPrefix);
+            return updatedChildren!= null ?
+                    content
+                        .with("key", newKey)
+                        .with("parent", newParent)
+                        .with("children", DocumentFactory.newArray(updatedChildren)) :
+                    content
+                            .with("key", newKey)
+                            .with("parent", newParent);
         } else {
             return null;
         }
@@ -156,24 +158,13 @@ public class RestoreDocumentUtil {
 
     }
 
-    public static Document findSystemNode(final LocalDocumentStore documentStore) {
-        for(Map.Entry<String, SchematicEntry> entry :  documentStore.localCache().entrySet()) {
-            Document doc = entry.getValue().asDocument();
-            if (null != doc) {
-                if (isSystemNode(doc)) {
-                    return doc;
-                }
-            }
-        }
-        throw new IllegalStateException("Couldn't find system node!");
-    }
 
     public static List<Document> extractNodesToMove(final LocalDocumentStore documentStore) {
         List<Document> additionalDocs = new ArrayList<Document>();
         for(Map.Entry<String, SchematicEntry> entry :  documentStore.localCache().entrySet()) {
             Document doc = entry.getValue().asDocument();
             if (null != doc) {
-                if (isIndexProviderNode(doc) || isModeIndexesNode(doc)) {
+                if (isModeIndexesNode(doc)) {
                     additionalDocs.add(doc);
                 }
             }
@@ -210,9 +201,10 @@ public class RestoreDocumentUtil {
         for (Document item : newChildren) {
             children.add(item);
         }
+
         Document updatedContent =  content
                 .with("childrenInfo", childrenInfo.with("count", children.size()))
-                .with("children", children);
+                .with("children", DocumentFactory.newArray(children));
         return source.with("content", updatedContent);
     }
 
