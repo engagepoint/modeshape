@@ -1,5 +1,6 @@
 package org.modeshape.jcr;
 
+import org.infinispan.schematic.document.Array;
 import org.infinispan.schematic.document.Document;
 import org.modeshape.common.logging.Logger;
 
@@ -16,6 +17,7 @@ import static org.modeshape.jcr.BackupDocumentWriterUtil.createDocWithKeyAndName
 import static org.modeshape.jcr.BackupDocumentWriterUtil.extractDocumentKey;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.extractDocumentParentKey;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.filterChildren;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.fixLastModified;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespaceNode;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespacesNode;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isRoot;
@@ -35,7 +37,7 @@ public class BackupDocumentWriterWrapper  {
     private final BackupDocumentWriterJournal journal;
 
     private Document rootFolder;
-    private List<Document> unfiledDocuments= new ArrayList<Document>();
+    private Map<Document, Document> unfiledDocumentsCache = new HashMap<Document, Document>();
     private Document unfiledFolder;
 
     private Map<String, String> embeddedNamespaces = new HashMap<String, String>(){{
@@ -99,10 +101,10 @@ public class BackupDocumentWriterWrapper  {
     }
 
     private Document fixNamespaceParentKey(Document doc) {
-        return updateParentForNode(doc, extractDocumentParentKey(doc) + "mode:namespaces");
+        return updateParentForNode(doc, extractDocumentParentKey(doc).substring(0, 14) + "mode:namespaces");
     }
 
-    public void write(Document doc) throws IOException {
+    public void write(Document doc, Document jcrContent) throws IOException {
         if (isRoot(doc)) {
             rootFolder = doc;
         } else if (isUnfiledFolder(doc)) {
@@ -115,10 +117,16 @@ public class BackupDocumentWriterWrapper  {
             doc = excludeUnfiledNode(doc);
             backupDocumentWriter.write(doc);
         } else if (isUnfiledDocument(doc)) {
-            unfiledDocuments.add(doc);
+            if (null == rootFolder) {
+                unfiledDocumentsCache.put(doc, jcrContent);
+            } else {
+                Document fixedLastModified = fixLastModified(doc, jcrContent);
+                backupDocumentWriter.write(updateParentForNode(fixedLastModified, unfiledFolderKey()));
+            }
             journal.addInfoToJournal(doc);
         } else {
-            backupDocumentWriter.write(doc);
+            Document fixedLastModified = fixLastModified(doc, jcrContent);
+            backupDocumentWriter.write(fixedLastModified);
             journal.addInfoToJournal(doc);
         }
     }
@@ -126,14 +134,16 @@ public class BackupDocumentWriterWrapper  {
     public void close() {
         backupDocumentWriter.write(insertUnfiledNodeIntoRoot());
         backupDocumentWriter.write(excludeRedundantNodesFromUnfiledFolder());
-        for (Document doc : unfiledDocuments) {
-            backupDocumentWriter.write(updateParentForNode(doc, unfiledFolderKey()));
+        for (Map.Entry<Document, Document> doc : unfiledDocumentsCache.entrySet()) {
+            Document fixedLastModified = fixLastModified(doc.getKey(), doc.getValue());
+            backupDocumentWriter.write(updateParentForNode(fixedLastModified, unfiledFolderKey()));
         }
         try {
             journal.close();
         } catch (IOException e) {
             LOGGER.error(e, JcrI18n.problemsWritingDocumentToBackup);
         }
+        unfiledDocumentsCache.clear();
         backupDocumentWriter.close();
     }
 

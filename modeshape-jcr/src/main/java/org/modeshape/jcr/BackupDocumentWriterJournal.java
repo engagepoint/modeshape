@@ -36,7 +36,7 @@ public class BackupDocumentWriterJournal {
     }
 
     void addInfoToJournal(Document doc) throws IOException {
-        if (isDocumentNode(doc)) {
+        if (isDocumentNode(doc, Boolean.TRUE)) {
             StringBuilder builder = new StringBuilder();
             Document jcr = getJcrPropertiesDoc(doc);
             if (null !=jcr && jcr.containsField("primaryType")) {
