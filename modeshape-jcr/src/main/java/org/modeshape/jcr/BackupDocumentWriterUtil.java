@@ -23,8 +23,11 @@ public class BackupDocumentWriterUtil {
 
     private static final String UUID_REGEX = "^[0-9a-fA-F]{14}[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12}$";
     private static final Pattern UUID_PATTERN = Pattern.compile(UUID_REGEX);
-    private static final String JCRUNFILED_REGEX = "^[0-9a-fA-F]{14}\\{http\\:\\/\\/www\\.jcp\\.org\\/jcr\\/1\\.0\\}unfiled$";
-    private static final Pattern JCRUNFILED_PATTERN = Pattern.compile(JCRUNFILED_REGEX);
+    private static final String JCR_UNFILED_REGEX = "^[0-9a-fA-F]{14}jcr:unfiled$";
+    private static final Pattern JCR_UNFILED_PATTERN = Pattern.compile(JCR_UNFILED_REGEX);
+
+    private static final String OLD_JCR_UNFILED_REGEX = "^[0-9a-fA-F]{14}\\{http://www\\.jcp\\.org/jcr/1\\.0}unfiled$";
+    private static final Pattern OLD_JCR_UNFILED_PATTERN = Pattern.compile(OLD_JCR_UNFILED_REGEX);
 
     public static boolean isContentMatches(Document doc, String custom) {
         if (doc.containsField("content")) {
@@ -83,8 +86,13 @@ public class BackupDocumentWriterUtil {
     }
 
     public static boolean isUnfiledFolder(Document doc) {
-        return isMetadataMatches(doc, JCRUNFILED_PATTERN);
+        return isMetadataMatches(doc, JCR_UNFILED_PATTERN);
     }
+
+    public static boolean isOldUnfiledFolder(Document doc) {
+        return isMetadataMatches(doc, OLD_JCR_UNFILED_PATTERN);
+    }
+
     private static final List<String> IGNORE_PRIMARY_TYPE_NAMES = Arrays.asList("mode:versionHistoryFolder","nt:versionLabels","nt:versionHistory","nt:frozenNode","nt:version");
 
     public static boolean isDocumentNode(Document doc, boolean checkIgnored) {
@@ -155,14 +163,14 @@ public class BackupDocumentWriterUtil {
                 List ids = content.getArray("parent");
                 if (null != ids) {
                     for (Object id : ids) {
-                        Matcher matcher = JCRUNFILED_PATTERN.matcher(id.toString());
+                        Matcher matcher = JCR_UNFILED_PATTERN.matcher(id.toString());
                         if (matcher.matches()) {
                             return true;
                         }
                     }
                 } else {
                     String id = content.getString("parent");
-                    Matcher matcher = JCRUNFILED_PATTERN.matcher(id);
+                    Matcher matcher = JCR_UNFILED_PATTERN.matcher(id);
                     return matcher.matches();
                 }
             }

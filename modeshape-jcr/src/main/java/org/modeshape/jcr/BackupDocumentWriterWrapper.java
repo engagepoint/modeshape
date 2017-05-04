@@ -19,6 +19,7 @@ import static org.modeshape.jcr.BackupDocumentWriterUtil.filterChildren;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.fixLastModified;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespaceNode;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isNamespacesNode;
+import static org.modeshape.jcr.BackupDocumentWriterUtil.isOldUnfiledFolder;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isRoot;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isSystemNode;
 import static org.modeshape.jcr.BackupDocumentWriterUtil.isUnfiledDocument;
@@ -123,7 +124,7 @@ public class BackupDocumentWriterWrapper  {
                 backupDocumentWriter.write(updateParentForNode(fixedLastModified, unfiledFolderKey()));
             }
             journal.addInfoToJournal(doc);
-        } else {
+        } else if (!isOldUnfiledFolder(doc)) {
             Document fixedLastModified = fixLastModified(doc, jcrContent);
             backupDocumentWriter.write(fixedLastModified);
             journal.addInfoToJournal(doc);
