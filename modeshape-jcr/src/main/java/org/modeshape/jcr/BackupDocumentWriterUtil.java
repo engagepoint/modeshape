@@ -1,9 +1,11 @@
 package org.modeshape.jcr;
 
+import org.infinispan.schematic.DocumentFactory;
 import org.infinispan.schematic.document.Document;
 import org.infinispan.schematic.internal.document.BasicDocument;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
@@ -66,10 +68,14 @@ public class BackupDocumentWriterUtil {
         return false;
     }
 
+    private static String extractDocumentId(Document doc) {
+        Document metadata = doc.getDocument("metadata");
+        return metadata.getString("id");
+    }
+
     public static boolean isMetadataMatches(Document doc, Pattern pattern) {
         if (doc.containsField("metadata")) {
-            Document metadata = doc.getDocument("metadata");
-            String id = metadata.getString("id");
+            String id = extractDocumentId(doc);
             Matcher matcher = pattern.matcher(id);
             return matcher.matches();
         }
@@ -79,9 +85,67 @@ public class BackupDocumentWriterUtil {
     public static boolean isUnfiledFolder(Document doc) {
         return isMetadataMatches(doc, JCRUNFILED_PATTERN);
     }
+    private static final List<String> IGNORE_PRIMARY_TYPE_NAMES = Arrays.asList("mode:versionHistoryFolder","nt:versionLabels","nt:versionHistory","nt:frozenNode","nt:version");
 
-    public static boolean isDocumentNode(Document doc) {
-        return isMetadataMatches(doc, UUID_PATTERN);
+    public static boolean isDocumentNode(Document doc, boolean checkIgnored) {
+        boolean idMatches = isMetadataMatches(doc, UUID_PATTERN);
+        if (idMatches && checkIgnored) {
+            if (doc.containsField("content")) {
+                String primaryTypeName = extractPrimaryType(doc);
+                return primaryTypeName!=null && !IGNORE_PRIMARY_TYPE_NAMES.contains(primaryTypeName);
+            }
+        }
+        return  idMatches;
+    }
+
+    private static Document extractJcrProperties(Document doc) {
+        if (doc.containsField("content")) {
+            Document content = doc.getDocument("content");
+            if (content.containsField("properties")) {
+                Document properties = content.getDocument("properties");
+                if (properties.containsField("http://www.jcp.org/jcr/1.0")) {
+                    return properties.getDocument("http://www.jcp.org/jcr/1.0");
+                }
+            }
+        }
+        return null;
+    }
+
+    private static String extractPrimaryType(Document doc) {
+        Document jcrProperties = extractJcrProperties(doc);
+        if (null != jcrProperties) {
+            Document primaryType = jcrProperties.getDocument("primaryType");
+            if (primaryType.containsField("$name")) {
+                return primaryType.getString("$name");
+            }
+        }
+
+        return null;
+    }
+    public static boolean isDocumentContentNode(Document doc) {
+        boolean idMatches = isDocumentNode(doc, false);
+        if (idMatches && doc.containsField("content")) {
+            String primaryTypeName = extractPrimaryType(doc);
+            return "nt:resource".equals(primaryTypeName) || "nt:version".equals(primaryTypeName);
+        }
+        return false;
+    }
+
+    public static String getJcrContentId(Document doc) {
+        boolean matches = isDocumentNode(doc, Boolean.FALSE);
+        if (matches) {
+            Document content = doc.getDocument("content");
+            if (content.containsField("children")) {
+                List<Document> children = (List<Document>) content.getArray("children");
+                for(Document item : children) {
+                    String name = item.getString("name");
+                    if ("jcr:content".equals(name)) {
+                        return item.getString("key");
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     public static boolean isUnfiledDocument(Document doc) {
@@ -144,7 +208,7 @@ public class BackupDocumentWriterUtil {
 
     public static String extractDocumentParentKey(Document document){
         Document content = document.getDocument("content");
-        return content.getString("parent").substring(0, 14);
+        return content.getString("parent");
     }
 
     public static Document createDocWithKeyAndName(String key, String name) {
@@ -157,5 +221,42 @@ public class BackupDocumentWriterUtil {
     public static Document updateParentForNode(Document doc, String parent) {
         Document content = doc.getDocument("content");
         return doc.with("content", content.with("parent", parent));
+    }
+
+    private static Document updateDocProperty(Document doc, String propName, Object value) {
+        if (doc.containsField(propName)) {
+            return doc.with(propName, value);
+        }
+        BasicDocument.class.cast(doc).put(propName, value);
+        return doc;
+    }
+    public static Document fixLastModified(Document doc, Document jcrContent) {
+        if (null != jcrContent && isDocumentNode(doc, Boolean.FALSE)) {
+            Document jcrProps = extractJcrProperties(jcrContent);
+            if (null != jcrProps) {
+                Document lastModified = jcrProps.getDocument("lastModified");
+                String lastModifiedBy = jcrProps.getString("lastModifiedBy");
+                if (lastModified != null && lastModified.containsField("$date") &&
+                        null != lastModifiedBy) {
+                    Document content = doc.getDocument("content");
+                    Document properties = content.getDocument("properties");
+
+                    Document docJcrProps = extractJcrProperties(doc);
+                    List<Document> mixinTypes = new ArrayList<Document>();
+                    if (docJcrProps.containsField("mixinTypes")) {
+                        mixinTypes.addAll((List<Document>) docJcrProps.getArray("mixinTypes"));
+                    }
+                    mixinTypes.add(new BasicDocument("$name", "mix:lastModified"));
+                    docJcrProps = updateDocProperty(docJcrProps, "mixinTypes", DocumentFactory.newArray(mixinTypes));
+                    docJcrProps = updateDocProperty(docJcrProps, "lastModified", lastModified);
+                    docJcrProps = updateDocProperty(docJcrProps, "lastModifiedBy", lastModifiedBy);
+                    Document updatedContent = content.with("properties", properties.with("http://www.jcp.org/jcr/1.0", docJcrProps));
+                    return doc.with("content", updatedContent);
+                }
+            }
+
+        }
+
+        return doc;
     }
 }

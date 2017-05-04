@@ -305,7 +305,10 @@ public class BackupService {
         }
 
         protected void writeToContentArea( SchematicEntry document ) throws IOException {
-            contentWriter.write(document.asDocument());
+            Document doc = document.asDocument();
+            String jcrContentId = BackupDocumentWriterUtil.getJcrContentId(doc);
+            Document jcrContent = jcrContentId == null ? null : this.documentStore.get(jcrContentId).asDocument();
+            contentWriter.write(document.asDocument(), jcrContent);
         }
 
         protected void writeToContentArea( BinaryKey key,
