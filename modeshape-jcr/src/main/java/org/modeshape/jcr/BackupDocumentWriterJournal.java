@@ -17,7 +17,6 @@ import static org.modeshape.jcr.BackupDocumentWriterUtil.isDocumentNode;
  */
 
 public class BackupDocumentWriterJournal {
-    private HashSet<String> binaryKeys = new HashSet<String>();
     private final File journal;
     private Writer writer;
 
@@ -103,7 +102,6 @@ public class BackupDocumentWriterJournal {
                     }
                     if (data.containsField("$sha1")) {
                         String ref = data.getString("$sha1");
-                        binaryKeys.add(ref);
                         builder.append(ref);
                         builder.append(",");
                     }
@@ -115,8 +113,5 @@ public class BackupDocumentWriterJournal {
         }
     }
 
-    public boolean containsBynaryKey(String binaryKey) {
-        return binaryKeys.contains(binaryKey.toString());
-    }
 
 }
