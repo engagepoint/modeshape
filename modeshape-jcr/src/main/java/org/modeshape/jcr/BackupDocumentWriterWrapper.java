@@ -154,8 +154,4 @@ public class BackupDocumentWriterWrapper  {
         return backupDocumentWriter.getDocumentCount();
     }
 
-    public boolean containsBynaryKey(String binaryKey) {
-        return journal.containsBynaryKey(binaryKey);
-    }
-
 }

@@ -465,10 +465,8 @@ public class BackupService {
                     int counter = 0;
                     for (BinaryKey binaryKey : binaryStore.getAllBinaryKeys()) {
                         try {
-                            if (contentWriter.containsBynaryKey(binaryKey.toString())) {
-                                writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
-                                ++counter;
-                            }
+                            writeToContentArea(binaryKey, binaryStore.getInputStream(binaryKey));
+                            ++counter;
                         } catch (BinaryStoreException e) {
                             problems.addError(JcrI18n.problemsWritingBinaryToBackup, binaryKey, backupLocation(), e.getMessage());
                         }
