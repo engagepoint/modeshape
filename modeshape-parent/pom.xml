@@ -31,8 +31,8 @@
     </licenses>
 
     <scm>
-        <connection>scm:git:git@github.com:hhstechgroup/modeshape.git</connection>
-        <developerConnection>scm:git:git@github.com:hhstechgroup/modeshape.git</developerConnection>
+        <connection>scm:git:git@github.com:hhstechgroup</connection>
+        <developerConnection>scm:git:git@github.com:hhstechgroup</developerConnection>
         <url>https://github.com/hhstechgroup/modeshape</url>
         <tag>HEAD</tag>
   </scm>
@@ -331,7 +331,7 @@
 
         <!-- The id of the maven distribution which is building the current kit -->
         <jboss.kit.distribution.id>jboss-wf9-dist</jboss.kit.distribution.id>
-        
+
         <!--The name of binary distribution folder-->
         <binary.dist.name>binary-dist</binary.dist.name>
 
@@ -1345,7 +1345,7 @@
                 <artifactId>infinispan-commons</artifactId>
                 <version>${infinispan.version}</version>
             </dependency>
-            <!-- 
+            <!--
                 Infinispan AS Server modules artifact
             -->
             <dependency>
@@ -1383,7 +1383,7 @@
                 <artifactId>c3p0</artifactId>
                 <version>${c3p0.version}</version>
             </dependency>
-            
+
             <!-- Heap and file-based maps -->
             <dependency>
                 <groupId>org.mapdb</groupId>
@@ -1455,7 +1455,7 @@
                 <artifactId>chemistry-opencmis-server-support</artifactId>
                 <version>${chemistry.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>org.apache.chemistry.opencmis</groupId>
                 <artifactId>chemistry-opencmis-server-jcr</artifactId>
@@ -1529,7 +1529,7 @@
                 <artifactId>commons-fileupload</artifactId>
                 <version>${commons-file-upload-version}</version>
             </dependency>
-            
+
             <!--
                 Demo module
             -->
@@ -1855,7 +1855,7 @@
                 most of them and only keep a few that are for Microsoft Office documents,
                 HTML, XML and PDF. When others are needed, they can simply be added to
                 an application's dependencies.
-                
+
                 Note that 'modeshape-jcr' excludes even more transitive dependencies, since it
                 only uses the MIME type detector functionality, whereas the 'modeshape-extractor-tika'
                 uses everything defined here.
@@ -1873,7 +1873,7 @@
                     <exclusion>
                         <groupId>com.github.junrar</groupId>
                         <artifactId>junrar</artifactId>
-                    </exclusion> 
+                    </exclusion>
                     <exclusion>
                         <groupId>org.apache.commons</groupId>
                         <artifactId>commons-csv</artifactId>
@@ -1893,15 +1893,15 @@
                     <exclusion>
                         <groupId>edu.ucar</groupId>
                         <artifactId>netcdf4</artifactId>
-                    </exclusion>   
+                    </exclusion>
                     <exclusion>
                         <groupId>edu.ucar</groupId>
                         <artifactId>grib</artifactId>
-                    </exclusion>    
+                    </exclusion>
                     <exclusion>
                         <groupId>edu.ucar</groupId>
                         <artifactId>cdm</artifactId>
-                    </exclusion>  
+                    </exclusion>
                     <exclusion>
                         <groupId>edu.ucar</groupId>
                         <artifactId>httpservices</artifactId>
@@ -1935,11 +1935,11 @@
                         <groupId>de.l3s.boilerpipe</groupId>
                         <artifactId>boilerpipe</artifactId>
                     </exclusion>
-                    <!-- 
+                    <!--
                     PDFBox declares the Bouncy Castle dependencies
                     as optional, and Tika always depends on them to avoid
-                    problems with encrypted PDFs (see TIKA-370). 
-                    We exclude them by default. 
+                    problems with encrypted PDFs (see TIKA-370).
+                    We exclude them by default.
                     -->
                     <exclusion>
                       <groupId>org.bouncycastle</groupId>
