@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-      <tag>modeshape-4.5.0.2-HHSTECHGROUP-SNAPSHOT</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <issueManagement>

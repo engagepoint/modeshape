@@ -31,7 +31,7 @@
         <connection>scm:git:git://github.com/ModeShape/modeshape.git</connection>
         <developerConnection>scm:git:git@github.com:ModeShape/modeshape.git</developerConnection>
         <url>http://github.com/ModeShape/modeshape</url>
-      <tag>modeshape-4.5.0.2-HHSTECHGROUP-SNAPSHOT</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <issueManagement>
@@ -93,7 +93,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            
+
             <!--
               Wildfly BOMs
             -->
@@ -103,8 +103,8 @@
                 <version>${version.org.wildfly}</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>   
-            
+            </dependency>
+
             <dependency>
                 <groupId>org.wildfly.bom</groupId>
                 <artifactId>jboss-javaee-7.0-wildfly</artifactId>

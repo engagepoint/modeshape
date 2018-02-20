@@ -40,7 +40,7 @@
         <module>web</module>
         <module>modeshape-jdbc-local</module>
         <module>modeshape-jdbc</module>
-        <!-- 
+        <!--
           JCA Resource adapter
     	-->
     	<module>modeshape-jca</module>
@@ -61,7 +61,7 @@
 	</properties>
 
 	<profiles>
-		<!-- 
+		<!--
 		  This profile is used to run the build plus the JCR TCK tests
 			and must be activated manually, as in "mvn ... -Pjcr-tck ..."
 		-->
@@ -71,23 +71,23 @@
 				<module>modeshape-jcr-tck</module>
 			</modules>
 		</profile>
-		
-		<!-- 
+
+		<!--
 		  This profile is used to run the build plus the integration tests
 			and must be activated manually, as in "mvn ... -Pintegration ..."
 		-->
 		<profile>
 			<id>integration</id>
 			<modules>
-			  <!-- 
-			    Build the distribution before running the integration tests, 
+			  <!--
+			    Build the distribution before running the integration tests,
 			    as some of the integration tests rely upon the distributions
 			  -->
 				<module>integration</module>
 			</modules>
 		</profile>
-		
-		<!-- 
+
+		<!--
 		  This profile is used to run longer-running performance tests,
 		  and must be activated manually, as in "mvn ... -Pperformance ..."
 		-->
@@ -100,8 +100,8 @@
                 <module>modeshape-performance-tests</module>
             </modules>
         </profile>
-		
-		<!-- 
+
+		<!--
 		  This profile is used to build everything for a release, including all assemblies,
 			and must be activated manually, as in "mvn ... -Passembly ..."
 		-->
