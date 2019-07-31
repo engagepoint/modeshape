@@ -3,7 +3,7 @@
     <parent>
         <groupId>org.modeshape</groupId>
         <artifactId>modeshape-parent</artifactId>
-        <version>4.5.0.3-HHSTECHGROUP-SNAPSHOT</version>
+        <version>4.5.0.4-HHSTECHGROUP-SNAPSHOT</version>
         <relativePath>../../modeshape-parent</relativePath>
     </parent>
     <artifactId>modeshape-web-cmis-war</artifactId>
